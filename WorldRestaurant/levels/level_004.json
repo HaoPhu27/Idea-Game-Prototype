@@ -1,0 +1,17 @@
+{
+    "id": "004",
+    "name": "Level 4 - The 2x2 Square [TUTORIAL]",
+    "cloudLimit": 2,
+    "grid": [
+        ["L", "L", "L", "L", "L", "L"],
+        ["L", "S", "L", "L", "L", "L"],
+        ["L", "L", "L", "L", "L", "L"],
+        ["L", "L", "T", "T", "L", "L"],
+        ["L", "L", "T", "T", "L", "L"],
+        ["L", "L", "L", "L", "L", "L"]
+    ],
+    "spawnPosition": {
+        "x": 1,
+        "y": 1
+    }
+}

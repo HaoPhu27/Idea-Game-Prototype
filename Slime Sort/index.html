@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slime Sort Prototype</title>
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Home Button -->
+        <button id="home-btn" class="home-btn">🏠</button>
+
+        <!-- Top: Tubes -->
+        <div id="tubes-container">
+            <!-- Rendered by TubeRenderer -->
+        </div>
+
+        <!-- Middle: Conveyor -->
+        <div id="conveyor-container">
+            <!-- Progress Bar -->
+            <div id="conveyor-progress-container">
+                <div id="conveyor-progress-bar"></div>
+                <div id="conveyor-progress-text">0 / 7</div>
+            </div>
+            
+            <div id="conveyor-track">
+                <!-- Rendered by ConveyorRenderer -->
+            </div>
+        </div>
+
+        <!-- Bottom: Trays -->
+        <div id="trays-container">
+            <!-- Rendered by TrayRenderer -->
+        </div>
+
+        <!-- Overlay -->
+        <div id="overlay" class="hidden">
+            <h1 id="overlay-message">You Win!</h1>
+            <button id="next-level-btn">Next Level</button>
+        </div>
+
+        <!-- Level Selection Overlay -->
+        <div id="level-selection-overlay">
+            <h1>Select Level</h1>
+            <div id="level-grid"></div>
+        </div>
+    </div>
+
+    <!-- Main Entry Point -->
+    <script type="module">
+        import { GameEngine } from './src/core/GameEngine.js';
+        import { UIManager } from './src/ui/UIManager.js';
+        import { levels } from './src/data/levels.js';
+
+        const engine = new GameEngine();
+        const ui = new UIManager(engine);
+
+        let currentLevelIndex = 0;
+
+        function loadLevel(index) {
+            currentLevelIndex = index;
+            if (currentLevelIndex >= levels.length) {
+                alert("You beat all levels!");
+                showLevelSelection();
+                return;
+            }
+            
+            document.getElementById('level-selection-overlay').classList.add('hidden');
+            document.getElementById('overlay').classList.add('hidden');
+            
+            engine.init(levels[currentLevelIndex]);
+            ui.init();
+            
+            // Start game loop (Conveyor tick)
+            if (window.gameLoop) clearInterval(window.gameLoop);
+            window.gameLoop = setInterval(() => {
+                engine.tick();
+            }, 50); // 20 FPS for ticks
+        }
+
+        function showLevelSelection() {
+            if (window.gameLoop) clearInterval(window.gameLoop);
+            document.getElementById('level-selection-overlay').classList.remove('hidden');
+            document.getElementById('overlay').classList.add('hidden');
+        }
+
+        function initLevelSelection() {
+            const grid = document.getElementById('level-grid');
+            grid.innerHTML = '';
+            levels.forEach((level, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'level-btn';
+                
+                if (level.id.startsWith('tut')) {
+                    btn.classList.add('diff-tut');
+                } else if (level.metadata) {
+                    if (level.metadata.K <= 4) btn.classList.add('diff-normal');
+                    else if (level.metadata.K === 5) btn.classList.add('diff-hard');
+                    else if (level.metadata.K >= 6) btn.classList.add('diff-super-hard');
+                }
+
+                btn.innerText = level.name || `Level ${index + 1}`;
+                btn.addEventListener('click', () => {
+                    loadLevel(index);
+                });
+                grid.appendChild(btn);
+            });
+            showLevelSelection();
+        }
+
+        document.getElementById('next-level-btn').addEventListener('click', () => {
+            currentLevelIndex++;
+            loadLevel(currentLevelIndex);
+        });
+
+        document.getElementById('home-btn').addEventListener('click', () => {
+            showLevelSelection();
+        });
+
+        initLevelSelection();
+    </script>
+</body>
+</html>

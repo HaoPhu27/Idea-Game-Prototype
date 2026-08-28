@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slime Sort Prototype</title>
+    <style>
+/* style.css */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #12121a; /* Very dark background */
+    color: white;
+    font-family: 'Outfit', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#game-container {
+    width: 420px;
+    height: 750px;
+    background-color: #1c1c28;
+    border-radius: 20px;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 30px 10px;
+    box-sizing: border-box;
+}
+
+/* --- TUBES --- */
+#tubes-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    height: 350px;
+    align-items: flex-end;
+    padding: 0 20px;
+    z-index: 2;
+}
+
+.tube {
+    width: 58px;
+    height: 300px;
+    background-color: #11111a;
+    border: 3px solid rgba(255, 255, 255, 0.15);
+    border-top: none;
+    border-radius: 0 0 29px 29px;
+    display: flex;
+    flex-direction: column-reverse; /* blocks stack from bottom up */
+    align-items: center;
+    padding: 5px 0;
+    gap: 2px;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+
+/* Glass shine on tube */
+.tube::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 5px; width: 6px; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    border-radius: 10px;
+    pointer-events: none;
+}
+
+.tube.selected {
+    transform: translateY(-20px);
+    border-color: #fff;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+.tube.invalid {
+    animation: shake 0.3s;
+    border-color: #ff4d4d;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    50% { transform: translateX(4px); }
+    75% { transform: translateX(-4px); }
+}
+
+.slime-block {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    position: relative;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+}
+
+/* Block highlight (shine dot) */
+.slime-hl {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 10px;
+    height: 6px;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 3px;
+}
+
+/* --- CONVEYOR --- */
+#conveyor-container {
+    height: 140px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 1;
+}
+
+#conveyor-progress-container {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 12px;
+    background: #11111a;
+    border: 2px solid #282836;
+    border-radius: 6px;
+    overflow: hidden;
+    z-index: 5;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+
+#conveyor-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #3498db;
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+#conveyor-progress-bar.full {
+    background: #e74c3c;
+}
+
+#conveyor-progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: white;
+    font-weight: bold;
+    text-shadow: 0 0 2px black;
+    pointer-events: none;
+}
+
+#conveyor-track {
+    width: 360px;
+    height: 120px;
+    background: repeating-linear-gradient(
+        -45deg,
+        #15151e,
+        #15151e 15px,
+        #11111a 15px,
+        #11111a 30px
+    );
+    border: 3px solid #282836;
+    border-radius: 60px; /* oval */
+    position: relative;
+    box-shadow: inset 0 5px 10px rgba(0,0,0,0.5);
+    overflow: visible; /* Important: allow items on the curve to be visible! */
+}
+
+.conveyor-cluster {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 22px;
+    font-weight: 900;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    box-shadow: 0 5px 10px rgba(0,0,0,0.5), inset 0 2px 5px rgba(255,255,255,0.3);
+    z-index: 10;
+}
+
+.conveyor-cluster.newly-dropped {
+    animation: dropToConveyor 0.3s ease-in forwards;
+}
+
+@keyframes dropToConveyor {
+    0% { transform: translateY(-150px) scale(0.8); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* --- TRAYS --- */
+#trays-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    height: 120px;
+    z-index: 3;
+}
+
+.tray {
+    width: 90px;
+    height: 100px;
+    background-color: #11111a;
+    border: 3px solid #282836;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column-reverse;
+    padding: 8px;
+    gap: 6px;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.tray.unable {
+    background: repeating-linear-gradient(
+        45deg,
+        #11111a,
+        #11111a 10px,
+        #15151e 10px,
+        #15151e 20px
+    );
+    cursor: pointer;
+    border-color: #282836;
+}
+
+.tray.unable::after {
+    content: "🔒";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 30px;
+}
+
+.tray-slot {
+    width: 100%;
+    flex: 1;
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+/* Colored glowing border for tray */
+.tray[class*="color-"]:not(.unable) {
+    box-shadow: 0 0 8px currentColor;
+    border-color: currentColor;
+    background-color: rgba(255,255,255,0.02);
+}
+
+.tray-slot.filled.color-R { background: linear-gradient(180deg, #ff6b6b, #e74c3c); }
+.tray-slot.filled.color-G { background: linear-gradient(180deg, #79d279, #27ae60); }
+.tray-slot.filled.color-B { background: linear-gradient(180deg, #70b4f2, #2980b9); }
+.tray-slot.filled.color-Y { background: linear-gradient(180deg, #f1c40f, #f39c12); }
+
+.tray.harvesting {
+    animation: harvestAnim 0.5s ease-in forwards;
+}
+
+@keyframes harvestAnim {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); filter: brightness(1.5); }
+    100% { transform: scale(0); opacity: 0; }
+}
+
+/* --- OVERLAY --- */
+#overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    border-radius: 20px;
+}
+
+#overlay.hidden {
+    display: none;
+}
+
+#next-level-btn {
+    padding: 12px 30px;
+    font-size: 20px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: bold;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+}
+
+#next-level-btn:hover {
+    background: #2980b9;
+}
+
+/* COLORS - Flat Gradients for Blocks and Slots only */
+.color-R { color: #e74c3c; }
+.color-G { color: #27ae60; }
+.color-B { color: #2980b9; }
+.color-Y { color: #f39c12; }
+.color-O { color: #d35400; }
+.color-P { color: #8e44ad; }
+
+.slime-block.color-R, .tray-slot.filled.color-R, .conveyor-cluster.color-R { background: linear-gradient(180deg, #ff6b6b, #e74c3c); }
+.slime-block.color-G, .tray-slot.filled.color-G, .conveyor-cluster.color-G { background: linear-gradient(180deg, #79d279, #27ae60); }
+.slime-block.color-B, .tray-slot.filled.color-B, .conveyor-cluster.color-B { background: linear-gradient(180deg, #70b4f2, #2980b9); }
+.slime-block.color-Y, .tray-slot.filled.color-Y, .conveyor-cluster.color-Y { background: linear-gradient(180deg, #f1c40f, #f39c12); }
+.slime-block.color-O, .tray-slot.filled.color-O, .conveyor-cluster.color-O { background: linear-gradient(180deg, #e67e22, #d35400); }
+.slime-block.color-P, .tray-slot.filled.color-P, .conveyor-cluster.color-P { background: linear-gradient(180deg, #9b59b6, #8e44ad); }
+
+/* --- LEVEL SELECTION --- */
+#level-selection-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(18, 18, 26, 0.95);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    z-index: 100;
+    border-radius: 20px;
+    padding: 40px 20px;
+}
+
+#level-selection-overlay.hidden {
+    display: none;
+}
+
+#level-selection-overlay h1 {
+    margin-bottom: 30px;
+}
+
+#level-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    width: 100%;
+    overflow-y: auto;
+    padding-bottom: 20px;
+}
+
+.level-btn {
+    padding: 15px;
+    font-size: 16px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: bold;
+    background: #282836;
+    color: white;
+    border: 2px solid #3d3d5c;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.level-btn:hover {
+    background: #3d3d5c;
+    border-color: #5c5c8a;
+    transform: translateY(-2px);
+}
+
+/* Difficulty Colors */
+.level-btn.diff-tut {
+    border-left: 5px solid #2ecc71; /* Green */
+}
+.level-btn.diff-normal {
+    border-left: 5px solid #3498db; /* Blue */
+}
+.level-btn.diff-hard {
+    border-left: 5px solid #f1c40f; /* Yellow */
+}
+.level-btn.diff-super-hard {
+    border-left: 5px solid #e74c3c; /* Red */
+}
+
+.home-btn {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #282836;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.home-btn:hover {
+    background: #3d3d5c;
+}
+
+</style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- Home Button -->
+        <button id="home-btn" class="home-btn">🏠</button>
+
+        <!-- Top: Tubes -->
+        <div id="tubes-container">
+            <!-- Rendered by TubeRenderer -->
+        </div>
+
+        <!-- Middle: Conveyor -->
+        <div id="conveyor-container">
+            <!-- Progress Bar -->
+            <div id="conveyor-progress-container">
+                <div id="conveyor-progress-bar"></div>
+                <div id="conveyor-progress-text">0 / 7</div>
+            </div>
+            
+            <div id="conveyor-track">
+                <!-- Rendered by ConveyorRenderer -->
+            </div>
+        </div>
+
+        <!-- Bottom: Trays -->
+        <div id="trays-container">
+            <!-- Rendered by TrayRenderer -->
+        </div>
+
+        <!-- Overlay -->
+        <div id="overlay" class="hidden">
+            <h1 id="overlay-message">You Win!</h1>
+            <button id="next-level-btn">Next Level</button>
+        </div>
+
+        <!-- Level Selection Overlay -->
+        <div id="level-selection-overlay">
+            <h1>Select Level</h1>
+            <div id="level-grid"></div>
+        </div>
+    </div>
+
+    <!-- Main Entry Point -->
+    <script>
+// --- src/data/levels.js ---
+// src/data/levels.js
+//
+// TRAY SCRIPT RULES:
+//   - Mỗi Tray có 3 slot. Fill đủ 3 slime cùng màu → harvest → pop event tiếp theo từ script.
+//   - tray_script[0..2] = setup ban đầu cho 3 slot.
+//   - Events[3+] = replacement sau mỗi harvest, theo đúng thứ tự harvest sẽ xảy ra.
+//   - Tổng events = 3 (setup) + totalHarvests.  totalHarvests = totalSlime / 3.
+//   - Điều kiện Win: tất cả tube rỗng + conveyor rỗng + script hết + không tray nào còn chỗ trống.
+//   - { slot, color: null } = tray unable (khoá).
+//   - Tray có color ≠ null nhưng state = unable: player phải click để mở khoá.
+const levels = [
+
+    // =========================================================
+    // LEVEL 1 — Tutorial 1: Cực đơn giản
+    // 2 màu (R, G), 3 slime mỗi màu = 6 tổng → 2 harvests
+    // Tray events: 3 setup + 2 replacements = 5 events
+    //
+    // Cách thắng: Đổ tube0 xuống conveyor → R dock slot0.
+    //             Đổ tube1 xuống conveyor → G dock slot1. Win!
+    // =========================================================
+    {
+        id: "tut_1",
+        name: "Tutorial 1",
+        metadata: { K: 2, E: 1, C: 5 },
+        tubes: [
+            ['R', 'R', 'R'],   // top = R×3
+            ['G', 'G', 'G'],   // top = G×3
+            [],                // empty buffer
+        ],
+        tray_script: [
+            { slot: 0, color: 'R' },   // setup
+            { slot: 1, color: 'G' },   // setup
+            { slot: 2, color: null },  // setup — khoá
+            // 2 replacements
+            { slot: 0, color: null },  // h1: R→slot0 xong → khoá
+            { slot: 1, color: null },  // h2: G→slot1 xong → khoá
+        ]
+    },
+
+    // =========================================================
+    // LEVEL 2 — Tutorial 2: Mỗi tube 2 màu, cần đổ đúng thứ tự
+    // 2 màu (R, G), 6 slime mỗi màu = 12 tổng → 4 harvests
+    // Tray events: 3 setup + 4 replacements = 7 events
+    //
+    // Cách thắng:
+    //   Pour tube0 (top=R×3) → dock slot0(R) → harvest. slot0 → G
+    //   Pour tube1 (top=G×3) → dock slot1(G) → harvest. slot1 → R
+    //   Pour tube0 (còn G×3) → dock slot0(G) → harvest. slot0 → null
+    //   Pour tube1 (còn R×3) → dock slot1(R) → harvest. slot1 → null. Win!
+    // =========================================================
+    {
+        id: "tut_2",
+        name: "Tutorial 2",
+        metadata: { K: 2, E: 2, C: 5 },
+        tubes: [
+            ['G', 'G', 'G', 'R', 'R', 'R'],  // top = R×3, rồi G×3
+            ['R', 'R', 'R', 'G', 'G', 'G'],  // top = G×3, rồi R×3
+            [],
+        ],
+        tray_script: [
+            { slot: 0, color: 'R' },   // setup
+            { slot: 1, color: 'G' },   // setup
+            { slot: 2, color: null },  // setup — khoá
+            // 4 replacements
+            { slot: 0, color: 'G' },   // h1: R→slot0 → slot0 thành G
+            { slot: 1, color: 'R' },   // h2: G→slot1 → slot1 thành R
+            { slot: 0, color: null },  // h3: G→slot0 xong → khoá
+            { slot: 1, color: null },  // h4: R→slot1 xong → khoá
+        ]
+    },
+
+    // =========================================================
+    // LEVEL 3 — Tutorial 3: 3 màu, tube chồng sạch
+    // 3 màu (R, G, B), 6 slime mỗi màu = 18 tổng → 6 harvests
+    // Tray events: 3 setup + 6 replacements = 9 events
+    //
+    // Cách thắng:
+    //   Pour tube0 (top=R×3) → slot0(R) → harvest. slot0→G
+    //   Pour tube1 (top=G×3) → slot1(G) → harvest. slot1→B
+    //   Pour tube2 (top=B×3) → slot2(B) → harvest. slot2→R
+    //   Pour tube0 (còn B×3) → slot2(R)? KHÔNG. slot0=G,slot1=B,slot2=R. B → slot1(B). harvest. slot1→null
+    //   Pour tube1 (còn R×3) → slot2(R) → harvest. slot2→null
+    //   Pour tube2 (còn G×3) → slot0(G) → harvest. slot0→null. Win!
+    // =========================================================
+    {
+        id: "tut_3",
+        name: "Tutorial 3",
+        metadata: { K: 3, E: 1, C: 6 },
+        tubes: [
+            ['B', 'B', 'B', 'R', 'R', 'R'],  // top = R×3, rồi B×3
+            ['R', 'R', 'R', 'G', 'G', 'G'],  // top = G×3, rồi R×3  (Note: index 0 = bottom)
+            ['G', 'G', 'G', 'B', 'B', 'B'],  // top = B×3, rồi G×3
+            [],
+        ],
+        tray_script: [
+            { slot: 0, color: 'R' },   // setup
+            { slot: 1, color: 'G' },   // setup
+            { slot: 2, color: 'B' },   // setup
+            // 6 replacements
+            { slot: 0, color: 'G' },   // h1: R→slot0 → slot0 thành G
+            { slot: 1, color: 'B' },   // h2: G→slot1 → slot1 thành B
+            { slot: 2, color: 'R' },   // h3: B→slot2 → slot2 thành R
+            { slot: 1, color: null },  // h4: B→slot1(B) xong → khoá
+            { slot: 2, color: null },  // h5: R→slot2(R) xong → khoá
+            { slot: 0, color: null },  // h6: G→slot0(G) xong → khoá. Win!
+        ]
+    },
+
+    // =========================================================
+    // LEVEL 4 — Tutorial 4: 3 màu, tubes 9 slime, cần unlock tray
+    // 3 màu (R, G, B), 9 slime mỗi màu = 27 tổng → 9 harvests
+    // Tray events: 3 setup + 9 replacements = 12 events
+    // slot2 bắt đầu là UNABLE (khoá B), player cần click để mở
+    //
+    // Cách thắng: Mỗi lần pour 3 slime cùng màu. Rotate slot0→R,slot1→G,slot2→B.
+    //   Mỗi màu harvest 3 lần, lần cuối slot về null. Win!
+    // =========================================================
+    {
+        id: "tut_4",
+        name: "Tutorial 4",
+        metadata: { K: 3, E: 1, C: 6 },
+        tubes: [
+            ['B', 'B', 'B', 'G', 'G', 'G', 'R', 'R', 'R'],  // top=R×3
+            ['R', 'R', 'R', 'B', 'B', 'B', 'G', 'G', 'G'],  // top=G×3
+            ['G', 'G', 'G', 'R', 'R', 'R', 'B', 'B', 'B'],  // top=B×3
+            [],
+        ],
+        tray_script: [
+            { slot: 0, color: 'R' },     // setup
+            { slot: 1, color: 'G' },     // setup
+            { slot: 2, color: 'B' },     // setup — KHOÁ (player click để mở)
+            // 9 replacements
+            { slot: 0, color: 'R' },     // h1: R→slot0 → giữ R
+            { slot: 1, color: 'G' },     // h2: G→slot1 → giữ G
+            { slot: 2, color: 'B' },     // h3: B→slot2 → giữ B
+            { slot: 1, color: 'G' },     // h4: G→slot1 → giữ G
+            { slot: 2, color: 'B' },     // h5: B→slot2 → giữ B
+            { slot: 0, color: 'R' },     // h6: R→slot0 → giữ R
+            { slot: 2, color: null },    // h7: B→slot2 xong → khoá
+            { slot: 0, color: null },    // h8: R→slot0 xong → khoá
+            { slot: 1, color: null },    // h9: G→slot1 xong → khoá. Win!
+        ]
+    },
+
+    // =========================================================
+    // LEVEL 5 — Tutorial 5: 4 màu, 6 tubes, cần unlock Y tray
+    // 4 màu (R, G, B, Y), 9 slime mỗi màu = 36 tổng → 12 harvests
+    // Tray events: 3 setup + 12 replacements = 15 events
+    // slot2 khoá Y. slot1 handle G rồi chuyển sang B sau khi G xong.
+    //
+    // Pour order: tube0(R), tube1(G), tube3(Y), tube4(R), tube2(G), tube3(B-bottom),
+    //             tube4(B), tube1(R), tube5(G), tube0(Y), tube5(Y), tube2(B)
+    // =========================================================
+    {
+        id: "tut_5",
+        name: "Tutorial 5",
+        metadata: { K: 4, E: 1, C: 6 },
+        tubes: [
+            ['Y', 'Y', 'Y', 'R', 'R', 'R'],  // top=R×3, rồi Y×3
+            ['R', 'R', 'R', 'G', 'G', 'G'],  // top=G×3, rồi R×3
+            ['B', 'B', 'B', 'G', 'G', 'G'],  // top=G×3, rồi B×3
+            ['B', 'B', 'B', 'Y', 'Y', 'Y'],  // top=Y×3, rồi B×3
+            ['B', 'B', 'B', 'R', 'R', 'R'],  // top=R×3, rồi B×3
+            ['Y', 'Y', 'Y', 'G', 'G', 'G'],  // top=G×3, rồi Y×3
+            [],
+        ],
+        tray_script: [
+            { slot: 0, color: 'R' },     // setup
+            { slot: 1, color: 'G' },     // setup
+            { slot: 2, color: 'Y' },     // setup — KHOÁ (click để mở)
+            // 12 replacements. Harvest order: R,G,Y,R,G,Y,R,G,B,B,B,Y
+            { slot: 0, color: 'R' },     // h1: R→slot0 → giữ R
+            { slot: 1, color: 'G' },     // h2: G→slot1 → giữ G
+            { slot: 2, color: 'Y' },     // h3: Y→slot2 → giữ Y
+            { slot: 0, color: 'R' },     // h4: R→slot0 → giữ R
+            { slot: 1, color: 'G' },     // h5: G→slot1 → giữ G
+            { slot: 2, color: 'Y' },     // h6: Y→slot2 → giữ Y
+            { slot: 0, color: null },    // h7: R→slot0 xong → khoá
+            { slot: 1, color: 'B' },     // h8: G→slot1 xong → slot1 thành B
+            { slot: 1, color: 'B' },     // h9: B→slot1 → giữ B
+            { slot: 1, color: 'B' },     // h10: B→slot1 → giữ B
+            { slot: 1, color: null },    // h11: B→slot1 xong → khoá
+            { slot: 2, color: null },    // h12: Y→slot2 xong → khoá. Win!
+        ]
+    },
+
+{
+        id: "level_6",
+        name: "Level 6",
+        metadata: { K: 3, E: 1, C: 6 },
+        tubes: [
+            ['R', 'B', 'B', 'G', 'G'],
+            ['G', 'G'],
+            ['R', 'R', 'R', 'R', 'R'],
+            ['G', 'G', 'B', 'B', 'B', 'B'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'G' },
+            { slot: 1, color: 'B' },
+            { slot: 2, color: 'R' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_7",
+        name: "Level 7",
+        metadata: { K: 3, E: 2, C: 6 },
+        tubes: [
+            ['G', 'G', 'G', 'R', 'R'],
+            ['R', 'R', 'B', 'B'],
+            ['B', 'R', 'R', 'B', 'B', 'B'],
+            ['G', 'G'],
+            ['G'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'G' },
+            { slot: 1, color: 'G' },
+            { slot: 2, color: 'R' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_8",
+        name: "Level 8",
+        metadata: { K: 3, E: 1, C: 9 },
+        tubes: [
+            ['R', 'B', 'B', 'B', 'B', 'B'],
+            ['G', 'R', 'R', 'R'],
+            ['R', 'G', 'G', 'G', 'G', 'G', 'B', 'B', 'B'],
+            ['G', 'G', 'G', 'R', 'R', 'B', 'R', 'R'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'G' },
+            { slot: 1, color: 'B' },
+            { slot: 2, color: 'R' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_9",
+        name: "Level 9",
+        metadata: { K: 4, E: 2, C: 6 },
+        tubes: [
+            ['R', 'R', 'R', 'Y'],
+            ['G', 'G', 'R'],
+            [],
+            ['R', 'R', 'G', 'B', 'B'],
+            ['Y', 'Y', 'G', 'G', 'B', 'B'],
+            ['G', 'B', 'B', 'Y', 'Y', 'Y'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'B' },
+            { slot: 1, color: 'Y' },
+            { slot: 2, color: 'G' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_10",
+        name: "Level 10",
+        metadata: { K: 4, E: 1, C: 9 },
+        tubes: [
+            ['R', 'B', 'G', 'Y', 'Y', 'B', 'B', 'B', 'G'],
+            ['B', 'G', 'R', 'R', 'B', 'B'],
+            ['Y', 'Y', 'R', 'G', 'G', 'Y', 'G', 'G'],
+            ['Y', 'G', 'G', 'R', 'R', 'B', 'Y'],
+            ['R', 'R', 'R', 'B', 'Y', 'Y'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'B' },
+            { slot: 1, color: 'G' },
+            { slot: 2, color: 'Y' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_11",
+        name: "Level 11",
+        metadata: { K: 5, E: 2, C: 6 },
+        tubes: [
+            ['Y', 'R', 'R', 'Y', 'Y', 'G'],
+            ['G', 'P', 'P', 'B', 'R'],
+            ['G', 'G', 'R', 'G', 'G', 'Y'],
+            ['Y'],
+            ['P', 'B', 'B', 'B', 'B'],
+            ['R', 'R'],
+            ['B', 'P', 'P', 'P', 'Y'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'B' },
+            { slot: 1, color: 'G' },
+            { slot: 2, color: 'P' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_12",
+        name: "Level 12",
+        metadata: { K: 4, E: 1, C: 9 },
+        tubes: [
+            ['B', 'B', 'G', 'Y', 'Y'],
+            ['B', 'G', 'G', 'G', 'B', 'G', 'G', 'Y', 'Y'],
+            ['B', 'R', 'R', 'Y', 'R', 'B', 'B'],
+            ['Y', 'Y', 'Y', 'Y', 'R', 'R', 'B'],
+            ['R', 'R', 'R', 'R', 'G', 'B', 'G', 'G'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'G' },
+            { slot: 1, color: 'R' },
+            { slot: 2, color: 'Y' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_13",
+        name: "Level 13",
+        metadata: { K: 5, E: 2, C: 6 },
+        tubes: [
+            ['R', 'B'],
+            ['Y'],
+            ['B', 'P', 'P', 'G'],
+            ['R', 'P', 'P', 'R', 'R'],
+            ['P', 'P', 'Y', 'Y', 'G', 'G'],
+            ['B', 'B', 'R', 'R', 'Y', 'B'],
+            ['G', 'G', 'Y', 'Y', 'B', 'G'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'R' },
+            { slot: 1, color: 'R' },
+            { slot: 2, color: 'B' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_14",
+        name: "Level 14",
+        metadata: { K: 5, E: 2, C: 6 },
+        tubes: [
+            ['G', 'P', 'B', 'R', 'Y'],
+            ['B', 'B', 'G'],
+            ['P', 'P', 'Y', 'Y', 'Y', 'B'],
+            ['B', 'B', 'G', 'G', 'P'],
+            ['R', 'R', 'G', 'G'],
+            ['Y', 'P', 'P', 'Y'],
+            ['R', 'R', 'R'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'G' },
+            { slot: 1, color: 'Y' },
+            { slot: 2, color: 'P' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_15",
+        name: "Level 15",
+        metadata: { K: 5, E: 1, C: 9 },
+        tubes: [
+            ['P', 'R', 'R', 'B', 'B'],
+            ['Y', 'Y', 'B', 'B', 'B', 'G', 'G', 'R', 'R'],
+            ['P', 'B', 'B', 'Y', 'Y', 'G', 'G', 'P', 'P'],
+            ['P', 'P', 'P', 'R', 'R', 'Y', 'Y', 'Y'],
+            ['R', 'P', 'P', 'B', 'B', 'Y', 'Y', 'R', 'R'],
+            ['G', 'G', 'G', 'G', 'G'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'G' },
+            { slot: 1, color: 'P' },
+            { slot: 2, color: 'B' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_16",
+        name: "Level 16",
+        metadata: { K: 6, E: 1, C: 9 },
+        tubes: [
+            ['P', 'Y', 'O', 'G', 'O', 'G', 'O', 'P', 'O'],
+            ['B', 'Y', 'R', 'P', 'Y', 'R', 'B', 'R', 'G'],
+            ['Y', 'B', 'P', 'B', 'Y', 'O', 'Y', 'G', 'P'],
+            ['R', 'B', 'O', 'G', 'Y'],
+            ['B', 'O', 'O', 'G', 'P', 'R'],
+            ['Y', 'B', 'G', 'R', 'P', 'P', 'G', 'R', 'G'],
+            ['P', 'R', 'R', 'B', 'O', 'Y', 'B'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'O' },
+            { slot: 1, color: 'Y' },
+            { slot: 2, color: 'G' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'O' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'O' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_17",
+        name: "Level 17",
+        metadata: { K: 6, E: 2, C: 6 },
+        tubes: [
+            ['R', 'Y', 'G', 'O', 'O'],
+            ['Y', 'R'],
+            ['G', 'P', 'P'],
+            ['B', 'B', 'O', 'G'],
+            ['P', 'P', 'G', 'P', 'B', 'G'],
+            ['B', 'O', 'G', 'R', 'Y', 'P'],
+            ['Y', 'O', 'Y', 'R', 'O', 'R'],
+            ['B', 'R', 'B', 'Y'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'Y' },
+            { slot: 1, color: 'G' },
+            { slot: 2, color: 'R' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'O' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'O' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_18",
+        name: "Level 18",
+        metadata: { K: 5, E: 1, C: 9 },
+        tubes: [
+            ['B', 'G', 'B', 'R', 'G', 'B', 'B', 'R'],
+            ['R', 'G', 'Y', 'B', 'Y', 'Y', 'R', 'P', 'P'],
+            ['R', 'R', 'P', 'G', 'R', 'P', 'B', 'Y'],
+            ['Y', 'P', 'R', 'G', 'G', 'P'],
+            ['B', 'Y', 'Y', 'G', 'G'],
+            ['P', 'R', 'B', 'G', 'P', 'P', 'Y', 'Y', 'B'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'B' },
+            { slot: 1, color: 'B' },
+            { slot: 2, color: 'Y' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_19",
+        name: "Level 19",
+        metadata: { K: 5, E: 1, C: 9 },
+        tubes: [
+            ['Y', 'G', 'B', 'Y', 'P', 'B'],
+            ['Y', 'Y', 'R', 'P', 'P', 'G'],
+            ['R', 'Y', 'R', 'P', 'R', 'G', 'Y', 'G', 'R'],
+            ['P', 'P', 'R', 'R', 'G', 'B', 'B', 'B', 'B'],
+            ['B', 'Y', 'Y', 'G', 'P', 'G', 'B', 'R'],
+            ['G', 'B', 'Y', 'R', 'G', 'P', 'P'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'G' },
+            { slot: 1, color: 'R' },
+            { slot: 2, color: 'Y' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    },
+
+    {
+        id: "level_20",
+        name: "Level 20",
+        metadata: { K: 6, E: 1, C: 9 },
+        tubes: [
+            ['B', 'O', 'R', 'R', 'P', 'R', 'Y', 'O', 'R'],
+            ['B', 'Y', 'B', 'G', 'Y', 'G', 'P'],
+            ['Y', 'O', 'G', 'G', 'P'],
+            ['B', 'R', 'Y', 'P', 'B', 'O', 'B', 'R', 'B'],
+            ['R', 'Y', 'G', 'O', 'P', 'G', 'G'],
+            ['P', 'O', 'R', 'P', 'P', 'Y', 'G', 'R', 'B'],
+            ['Y', 'P', 'O', 'B', 'Y', 'O', 'O', 'G'],
+        ],
+        tray_script: [
+            { slot: 0, color: 'R' },
+            { slot: 1, color: 'B' },
+            { slot: 2, color: 'B' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'R' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'O' },
+            { slot: 0, color: 'O' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'O' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'Y' },
+            { slot: 0, color: 'G' },
+            { slot: 0, color: 'B' },
+            { slot: 0, color: 'P' },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+            { slot: 0, color: null },
+        ]
+    }
+];
+
+
+// --- src/core/Tube.js ---
+// src/core/Tube.js
+
+/**
+ * Lấy thông tin cụm slime trên cùng của Tube.
+ * @param {string[]} tube - Mảng chứa các màu slime (index 0 là đáy, index cuối là đỉnh)
+ * @returns {{color: string, size: number} | null} - Màu và số lượng slime trong cụm (null nếu tube rỗng)
+ */
+function getTopCluster(tube) {
+    if (isEmpty(tube)) return null;
+    
+    const topColor = tube[tube.length - 1];
+    let size = 0;
+    
+    // Đếm ngược từ đỉnh xuống để tìm cụm cùng màu
+    for (let i = tube.length - 1; i >= 0; i--) {
+        if (tube[i] === topColor) {
+            size++;
+        } else {
+            break;
+        }
+    }
+    
+    return { color: topColor, size };
+}
+
+/**
+ * Kiểm tra xem có thể đổ từ src vào dst không theo luật Slime Sort.
+ * @param {string[]} src - Tube nguồn
+ * @param {string[]} dst - Tube đích
+ * @param {number} capacity - Sức chứa tối đa của mỗi tube
+ * @returns {boolean} - true nếu hợp lệ
+ */
+function canPourInto(src, dst, capacity) {
+    if (isEmpty(src)) return false;
+    if (src === dst) return false;
+    
+    const space = capacity - dst.length;
+    if (space <= 0) return false; // Không còn chỗ trống
+    
+    const cluster = getTopCluster(src);
+    return cluster.size <= space; // Chỉ hợp lệ khi số slime cần chuyển <= chỗ trống
+}
+
+/**
+ * Thực hiện đổ slime từ src sang dst.
+ * Lưu ý: Phải gọi canPourInto trước khi gọi hàm này để đảm bảo hợp lệ.
+ * @param {string[]} src - Tube nguồn
+ * @param {string[]} dst - Tube đích
+ * @param {number} capacity - Sức chứa tối đa (không cần thiết trong logic pour thực tế nếu đã kiểm tra, nhưng giữ theo signature plan)
+ * @returns {number} - Số lượng slime đã đổ
+ */
+function pourTube(src, dst, capacity) {
+    const cluster = getTopCluster(src);
+    if (!cluster) return 0;
+    
+    for (let i = 0; i < cluster.size; i++) {
+        dst.push(src.pop());
+    }
+    
+    return cluster.size;
+}
+
+/**
+ * Đổ slime từ tube ra băng chuyền.
+ * @param {string[]} tube - Tube nguồn
+ * @param {object} conveyor - Đối tượng Conveyor (có method canReceive, enqueue)
+ * @returns {boolean} - true nếu thành công
+ */
+function pourToConveyor(tube, conveyor) {
+    const cluster = getTopCluster(tube);
+    if (!cluster) return false;
+    
+    if (conveyor.canReceive(cluster.size)) {
+        conveyor.enqueue(cluster.color, cluster.size);
+        for (let i = 0; i < cluster.size; i++) {
+            tube.pop();
+        }
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * Kiểm tra xem tube có rỗng không.
+ * @param {string[]} tube 
+ * @returns {boolean}
+ */
+function isEmpty(tube) {
+    return tube.length === 0;
+}
+
+/**
+ * Helper kiểm tra tube có duy nhất 1 màu không.
+ * @param {string[]} tube 
+ * @returns {boolean}
+ */
+function isSingleColor(tube) {
+    if (isEmpty(tube)) return false;
+    const firstColor = tube[0];
+    return tube.every(color => color === firstColor);
+}
+
+
+// --- src/core/Conveyor.js ---
+// src/core/Conveyor.js
+class Conveyor {
+    constructor(capacity = 7) {
+        this.capacity = capacity;
+        this.clusters = []; // Mảng chứa các object { id, color, size }
+        this.nextId = 1;
+    }
+
+    /**
+     * Tổng số unit đang trên conveyor.
+     * @returns {number}
+     */
+    totalUnits() {
+        return this.clusters.reduce((sum, cluster) => sum + cluster.size, 0);
+    }
+
+    /**
+     * Kiểm tra xem conveyor có đủ chỗ nhận thêm cụm không.
+     * @param {number} clusterSize 
+     * @returns {boolean}
+     */
+    canReceive(clusterSize) {
+        return this.totalUnits() + clusterSize <= this.capacity;
+    }
+
+    /**
+     * Thêm cụm mới vào conveyor.
+     * @param {string} color 
+     * @param {number} size 
+     */
+    enqueue(color, size) {
+        for (let i = 0; i < size; i++) {
+            this.clusters.push({ id: this.nextId++, color, size: 1 });
+        }
+    }
+
+    /**
+     * Xử lý 1 tick (1 vòng di chuyển).
+     * @param {object[]} trays - Mảng các đối tượng Tray
+     * @returns {object[]} - Danh sách các event dock ({ trayIndex, color, docked })
+     */
+    tick(trays) {
+        // Auto-docking is removed. Docking is now triggered by the UI when the cluster reaches the bottom path.
+        return [];
+    }
+
+    tryDockCluster(id, trayIndex, trays) {
+        const clusterIndex = this.clusters.findIndex(c => c.id === id);
+        if (clusterIndex === -1) return null;
+        
+        const cluster = this.clusters[clusterIndex];
+        const tray = trays[trayIndex];
+        
+        if (tray && tray.state === 'able' && tray.color === cluster.color && tray.remainingSlots() > 0) {
+            const docked = tray.fill(cluster.size);
+            cluster.size -= docked;
+            
+            if (cluster.size === 0) {
+                this.clusters.splice(clusterIndex, 1);
+            }
+            
+            return { trayIndex, color: tray.color, docked };
+        }
+        
+        return null;
+    }
+
+    /**
+     * Kiểm tra trạng thái deadlock.
+     * @param {object[]} trays 
+     * @returns {boolean}
+     */
+    isDeadlock(trays) {
+        // Deadlock khi đầy
+        if (this.totalUnits() < this.capacity) {
+            return false;
+        }
+
+        // Nếu có ít nhất 1 cluster có thể dock vào 1 able tray thì chưa deadlock
+        for (const cluster of this.clusters) {
+            for (const tray of trays) {
+                if (tray.state === 'able' && tray.color === cluster.color && tray.remainingSlots() > 0) {
+                    return false;
+                }
+            }
+        }
+
+        // Đầy và không thể dock = deadlock
+        return true;
+    }
+}
+
+
+// --- src/core/Tray.js ---
+// src/core/Tray.js
+class Tray {
+    /**
+     * @param {string|null} color 
+     * @param {'able'|'unable'|'harvested'} state 
+     * @param {number} totalSlots 
+     */
+    constructor(color, state = 'able', totalSlots = 3) {
+        this.color = color;
+        this.state = state; // 'able', 'unable', 'harvested'
+        this.totalSlots = totalSlots;
+        this.slots = Array(totalSlots).fill(false); // true = filled
+    }
+
+    /**
+     * @returns {number} Số slot còn trống
+     */
+    remainingSlots() {
+        if (this.state !== 'able') return 0;
+        return this.slots.filter(s => !s).length;
+    }
+
+    /**
+     * Điền slime vào tray.
+     * @param {number} count - Số lượng slime cần điền
+     * @returns {number} - Số lượng slime đã điền thực tế
+     */
+    fill(count) {
+        if (this.state !== 'able') return 0;
+
+        let filledCount = 0;
+        for (let i = 0; i < this.slots.length && filledCount < count; i++) {
+            if (!this.slots[i]) {
+                this.slots[i] = true;
+                filledCount++;
+            }
+        }
+        return filledCount;
+    }
+
+    /**
+     * Kiểm tra xem tray đã đầy chưa.
+     * @returns {boolean}
+     */
+    isFull() {
+        return this.slots.every(s => s === true);
+    }
+
+    /**
+     * Đánh dấu tray đã được harvest.
+     * Note: Hàm này chỉ đổi state, GameEngine sẽ phụ trách thay tray mới.
+     */
+    harvest() {
+        this.state = 'harvested';
+    }
+
+    /**
+     * Kích hoạt tray.
+     */
+    activate() {
+        if (this.state === 'unable') {
+            this.state = 'able';
+        }
+    }
+
+    /**
+     * Đặt lại tray với màu mới (sử dụng khi harvest xong)
+     * @param {string|null} newColor 
+     */
+    reset(newColor) {
+        this.color = newColor;
+        this.state = newColor === null ? 'unable' : 'able';
+        this.slots = Array(this.totalSlots).fill(false);
+    }
+}
+
+
+// --- src/core/GameEngine.js ---
+// src/core/GameEngine.js
+class GameEngine {
+    constructor() {
+        this.listeners = {};
+        this.tubes = [];
+        this.trays = [];
+        this.conveyor = null;
+        this.trayScript = [];
+        this.trayScriptPointer = 0;
+        this.capacity = 0;
+        
+        this.selectedTubeIndex = -1;
+        this.gameOver = false;
+    }
+
+    on(event, callback) {
+        if (!this.listeners[event]) this.listeners[event] = [];
+        this.listeners[event].push(callback);
+    }
+
+    emit(event, payload) {
+        if (this.listeners[event]) {
+            for (const cb of this.listeners[event]) cb(payload);
+        }
+    }
+
+    /**
+     * Khởi tạo game từ level object
+     * @param {object} level 
+     */
+    init(level) {
+        this.capacity = level.metadata.C;
+        
+        // Clone tubes
+        this.tubes = level.tubes.map(tube => [...tube]);
+        
+        this.conveyor = new Conveyor(7);
+        
+        this.trayScript = level.tray_script;
+        this.trayScriptPointer = 0;
+        
+        // Khởi tạo 3 trays từ 3 sự kiện đầu tiên của tray_script
+        this.trays = [null, null, null];
+        for (let i = 0; i < 3; i++) {
+            if (this.trayScriptPointer < this.trayScript.length) {
+                const event = this.trayScript[this.trayScriptPointer++];
+                this.trays[event.slot] = new Tray(event.color, event.color === null ? 'unable' : 'able');
+            }
+        }
+        // Điền các tray còn lại nếu script không đủ 3 (phòng ngừa)
+        for (let i = 0; i < 3; i++) {
+            if (!this.trays[i]) this.trays[i] = new Tray(null, 'unable');
+        }
+
+        this.selectedTubeIndex = -1;
+        this.gameOver = false;
+    }
+
+    selectTube(index) {
+        if (this.gameOver) return;
+
+        if (this.selectedTubeIndex === index) {
+            // Deselect
+            this.selectedTubeIndex = -1;
+            this.emit('TUBE_DESELECTED');
+        } else if (this.selectedTubeIndex !== -1) {
+            // Đã chọn 1 tube, giờ tap tube khác -> Pour
+            this.pourTo(index);
+        } else {
+            // Chưa chọn, giờ chọn
+            if (!isEmpty(this.tubes[index])) {
+                this.selectedTubeIndex = index;
+                this.emit('TUBE_SELECTED', { tubeIndex: index });
+            }
+        }
+    }
+
+    pourTo(targetIndex) {
+        if (this.gameOver || this.selectedTubeIndex === -1) return;
+
+        const src = this.tubes[this.selectedTubeIndex];
+        const dst = this.tubes[targetIndex];
+
+        if (canPourInto(src, dst, this.capacity)) {
+            const color = src[src.length - 1]; // màu trước khi pour
+            const size = pourTube(src, dst, this.capacity);
+            
+            const fromIndex = this.selectedTubeIndex;
+            this.selectedTubeIndex = -1;
+            this.emit('TUBE_DESELECTED');
+            this.emit('POUR_SUCCESS', { from: fromIndex, to: targetIndex, clusterSize: size, color });
+            
+            this.checkWinLose(); // tube đã đổi, có thể hết tube
+        } else {
+            this.emit('POUR_INVALID', { tubeIndex: targetIndex });
+        }
+    }
+
+    pourToConveyor() {
+        if (this.gameOver || this.selectedTubeIndex === -1) return;
+
+        const src = this.tubes[this.selectedTubeIndex];
+        
+        if (pourToConveyor(src, this.conveyor)) {
+            const fromIndex = this.selectedTubeIndex;
+            this.selectedTubeIndex = -1;
+            this.emit('TUBE_DESELECTED');
+            this.emit('CONVEYOR_UPDATED', { clusters: [...this.conveyor.clusters], fromTube: fromIndex });
+            
+            this.checkWinLose();
+        } else {
+            // Conveyor không đủ chỗ
+            this.emit('POUR_INVALID', { tubeIndex: -1 }); // -1 có thể hiểu là conveyor invalid
+        }
+    }
+
+    activateTray(index) {
+        if (this.gameOver) return;
+        
+        const tray = this.trays[index];
+        if (tray && tray.state === 'unable') {
+            tray.activate();
+            this.emit('TRAY_ACTIVATED', { trayIndex: index });
+            this.checkWinLose();
+        }
+    }
+
+    tryDockCluster(id, trayIndex) {
+        if (this.gameOver) return false;
+        const event = this.conveyor.tryDockCluster(id, trayIndex, this.trays);
+        if (event) {
+            this.emit('CONVEYOR_UPDATED', { clusters: [...this.conveyor.clusters] });
+            this.emit('TRAY_FILLED', { 
+                trayIndex: event.trayIndex, 
+                filledSlots: event.docked 
+            });
+            this.checkWinLose();
+            return true;
+        }
+        return false;
+    }
+
+    tick() {
+        if (this.gameOver) return;
+
+        // Note: tick no longer processes dock events, they are UI-driven now.
+        // We still need to check harvest just in case.
+        for (let i = 0; i < this.trays.length; i++) {
+            const tray = this.trays[i];
+            if (tray.state === 'able' && tray.isFull()) {
+                tray.harvest();
+                
+                // Lấy tray mới
+                let newColor = null; // Mặc định nếu hết script là unable
+                // Tìm sự kiện tiếp theo cho slot này (hoặc có thể script không chỉ định slot mà chỉ định màu, 
+                // nhưng theo plan tray_script là {slot, color})
+                
+                // Ở đây assume tray_script events đến theo thứ tự harvest thực tế.
+                // Nếu tray_script có slot cứng thì phải tìm event kế tiếp cho slot đó? 
+                // Không, theo plan: màu Tray mới sau harvest = theo tray_script (do TrayGenerator sinh).
+                if (this.trayScriptPointer < this.trayScript.length) {
+                    const nextEvent = this.trayScript[this.trayScriptPointer++];
+                    newColor = nextEvent.color;
+                    // Note: trong implementation plan ghi tray_script là (slot, color). 
+                    // Generator có assign slot, nên ta nên gán đúng slot đó, nhưng wait - nếu slot sinh ra không khớp tray đang harvest?
+                    // Trông cậy vào generator đảm bảo slot kế tiếp trong script chính là slot vừa harvest!
+                }
+
+                tray.reset(newColor);
+                this.emit('TRAY_HARVESTED', { trayIndex: i, newColor });
+            }
+        }
+
+        this.checkWinLose();
+    }
+
+    checkWinLose() {
+        if (this.gameOver) return;
+
+        // 1. Kiểm tra Lose
+        if (this.conveyor.isDeadlock(this.trays)) {
+            this.gameOver = true;
+            this.emit('LOSE');
+            return;
+        }
+
+        // 2. Kiểm tra Win
+        const allTubesEmpty = this.tubes.every(tube => isEmpty(tube));
+        const conveyorEmpty = this.conveyor.totalUnits() === 0;
+        const scriptEnded = this.trayScriptPointer >= this.trayScript.length;
+        
+        // Kiểm tra xem có tray nào còn có thể nhận thêm slime không
+        // (để đảm bảo không có slime nào vừa rơi xuống đang chờ xử lý)
+        const noAbleTrayWithSpace = !this.trays.some(tray => tray.state === 'able' && tray.remainingSlots() > 0);
+
+        if (allTubesEmpty && conveyorEmpty && scriptEnded && noAbleTrayWithSpace) {
+            this.gameOver = true;
+            this.emit('WIN');
+        }
+    }
+}
+
+
+// --- src/ui/TubeRenderer.js ---
+// src/ui/TubeRenderer.js
+class TubeRenderer {
+    constructor(containerId, capacity) {
+        this.container = document.getElementById(containerId);
+        this.capacity = capacity;
+        this.tubeElements = [];
+    }
+
+    init(tubesData, onTubeClick) {
+        this.container.innerHTML = '';
+        this.tubeElements = [];
+
+        // Calculate dynamic heights based on capacity
+        // Each block is 48px + 2px gap = 50px. Add 10px for top/bottom padding.
+        const requiredTubeHeight = this.capacity * 50 + 10; 
+        const requiredTubesContainerHeight = requiredTubeHeight + 50; // extra space for hover lift
+        
+        this.container.style.height = `${requiredTubesContainerHeight}px`;
+        
+        // Adjust game container to fit new height and width
+        const gameContainer = document.getElementById('game-container');
+        if (gameContainer) {
+            const requiredWidth = Math.max(420, tubesData.length * 73 + 40); // 58px tube + 15px gap
+            const requiredHeight = requiredTubesContainerHeight + 400;
+            
+            gameContainer.style.width = `${requiredWidth}px`;
+            gameContainer.style.height = `${requiredHeight}px`;
+
+            // Auto-scale to fit window
+            const updateScale = () => {
+                const scaleX = window.innerWidth / requiredWidth;
+                const scaleY = window.innerHeight / requiredHeight;
+                const scale = Math.min(1, scaleX * 0.95, scaleY * 0.95);
+                gameContainer.style.transform = `scale(${scale})`;
+                gameContainer.style.transformOrigin = 'center center';
+            };
+            
+            updateScale();
+            // Remove old listener if exists to avoid memory leak on restart
+            if (this.resizeListener) window.removeEventListener('resize', this.resizeListener);
+            this.resizeListener = updateScale;
+            window.addEventListener('resize', this.resizeListener);
+        }
+
+        tubesData.forEach((tube, index) => {
+            const el = document.createElement('div');
+            el.className = 'tube';
+            el.style.height = `${requiredTubeHeight}px`;
+            el.dataset.index = index;
+            
+            el.addEventListener('click', (e) => {
+                e.stopPropagation(); // Ngăn click lan ra ngoài
+                onTubeClick(index);
+            });
+
+            this.container.appendChild(el);
+            this.tubeElements.push(el);
+            
+            this.updateTube(index, tube);
+        });
+    }
+
+    update(tubes, selectedTubeIndex) {
+        tubes.forEach((tube, index) => {
+            const tubeDiv = this.tubeElements[index];
+            tubeDiv.innerHTML = ''; // clear
+
+            if (index === selectedTubeIndex) {
+                tubeDiv.classList.add('selected');
+            } else {
+                tubeDiv.classList.remove('selected');
+            }
+
+            // tube.clusters = [{color, size}]
+            // Trình bày dưới dạng các block riêng biệt xếp chồng lên nhau
+            tube.clusters.forEach(c => {
+                for (let i = 0; i < c.size; i++) {
+                    const block = document.createElement('div');
+                    block.className = `slime-block color-${c.color}`;
+                    
+                    const hl = document.createElement('div');
+                    hl.className = 'slime-hl';
+                    block.appendChild(hl);
+                    
+                    tubeDiv.appendChild(block);
+                }
+            });
+        });
+    }
+
+    updateTube(index, tubeData) {
+        const el = this.tubeElements[index];
+        el.innerHTML = ''; // Clear old slimes
+
+        for (let i = 0; i < tubeData.length; i++) {
+            const block = document.createElement('div');
+            block.className = `slime-block color-${tubeData[i]}`;
+            
+            const hl = document.createElement('div');
+            hl.className = 'slime-hl';
+            block.appendChild(hl);
+            
+            el.appendChild(block);
+        }
+    }
+
+    setSelected(index) {
+        this.tubeElements.forEach((el, i) => {
+            if (i === index) el.classList.add('selected');
+            else el.classList.remove('selected');
+        });
+    }
+
+    clearSelected() {
+        this.tubeElements.forEach(el => el.classList.remove('selected'));
+    }
+
+    shake(index) {
+        const el = this.tubeElements[index];
+        if (!el) return;
+        
+        el.classList.add('invalid');
+        setTimeout(() => {
+            el.classList.remove('invalid');
+        }, 300);
+    }
+}
+
+
+// --- src/ui/ConveyorRenderer.js ---
+// src/ui/ConveyorRenderer.js
+class ConveyorRenderer {
+    constructor(containerId) {
+        this.track = document.getElementById(containerId);
+        this.clustersData = new Map(); // id -> { data, el, t }
+        
+        this.getPathMetrics = () => {
+            const straightW = 120; // hw(180) - cr(60)
+            const r = 38; // cr(60) - innerOffset(22)
+            const topLen = straightW * 2;
+            const rightArc = Math.PI * r;
+            const botLen = straightW * 2;
+            const leftArc = Math.PI * r;
+            const total = topLen + rightArc + botLen + leftArc;
+            
+            return {
+                straightW, r,
+                topFrac: topLen / total,
+                rightFrac: rightArc / total,
+                botFrac: botLen / total,
+                leftFrac: leftArc / total
+            };
+        };
+
+        this.getPathPosition = (t) => {
+            t = ((t % 1) + 1) % 1;
+            const { straightW, r, topFrac, rightFrac, botFrac, leftFrac } = this.getPathMetrics();
+            const cx = 180;
+            const cy = 60;
+            const hh = 60;
+            const innerOffset = 22;
+            
+            let x, y;
+            if (t < topFrac) {
+                const frac = t / topFrac;
+                x = cx - straightW + frac * 2 * straightW;
+                y = cy - hh + innerOffset;
+            } else if (t < topFrac + rightFrac) {
+                const frac = (t - topFrac) / rightFrac;
+                const angle = -Math.PI / 2 + frac * Math.PI;
+                x = cx + straightW + r * Math.cos(angle);
+                y = cy + r * Math.sin(angle);
+            } else if (t < topFrac + rightFrac + botFrac) {
+                const frac = (t - topFrac - rightFrac) / botFrac;
+                x = cx + straightW - frac * 2 * straightW;
+                y = cy + hh - innerOffset;
+            } else {
+                const frac = (t - topFrac - rightFrac - botFrac) / leftFrac;
+                const angle = Math.PI / 2 + frac * Math.PI;
+                x = cx - straightW + r * Math.cos(angle);
+                y = cy + r * Math.sin(angle);
+            }
+            return { x, y };
+        };
+
+        const trayXPositions = [75, 180, 285]; // Center X of each tray relative to conveyor track
+        const absorbRadius = 15;
+
+        const animate = () => {
+            this.clustersData.forEach(item => {
+                if (item.docked) return; // Skip if it's already docking
+                
+                item.t += 0.003; // speed
+                
+                // Reset flag when a new lap starts
+                if (item.t >= 1) {
+                    item.t -= 1;
+                    item.checkedTrays = new Set();
+                }
+                
+                const pos = this.getPathPosition(item.t);
+                if (item.el) {
+                    item.el.style.left = `${pos.x - 22}px`; // -22 for center offset (44/2)
+                    item.el.style.top = `${pos.y - 22}px`;
+                }
+                
+                // Check docking when at bottom path
+                if (item.t >= 0.5 && item.t <= 0.84) {
+                    if (!item.checkedTrays) item.checkedTrays = new Set();
+                    
+                    // It moves right to left on the bottom, so it approaches tray 2, then 1, then 0
+                    for (let i = 2; i >= 0; i--) {
+                        if (!item.checkedTrays.has(i)) {
+                            const tx = trayXPositions[i];
+                            if (Math.abs(pos.x - tx) < absorbRadius) {
+                                item.checkedTrays.add(i);
+                                
+                                if (this.onClusterReachedTray) {
+                                    const success = this.onClusterReachedTray(item.data.id, i);
+                                    if (success) {
+                                        item.docked = true;
+                                        // Remove from tracking so update() doesn't delete it instantly
+                                        this.clustersData.delete(item.data.id);
+                                        
+                                        // Play absorb animation
+                                        const el = item.el;
+                                        el.style.transition = 'all 0.35s cubic-bezier(0.5, 0, 1, 0.5)';
+                                        el.style.left = `${tx - 22}px`;
+                                        el.style.top = `220px`; // Move completely down into the tray
+                                        el.style.transform = 'scale(0.3) rotate(90deg)';
+                                        el.style.opacity = '0';
+                                        
+                                        setTimeout(() => {
+                                            if (el && el.parentNode) el.parentNode.removeChild(el);
+                                        }, 350);
+                                        
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            requestAnimationFrame(animate);
+        };
+        requestAnimationFrame(animate);
+    }
+
+    init(onConveyorClick, onClusterReachedTray) {
+        this.onClusterReachedTray = onClusterReachedTray;
+        const container = this.track.parentElement;
+        container.onclick = (e) => {
+            onConveyorClick();
+        };
+        this.track.innerHTML = '';
+        this.clustersData.clear();
+    }
+
+    update(clusters, capacity = 7, fromTubeIndex = undefined) {
+        // Update Progress Bar
+        const totalUnits = clusters.reduce((sum, c) => sum + c.size, 0);
+        const progressContainer = document.getElementById('conveyor-progress-container');
+        if (progressContainer) {
+            const progressBar = document.getElementById('conveyor-progress-bar');
+            const progressText = document.getElementById('conveyor-progress-text');
+            const percent = (totalUnits / capacity) * 100;
+            progressBar.style.width = `${Math.min(100, percent)}%`;
+            progressText.innerText = `${totalUnits} / ${capacity}`;
+            
+            if (totalUnits >= capacity) {
+                progressBar.classList.add('full');
+            } else {
+                progressBar.classList.remove('full');
+            }
+        }
+
+        const currentIds = new Set(clusters.map(c => c.id));
+        for (const [id, item] of this.clustersData.entries()) {
+            if (!currentIds.has(id)) {
+                if (item.el && item.el.parentNode) item.el.parentNode.removeChild(item.el);
+                this.clustersData.delete(id);
+            }
+        }
+
+        clusters.forEach((cluster) => {
+            if (!this.clustersData.has(cluster.id)) {
+                const el = document.createElement('div');
+                el.className = `conveyor-cluster color-${cluster.color}`;
+                el.dataset.id = cluster.id;
+                // No text content needed since we separated the slimes
+                
+
+                const { topFrac } = this.getPathMetrics();
+                let startT = topFrac / 2; // Center of top edge
+                
+                // Tránh overlap nếu đã có item
+                let overlap = true;
+                let attempts = 0;
+                while (overlap && attempts < 20) {
+                    overlap = false;
+                    attempts++;
+                    for (const item of this.clustersData.values()) {
+                        let t = item.t % 1;
+                        let s = startT % 1;
+                        let dist = Math.min(Math.abs(t - s), 1 - Math.abs(t - s));
+                        if (dist < 0.08) {
+                            overlap = true;
+                            startT -= 0.10;
+                            if (startT < 0) startT += 1;
+                            break;
+                        }
+                    }
+                }
+                
+                if (fromTubeIndex !== undefined && cluster.id === clusters[clusters.length - 1].id) {
+                    el.classList.add('newly-dropped');
+                    setTimeout(() => { if (el) el.classList.remove('newly-dropped'); }, 300);
+                }
+                
+                this.track.appendChild(el);
+                this.clustersData.set(cluster.id, { data: cluster, el, t: startT });
+            } else {
+                const item = this.clustersData.get(cluster.id);
+                item.data = cluster;
+                // No text content needed
+            }
+        });
+    }
+}
+
+
+// --- src/ui/TrayRenderer.js ---
+// src/ui/TrayRenderer.js
+class TrayRenderer {
+    constructor(containerId) {
+        this.container = document.getElementById(containerId);
+        this.trayElements = [];
+    }
+
+    init(traysData, onTrayClick) {
+        this.container.innerHTML = '';
+        this.trayElements = [];
+
+        traysData.forEach((tray, index) => {
+            const el = document.createElement('div');
+            el.className = 'tray';
+            el.dataset.index = index;
+
+            el.addEventListener('click', (e) => {
+                onTrayClick(index);
+            });
+
+            this.container.appendChild(el);
+            this.trayElements.push(el);
+            
+            this.updateTray(index, tray);
+        });
+    }
+
+    updateTray(index, trayData) {
+        const el = this.trayElements[index];
+        el.innerHTML = ''; // Clear slots
+
+        // Update classes based on state
+        el.className = 'tray';
+        if (trayData.state === 'unable') {
+            el.classList.add('unable');
+        } else if (trayData.state === 'harvested') {
+            el.classList.add('harvesting');
+        } else if (trayData.color) {
+            el.classList.add(`color-${trayData.color}`);
+        }
+
+        // Draw slots
+        if (trayData.state !== 'unable') {
+            for (let i = 0; i < trayData.totalSlots; i++) {
+                const slotEl = document.createElement('div');
+                slotEl.className = 'tray-slot';
+                if (trayData.slots[i]) {
+                    slotEl.classList.add('filled');
+                    slotEl.classList.add(`color-${trayData.color}`);
+                }
+                el.appendChild(slotEl);
+            }
+        }
+    }
+
+    playHarvestAnimation(index, newColor, onComplete) {
+        const el = this.trayElements[index];
+        el.classList.add('harvesting');
+        
+        setTimeout(() => {
+            el.classList.remove('harvesting');
+            onComplete();
+        }, 500); // 0.5s animation
+    }
+}
+
+
+// --- src/ui/UIManager.js ---
+// src/ui/UIManager.js
+class UIManager {
+    constructor(engine) {
+        this.engine = engine;
+        
+        this.tubeRenderer = new TubeRenderer('tubes-container', 0); // capacity updated in init
+        this.conveyorRenderer = new ConveyorRenderer('conveyor-track');
+        this.trayRenderer = new TrayRenderer('trays-container');
+        
+        this.overlay = document.getElementById('overlay');
+        this.overlayMessage = document.getElementById('overlay-message');
+        
+        this.bindEvents();
+    }
+
+    bindEvents() {
+        this.engine.on('TUBE_SELECTED', ({ tubeIndex }) => {
+            this.tubeRenderer.setSelected(tubeIndex);
+        });
+
+        this.engine.on('TUBE_DESELECTED', () => {
+            this.tubeRenderer.clearSelected();
+        });
+
+        this.engine.on('POUR_SUCCESS', ({ from, to }) => {
+            this.tubeRenderer.updateTube(from, this.engine.tubes[from]);
+            this.tubeRenderer.updateTube(to, this.engine.tubes[to]);
+        });
+
+        this.engine.on('POUR_INVALID', ({ tubeIndex }) => {
+            if (tubeIndex >= 0) {
+                this.tubeRenderer.shake(tubeIndex);
+            }
+            // If -1, it means conveyor was full (we can add screen shake or just ignore)
+        });
+
+        this.engine.on('CONVEYOR_UPDATED', ({ clusters, fromTube }) => {
+            this.conveyorRenderer.update(clusters, this.engine.conveyor.capacity, fromTube);
+            if (this.engine.selectedTubeIndex === -1 && fromTube !== undefined) {
+                this.updateAllTubes();
+            }
+        });
+
+        this.engine.on('TRAY_FILLED', ({ trayIndex }) => {
+            this.trayRenderer.updateTray(trayIndex, this.engine.trays[trayIndex]);
+        });
+
+        this.engine.on('TRAY_HARVESTED', ({ trayIndex, newColor }) => {
+            // Cập nhật state thành harvested để css chạy anim
+            this.trayRenderer.updateTray(trayIndex, this.engine.trays[trayIndex]); 
+            
+            this.trayRenderer.playHarvestAnimation(trayIndex, newColor, () => {
+                // Sau khi anim xong, update lại với màu mới
+                this.trayRenderer.updateTray(trayIndex, this.engine.trays[trayIndex]);
+            });
+        });
+
+        this.engine.on('TRAY_ACTIVATED', ({ trayIndex }) => {
+            this.trayRenderer.updateTray(trayIndex, this.engine.trays[trayIndex]);
+        });
+
+        this.engine.on('WIN', () => {
+            this.showOverlay("You Win! 🎉");
+        });
+
+        this.engine.on('LOSE', () => {
+            this.showOverlay("Deadlock! You Lose 💀");
+        });
+    }
+
+    init() {
+        this.tubeRenderer.capacity = this.engine.capacity;
+        
+        this.tubeRenderer.init(this.engine.tubes, (index) => {
+            this.engine.selectTube(index);
+        });
+        
+        this.conveyorRenderer.init(
+            // onClick: pour to conveyor
+            () => {
+                this.engine.pourToConveyor();
+            },
+            // onClusterReachedTray: attempt to dock
+            (clusterId, trayIndex) => {
+                return this.engine.tryDockCluster(clusterId, trayIndex);
+            }
+        );
+        
+        this.trayRenderer.init(this.engine.trays, (index) => {
+            this.engine.activateTray(index);
+        });
+
+        this.hideOverlay();
+        this.conveyorRenderer.update(this.engine.conveyor.clusters, this.engine.conveyor.capacity);
+    }
+
+    updateAllTubes() {
+        this.engine.tubes.forEach((tube, i) => {
+            this.tubeRenderer.updateTube(i, tube);
+        });
+    }
+
+    showOverlay(msg) {
+        this.overlayMessage.textContent = msg;
+        this.overlay.classList.remove('hidden');
+    }
+
+    hideOverlay() {
+        this.overlay.classList.add('hidden');
+    }
+}
+
+
+
+// --- Entry Point ---
+
+
+
+        const engine = new GameEngine();
+        const ui = new UIManager(engine);
+
+        let currentLevelIndex = 0;
+
+        function loadLevel(index) {
+            currentLevelIndex = index;
+            if (currentLevelIndex >= levels.length) {
+                alert("You beat all levels!");
+                showLevelSelection();
+                return;
+            }
+            
+            document.getElementById('level-selection-overlay').classList.add('hidden');
+            document.getElementById('overlay').classList.add('hidden');
+            
+            engine.init(levels[currentLevelIndex]);
+            ui.init();
+            
+            // Start game loop (Conveyor tick)
+            if (window.gameLoop) clearInterval(window.gameLoop);
+            window.gameLoop = setInterval(() => {
+                engine.tick();
+            }, 50); // 20 FPS for ticks
+        }
+
+        function showLevelSelection() {
+            if (window.gameLoop) clearInterval(window.gameLoop);
+            document.getElementById('level-selection-overlay').classList.remove('hidden');
+            document.getElementById('overlay').classList.add('hidden');
+        }
+
+        function initLevelSelection() {
+            const grid = document.getElementById('level-grid');
+            grid.innerHTML = '';
+            levels.forEach((level, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'level-btn';
+                
+                if (level.id.startsWith('tut')) {
+                    btn.classList.add('diff-tut');
+                } else if (level.metadata) {
+                    if (level.metadata.K <= 4) btn.classList.add('diff-normal');
+                    else if (level.metadata.K === 5) btn.classList.add('diff-hard');
+                    else if (level.metadata.K >= 6) btn.classList.add('diff-super-hard');
+                }
+
+                btn.innerText = level.name || `Level ${index + 1}`;
+                btn.addEventListener('click', () => {
+                    loadLevel(index);
+                });
+                grid.appendChild(btn);
+            });
+            showLevelSelection();
+        }
+
+        document.getElementById('next-level-btn').addEventListener('click', () => {
+            currentLevelIndex++;
+            loadLevel(currentLevelIndex);
+        });
+
+        document.getElementById('home-btn').addEventListener('click', () => {
+            showLevelSelection();
+        });
+
+        initLevelSelection();
+    
+</script>
+</body>
+</html>

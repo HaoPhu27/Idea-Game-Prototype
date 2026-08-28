@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>World Restaurant Prototype</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- UI Overlay -->
+        <div id="ui-layer">
+            <div id="hud">
+                <div class="hud-item">Level: <span id="level-name">---</span></div>
+                <div style="display: flex; gap: 8px; pointer-events: auto; align-items: center;">
+                    <button id="btn-open-menu" style="padding: 6px 12px; font-size: 13px; margin: 0;">Levels</button>
+                    <button id="btn-open-guide" style="padding: 6px 12px; font-size: 13px; margin: 0; background-color: #ff9800;">📖 Guide</button>
+                </div>
+                <div class="hud-item">Stage Limit: <span id="cloud-limit">---</span></div>
+            </div>
+
+            <!-- Virtual 4-Way D-Pad Controller -->
+            <div id="virtual-dpad">
+                <button class="dpad-btn dpad-up" data-dir="UP" title="Lên (W / ⬆)">⬆</button>
+                <button class="dpad-btn dpad-left" data-dir="LEFT" title="Trái (A / ⬅)">⬅</button>
+                <button class="dpad-btn dpad-down" data-dir="DOWN" title="Xuống (S / ⬇)">⬇</button>
+                <button class="dpad-btn dpad-right" data-dir="RIGHT" title="Phải (D / ➡)">➡</button>
+                <div class="dpad-center">🎮</div>
+            </div>
+            
+            <!-- Loading / Splash Screen -->
+            <div id="splash-screen">
+                <div class="splash-content">
+                    <div class="splash-badge">PUZZLE GAME</div>
+                    <h1 class="splash-title">WORLD RESTAURANT</h1>
+                    <p class="splash-subtitle">Quy hoạch & Phân chia nhà hàng không gian</p>
+                    
+                    <div id="splash-loading-bar-container">
+                        <div id="splash-loading-bar"></div>
+                    </div>
+                    <div id="splash-loading-text">Đang chuẩn bị nguyên liệu...</div>
+                    
+                    <div id="splash-action-buttons" class="hidden">
+                        <button id="btn-splash-play" class="btn-primary-pulse">▶ BẮT ĐẦU CHƠI</button>
+                        <div class="splash-sub-actions">
+                            <button id="btn-splash-guide" class="btn-sub">📖 Hướng Dẫn</button>
+                            <button id="btn-splash-levels" class="btn-sub">🎚️ Chọn Level</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tutorial / Guide Modal -->
+            <div id="guide-modal" class="hidden">
+                <div class="guide-dialog">
+                    <div class="guide-header">
+                        <h2>📖 QUY TẮC & CƠ CHẾ HOẠT ĐỘNG</h2>
+                        <button id="btn-close-guide-x" class="btn-close-icon">✕</button>
+                    </div>
+
+                    <!-- Visual Flow Lifecycle -->
+                    <div class="guide-flow-container">
+                        <div class="guide-flow-title">⚡ VÒNG ĐỜI TĂNG TẦNG & PHÂN CHIA (VÍ DỤ LIMIT = 4)</div>
+                        <div class="guide-flow-steps">
+                            <div class="flow-step">
+                                <div class="flow-visual">
+                                    <div class="mini-building-stack">
+                                        <div class="mini-block b-red">#1 (1T)</div>
+                                    </div>
+                                </div>
+                                <div class="flow-caption"><strong>1. Bắt đầu:</strong> 1 Tầng</div>
+                            </div>
+                            <div class="flow-arrow">➜ <span class="flow-sub">Đi 3 bước</span> ➜</div>
+                            <div class="flow-step">
+                                <div class="flow-visual">
+                                    <div class="mini-building-stack">
+                                        <div class="mini-block b-red pulse-border">#1 (4T)</div>
+                                    </div>
+                                </div>
+                                <div class="flow-caption"><strong>2. Chạm Limit:</strong> Đạt 4 tầng</div>
+                            </div>
+                            <div class="flow-arrow">➜ <span class="flow-sub">Bấm ➡️</span> ➜</div>
+                            <div class="flow-step">
+                                <div class="flow-visual split-visual">
+                                    <div class="mini-block b-red">#1 (2T)</div>
+                                    <div class="mini-block b-child">#2 (2T)</div>
+                                </div>
+                                <div class="flow-caption"><strong>3. Tách đôi:</strong> Mọc tòa #2 bên cạnh!</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="guide-grid">
+                        <!-- Card 1 -->
+                        <div class="guide-card">
+                            <div class="guide-card-icon">🎮</div>
+                            <div class="guide-card-body">
+                                <h3>1. DI CHUYỂN TOÀN BỘ</h3>
+                                <p class="guide-tags"><code>W A S D</code> / <code>Mũi tên</code> / <code>Vuốt màn hình</code></p>
+                                <p class="guide-desc">Tất cả các tòa nhà cùng trượt 1 ô theo hướng bạn bấm.</p>
+                            </div>
+                        </div>
+
+                        <!-- Card 2 -->
+                        <div class="guide-card">
+                            <div class="guide-card-icon">🏢</div>
+                            <div class="guide-card-body">
+                                <h3>2. THỨ TỰ TĂNG TẦNG (STACK)</h3>
+                                <p class="guide-tags"><span class="badge-tag tag-blue">+1 Tầng mỗi bước đi</span></p>
+                                <p class="guide-desc">Tòa <strong>#1</strong> tăng trước đến chạm Limit ➜ rồi mới đến lượt tòa <strong>#2</strong> tăng.</p>
+                            </div>
+                        </div>
+
+                        <!-- Card 3 -->
+                        <div class="guide-card">
+                            <div class="guide-card-icon">⚡</div>
+                            <div class="guide-card-body">
+                                <h3>3. HƯỚNG PHÂN TÁCH (SPLIT)</h3>
+                                <p class="guide-tags"><span class="badge-tag tag-purple">Chia đôi số tầng</span></p>
+                                <p class="guide-desc">Tòa con <strong>mọc ra ở ô kế bên theo hướng bạn bấm đi</strong> (nếu kịch tường sẽ nảy sang bên đối diện).</p>
+                            </div>
+                        </div>
+
+                        <!-- Card 4 -->
+                        <div class="guide-card">
+                            <div class="guide-card-icon">🎯</div>
+                            <div class="guide-card-body">
+                                <h3>4. VỊ TRÍ CHIẾN THẮNG</h3>
+                                <p class="guide-tags"><span class="badge-tag tag-gold">Khớp 100% ô Vàng</span></p>
+                                <p class="guide-desc">Ô vàng luôn nằm ở <strong>viền bản đồ</strong> hoặc <strong>sát đường xám (Road)</strong>.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="guide-footer">
+                        <button id="btn-close-guide" class="btn-primary-pulse">ĐÃ HIỂU - CHƠI NGAY</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="game-over-screen" class="hidden">
+                <h1 id="game-over-title">Level Complete!</h1>
+                <button id="btn-next-level">Next Level</button>
+                <button id="btn-retry">Retry</button>
+                <button id="btn-view-board">View Board</button>
+                <button id="btn-menu-from-gameover">Menu</button>
+            </div>
+            
+            <button id="btn-back-to-results" class="hidden" style="position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 24px; font-size: 18px; font-weight: bold; pointer-events: auto; background-color: #ff9800; color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.5);">Back to Game Over</button>
+            
+            <div id="level-menu" class="hidden">
+                <h1>Select Level</h1>
+                <div id="level-list">
+                    <button class="btn-level diff-tutorial" data-level="1">1</button>
+                    <button class="btn-level diff-tutorial" data-level="2">2</button>
+                    <button class="btn-level diff-tutorial" data-level="3">3</button>
+                    <button class="btn-level diff-tutorial" data-level="4">4</button>
+                    <button class="btn-level diff-tutorial" data-level="5">5</button>
+                    <button class="btn-level diff-beginner" data-level="6">6</button>
+                    <button class="btn-level diff-beginner" data-level="7">7</button>
+                    <button class="btn-level diff-beginner" data-level="8">8</button>
+                    <button class="btn-level diff-beginner" data-level="9">9</button>
+                    <button class="btn-level diff-beginner" data-level="10">10</button>
+                    <button class="btn-level diff-normal" data-level="11">11</button>
+                    <button class="btn-level diff-normal" data-level="12">12</button>
+                    <button class="btn-level diff-hard" data-level="13">13</button>
+                    <button class="btn-level diff-superhard" data-level="14">14</button>
+                    <button class="btn-level diff-normal" data-level="15">15</button>
+                    <button class="btn-level diff-hard" data-level="16">16</button>
+                    <button class="btn-level diff-superhard" data-level="17">17</button>
+                    <button class="btn-level diff-normal" data-level="18">18</button>
+                    <button class="btn-level diff-hard" data-level="19">19</button>
+                    <button class="btn-level diff-superhard" data-level="20">20</button>
+                </div>
+                <div id="level-legend">
+                    <span class="legend-item diff-tutorial">■ Tutorial</span>
+                    <span class="legend-item diff-beginner">■ Beginner</span>
+                    <span class="legend-item diff-normal">■ Normal</span>
+                    <span class="legend-item diff-hard">■ Hard</span>
+                    <span class="legend-item diff-superhard">■ Super Hard</span>
+                </div>
+                <button id="btn-close-menu">Close</button>
+            </div>
+        </div>
+
+        <!-- Rendering Layer -->
+        <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="ui/main.js"></script>
+</body>
+</html>

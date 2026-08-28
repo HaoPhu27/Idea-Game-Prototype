@@ -1,0 +1,28 @@
+============================================================
+              WORLD RESTAURANT PUZZLE GAME (20 LEVELS)
+============================================================
+
+CÁCH CHƠI / HƯỚNG DẪN:
+------------------------------------------------------------
+1. CÁCH MỞ GAME NHANH NHẤT (Không cần cài đặt gì cả):
+   - Mở trực tiếp file "WorldRestaurant.html" bằng bất kỳ trình duyệt nào
+     (Chrome, Edge, Firefox, Safari, Cốc Cốc trên máy tính hoặc điện thoại).
+   - Hoặc click đúp file "Run_Game.bat" nếu bạn dùng Windows.
+
+2. PHÍM ĐIỀU KHIỂN:
+   - Máy tính: Dùng các phím Mũi tên (Arrow Keys) hoặc W, A, S, D để di chuyển.
+   - Điện thoại / Cảm ứng: Vuốt ngón tay (Swipe) lên / xuống / trái / phải trên màn hình.
+   - Nút "Undo": Quay lại tối đa 3 nước đi trước đó.
+   - Nút "Levels": Mở menu chọn nhanh từ Level 1 đến Level 20.
+   - Nút "View Board": Xem lại bàn cờ khi thua/thắng để tìm hiểu nguyên nhân.
+
+3. QUY TẮC TRÒ CHƠI:
+   - Mục tiêu: Di chuyển và phân chia tòa nhà nhà hàng sao cho toàn bộ footprint
+     phủ kín và khớp chính xác 100% vào các ô mục tiêu vàng (Target / Blueprint).
+   - Stage Limit (Giới hạn tầng): Mỗi bước đi, các nhà hàng sẽ lần lượt tăng 1 tầng.
+     Khi đạt đến giới hạn Stage Limit, nhà hàng sẽ phân chia làm đôi,
+     chia đôi số tầng cho 2 khối mới!
+   - Ô đường đi (Road): Vùng đặt món phục vụ phụ thuộc vào vị trí cạnh viền bản đồ
+     hoặc nằm cạnh đường đi màu xám.
+
+Chúc các bạn chơi game vui vẻ và vượt qua được cả 20 Level (đặc biệt là các màn Super Hard L14, L17, L20)!

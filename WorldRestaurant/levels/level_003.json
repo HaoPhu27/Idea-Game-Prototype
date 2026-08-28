@@ -1,0 +1,17 @@
+{
+    "id": "003",
+    "name": "Level 3 - Split Vertical [TUTORIAL]",
+    "cloudLimit": 2,
+    "grid": [
+        ["L", "L", "L", "L", "L"],
+        ["L", "L", "S", "L", "L"],
+        ["L", "L", "L", "L", "L"],
+        ["L", "L", "T", "L", "L"],
+        ["L", "L", "T", "L", "L"],
+        ["L", "L", "L", "L", "L"]
+    ],
+    "spawnPosition": {
+        "x": 2,
+        "y": 1
+    }
+}

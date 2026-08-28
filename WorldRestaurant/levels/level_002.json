@@ -1,0 +1,16 @@
+{
+    "id": "002",
+    "name": "Level 2 - Split Horizontal [TUTORIAL]",
+    "cloudLimit": 2,
+    "grid": [
+        ["L", "L", "L", "L", "L", "L"],
+        ["L", "L", "L", "L", "L", "L"],
+        ["L", "S", "L", "T", "T", "L"],
+        ["L", "L", "L", "L", "L", "L"],
+        ["L", "L", "L", "L", "L", "L"]
+    ],
+    "spawnPosition": {
+        "x": 1,
+        "y": 2
+    }
+}
