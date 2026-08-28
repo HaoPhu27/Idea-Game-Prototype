@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Factory Sort - Prototype v1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <header id="game-header">
+            <div class="level-info">Level: <span id="level-display">Random</span></div>
+            <div class="move-info">Moves: <span id="move-display">0</span></div>
+            <button id="btn-new-game" class="btn">New Game</button>
+        </header>
+
+        <main id="play-area">
+            <!-- Box area occupies top ~65% -->
+            <section id="boxes-area">
+                <div id="boxes-grid"></div>
+            </section>
+            
+            <!-- Tray area occupies bottom ~35% -->
+            <section id="tray-area">
+                <div id="conveyor-belt">
+                    <div class="port-in">IN ⬇</div>
+                    <div class="port-out">⬇ OUT</div>
+                </div>
+                <div id="trays-container"></div>
+            </section>
+        </main>
+        
+        <!-- Ghost element for dragging wrapped boxes -->
+        <div id="drag-ghost" style="display: none;"></div>
+
+        <!-- Overlays -->
+        <div id="overlay-win" class="overlay hidden">
+            <div class="overlay-content">
+                <h2>Level Complete!</h2>
+                <p>All items delivered successfully.</p>
+                <button id="btn-next-level" class="btn primary">Next Level</button>
+            </div>
+        </div>
+        
+        <div id="overlay-lose" class="overlay hidden">
+            <div class="overlay-content">
+                <h2>Out of Space!</h2>
+                <p>No more empty slots to move items.</p>
+                <button id="btn-retry" class="btn primary">Try Again</button>
+            </div>
+        </div>
+        
+        <div id="overlay-loading" class="overlay hidden">
+            <div class="overlay-content transparent">
+                <h2>Generating level...</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts using ES modules -->
+    <script type="module" src="src/ui/UIManager.js"></script>
+</body>
+</html>
