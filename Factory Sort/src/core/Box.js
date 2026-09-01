@@ -53,6 +53,12 @@ export class Box {
         if (!this.isWrapped || this.items.length === 0) return null;
         return getCategoryByItemId(this.items[0]);
     }
+
+    /** Loai item cua Thung da wrapped (ca 3 o giong nhau). Dung cho Khay che do 'itemType'. */
+    getItemType() {
+        if (!this.isWrapped || this.items.length === 0) return null;
+        return this.items[0];
+    }
     
     clone() {
         const cloned = new Box(this.id);

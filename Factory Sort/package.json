@@ -1,0 +1,12 @@
+{
+  "name": "factory-sort",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Factory Sort / Goods Sort (Tray & Conveyor) prototype - solver + solvable level generator",
+  "type": "module",
+  "scripts": {
+    "test": "node tools/selftest.js",
+    "demo": "node tools/demo.js",
+    "build": "node tools/build.mjs"
+  }
+}

@@ -102,15 +102,11 @@ class UIManager {
         // Yield to browser to show loading
         await new Promise(r => setTimeout(r, 50));
         
-        // Increase difficulty slightly with level
-        const config = {
-            numBoxes: Math.min(6 + Math.floor(this.currentLevel / 3), 10),
-            numEmptyBoxes: 1, // Fixed for now
-            numCategories: Math.min(2 + Math.floor(this.currentLevel / 2), 4),
-            itemTypesPerCat: 2
-        };
-        
-        const levelData = LevelGenerator.generateLevel(config);
+        // Duong cong do kho nam TRON VEN trong configForLevelNumber() cua bo sinh man.
+        // Truoc day UI tu tinh mot bo tham so rieng (numBoxes/numCategories/...) khac
+        // han duong cong cua bo sinh => co ba nguon su that cho cung mot khai niem
+        // "level 7 kho the nao". Nay UI chi noi minh dang o level nao.
+        const levelData = LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
         
         this.engine.startLevel(levelData);
         this.levelDisplay.textContent = this.currentLevel;

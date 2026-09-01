@@ -204,20 +204,22 @@ GDD v0.3 mô tả hàng Tray xếp dọc, chỉ Tray đầu hàng mới nhận b
 ## 6. Điều kiện Thắng / Thua [CẬP NHẬT v0.4 — khớp `GameEngine.checkConditions()`]
 
 **Thắng:**
-```
+```javascript
 !this.conveyor.hasRemainingTrays() && this.boxes.every(b => b.isEmpty())
 ```
-- Tất cả Tray đã bị remove khỏi Conveyor (nghĩa là mọi Tray đã nhận box).
-- Mọi Box **còn lại** trong mảng `this.boxes` đều rỗng. Lưu ý: Box khi drop vào Tray bị `filter` ra khỏi mảng, nên "Box còn lại" = những Box chưa bao giờ wrapped hoặc wrapped nhưng chưa giao.
+- Tất cả Tray đã nhận đủ hàng và bị remove khỏi Conveyor (Băng chuyền trống không).
+- Mọi Thùng (Box) **còn lại** trên bàn đều trống rỗng. 
+- *Lưu ý về số lượng:* Số lượng Tray sinh ra = Số lượng bộ 3 item. Do luật game luôn bắt buộc có ít nhất 1 Thùng rỗng ban đầu để thao tác, nên **Số lượng Thùng trên bàn > Số lượng Tray** (không bằng nhau).
 
 **Thua:**
-```
+```javascript
 const activeBoxes = this.boxes.filter(b => !b.isWrapped && !b.isEmpty());
 const hasEmptySlots = activeBoxes.length === 0 || this.boxes.some(b => !b.isWrapped && !b.isFull());
 if (!hasEmptySlots) → LOST
 ```
-- Thua khi **mọi** Box chưa wrapped đều đầy 3 ô — không còn ô trống nào trên toàn bàn.
-- Edge case: nếu `activeBoxes.length === 0` (chỉ còn Box rỗng hoặc wrapped), `hasEmptySlots = true` → không thua.
+- Thua khi **Tất cả các thùng đều được lấp đầy và không còn khoảng trống để thao tác** (không còn bất kỳ ô trống nào trên toàn bàn).
+- *Lưu ý về Deadlock (Không có Tray phù hợp):* Trong prototype hiện tại, các Tray chạy theo vòng Elip (Oval) và **xoay vòng liên tục không bao giờ biến mất** cho đến khi nhận được hàng. Do đó, người chơi sẽ không bao giờ bị thua vì "không có Tray thỏa mãn" (Tray luôn ở đó chờ).
+- *Lưu ý về Không gian (Layers):* Prototype hiện tại là **bàn chơi 2D phẳng (Flat Grid)**, tất cả các Thùng đều hiện hữu và có thể tương tác. **KHÔNG CÓ** cơ chế "các thùng bị che khuất bên dưới" (như Mahjong). Mọi tính toán thắng/thua đều dựa trên tất cả các Thùng đang hiển thị.
 
 > **Lưu ý thiết kế (giữ từ v0.3):** Vì không ràng buộc loại, điều kiện Thua **khó xảy ra** — gần như chỉ xảy ra khi bàn chơi không có hoặc quá ít ô trống. Challenge chính là "thắng hiệu quả" (ít nước đi). **Cần lever độ khó bổ sung** (thời gian, số nước đi — xem mục 9) để tạo áp lực.
 

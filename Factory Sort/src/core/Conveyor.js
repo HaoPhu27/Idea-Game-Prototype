@@ -47,7 +47,12 @@ export class Conveyor {
         return result;
     }
 
-    findMatchingTray(categoryId) {
-        return this.getAllActiveTrays().find(t => !t.isFull() && t.categoryId === categoryId);
+    /**
+     * Khay dang hoat dong nhan duoc Thung nay.
+     * Nhan ca Thung chu khong chi categoryId, vi Khay che do 'itemType' con
+     * phai doi chieu targetItemId — chi so sanh nhom hang la sai o level >= 40.
+     */
+    findMatchingTray(box) {
+        return this.getAllActiveTrays().find(t => t.canAccept(box));
     }
 }

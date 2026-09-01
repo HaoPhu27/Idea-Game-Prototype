@@ -1,0 +1,13 @@
+# Ignore scraped data and reverse engineering tools
+ScrapedData/
+
+# Ignore python caches
+__pycache__/
+*.pyc
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# If you use node packages
+node_modules/

@@ -27,7 +27,14 @@ export class GameEngine {
             return box;
         });
 
-        const trayInstances = levelConfig.trays.map(t => new Tray(t.id, t.categoryId, t.targetItemId));
+        const trayInstances = levelConfig.trays.map(
+            t => new Tray(t.id, t.categoryId, t.targetItemId, t.matchMode));
+
+        // So Khay hien dien cung luc la mot don bay do kho cua bo sinh man
+        // (conveyorMaxActive). Truoc day Conveyor luon giu mac dinh 4 va gia tri
+        // trong level bi bo qua hoan toan, nen do kho mo phong khi sinh man
+        // (simulateDelivery) khong khop voi tran dau that.
+        if (levelConfig.maxActiveTrays > 0) this.conveyor.maxActive = levelConfig.maxActiveTrays;
         this.conveyor.initialize(trayInstances);
         this.selectedSource = null; // { boxId, itemIndex }
         this.draggedBoxId = null;
