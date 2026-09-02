@@ -95,9 +95,38 @@ const SCRIPT = '<script type="module" src="src/ui/UIManager.js"></script>';
 if (!html.includes(LINK)) throw new Error(`index.html khong con the: ${LINK}`);
 if (!html.includes(SCRIPT)) throw new Error(`index.html khong con the: ${SCRIPT}`);
 
+const MIME = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
+};
+
+function inlineAssets(cssText) {
+  return cssText.replace(/url\(\s*['"]?(assets\/[^'")]+)['"]?\s*\)/g, (m, rel) => {
+    const abs = path.join(ROOT, rel);
+    if (!fs.existsSync(abs)) throw new Error(`CSS tro toi file khong ton tai: ${rel}`);
+    const ext = path.extname(rel).toLowerCase();
+    const mime = MIME[ext];
+    if (!mime) throw new Error(`Khong biet MIME cho ${rel}`);
+    const b64 = fs.readFileSync(abs).toString('base64');
+    return `url("data:${mime};base64,${b64}")`;
+  });
+}
+
+const cssInlined = inlineAssets(css);
+
 const standalone = html
-  .replace(LINK, `<style>\n${css}\n</style>`)
+  .replace(LINK, `<style>\n${cssInlined}\n</style>`)
   .replace(SCRIPT, `<script>\n${bundle}\n</script>`);
+
+// Ban standalone khong duoc phu thuoc mang.
+const externals = standalone.match(/(?:src|href)\s*=\s*["']https?:\/\/[^"']+/g);
+if (externals) {
+  throw new Error('Ban standalone con phu thuoc ngoai:\n  ' + externals.join('\n  '));
+}
+if (/url\(\s*['"]?assets\//.test(standalone)) {
+  throw new Error('Ban standalone con tro toi assets/ bang duong dan tuong doi.');
+}
+
 fs.writeFileSync(path.join(ROOT, 'FactorySort_Standalone.html'), standalone);
 
 console.log(`Da build: bundle.js (${bundle.split('\n').length} dong) + FactorySort_Standalone.html`);

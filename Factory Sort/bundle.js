@@ -1756,7 +1756,7 @@ class LevelGenerator {
 
     let level;
     try {
-      level = generateSolvableLevel(cfg);
+      level = generateLevel(cfg);
     } catch (err) {
       // Cau hinh bat kha thi (vd: so bo > so o chua duoc). Noi long dan cho
       // toi khi hop le thay vi nem loi ra UI.
@@ -1801,7 +1801,7 @@ class LevelGenerator {
   static generateWithRelaxedConfig(cfg) {
     for (let sets = Math.min(cfg.numSets, cfg.numBoxes - 1); sets >= 1; sets--) {
       try {
-        return generateSolvableLevel({ ...cfg, numSets: sets });
+        return generateLevel({ ...cfg, numSets: sets });
       } catch (_) { /* thu tiep */ }
     }
     throw new Error(`[LevelGenerator] khong sinh duoc man choi tu config: ${JSON.stringify(cfg)}`);

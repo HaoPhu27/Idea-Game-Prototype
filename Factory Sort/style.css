@@ -1,3 +1,122 @@
+/* devanagari */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-0.woff2) format('woff2');
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0, U+25CC, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-1.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-2.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-3.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* devanagari */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-4.woff2) format('woff2');
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0, U+25CC, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-5.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-6.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-7.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* devanagari */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-8.woff2) format('woff2');
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0, U+25CC, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-9.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-10.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(assets/fonts/baloo2-11.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+    --bg-color: #0f172a;
+    --text-color: #f8fafc;
+    --highlight-color: #4ade80;
+    --highlight-reject: #f87171;
+    --conveyor-bg: #1e293b;
+}
+
+* {
+    box-sizing: border-box;
 :root {
     --bg-color: #0f172a;
     --text-color: #f8fafc;
@@ -14,15 +133,16 @@
     -webkit-user-select: none;
 }
 
-body {
+html, body {
     font-family: 'Baloo 2', sans-serif;
-    background: url('assets/background.png') no-repeat center center fixed;
-    background-size: cover;
+    background-color: #000;
     color: var(--text-color);
     height: 100vh;
-    width: 100vw;
+    height: 100dvh;
+    width: 100%;
     overflow: hidden;
     touch-action: none;
+    overscroll-behavior: none;
 }
 
 #game-container {
@@ -32,6 +152,8 @@ body {
     max-width: 600px;
     margin: 0 auto;
     position: relative;
+    background: url('assets/background.png') no-repeat center center fixed;
+    background-size: cover;
 }
 
 /* Header */
@@ -45,6 +167,7 @@ body {
     backdrop-filter: blur(10px);
     border-radius: 16px;
     margin: 15px;
+    margin-top: calc(15px + env(safe-area-inset-top, 0px));
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     z-index: 10;
 }
@@ -81,7 +204,7 @@ body {
 /* Boxes Area */
 #boxes-area {
     flex: 65;
-    padding: 20px;
+    padding: 12px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -90,15 +213,16 @@ body {
 #boxes-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
+    gap: clamp(8px, 3vw, 20px);
     width: 100%;
     max-width: 400px;
 }
 
 /* 3D Box (Horizontal) */
 .box {
-    width: 120px;
-    height: 70px; /* Reduced box height */
+    width: 100%;
+    aspect-ratio: 12 / 7;
+    height: auto;
     position: relative;
     cursor: pointer;
     transition: transform 0.2s ease;
@@ -111,7 +235,7 @@ body {
 }
 
 .box.selected {
-    transform: translateY(-8px);
+    transform: translateY(-11.428%);
 }
 .box.selected .front-face, .box.selected .flap {
     border-color: #38bdf8;
@@ -124,10 +248,10 @@ body {
 /* Box Faces */
 .front-face {
     position: absolute;
-    top: 50px; /* matches top-face height */
+    top: 71.428%; /* matches top-face height */
     left: 0;
     width: 100%;
-    height: 20px; /* front face height */
+    height: 28.572%; /* front face height */
     background-color: #c08e5c;
     border: 2px solid #8c6239;
     border-top: none;
@@ -141,7 +265,7 @@ body {
     top: 0;
     left: 0;
     width: 100%;
-    height: 50px;
+    height: 71.428%;
     background-color: #8c6239;
     border: 2px solid #5a3d22;
     display: flex;
@@ -164,16 +288,16 @@ body {
 }
 
 .flap.top {
-    top: -25px; left: 0; width: 120px; height: 25px;
+    top: -35.714%; left: 0; width: 100%; height: 35.714%;
     transform-origin: bottom center;
     opacity: 0; /* Hidden when open */
     z-index: 3;
 }
 
 .flap.bottom {
-    top: 50px; left: 0; width: 120px; height: 25px;
+    top: 71.428%; left: 0; width: 100%; height: 35.714%;
     transform-origin: top center;
-    transform: translateY(20px); /* Hangs below the front-face */
+    transform: translateY(80%); /* Hangs below the front-face */
     z-index: 1; /* Sits behind the front-face */
 }
 
@@ -190,10 +314,10 @@ body {
 
 .tape {
     position: absolute;
-    top: 25px; /* Middle of the 50px opening */
+    top: 35.714%; /* Middle of the opening */
     left: 0;
     width: 100%;
-    height: 12px;
+    height: 17.143%;
     background: rgba(230, 200, 150, 0.95);
     border-top: 1px solid rgba(0,0,0,0.15);
     border-bottom: 1px solid rgba(0,0,0,0.15);
@@ -223,7 +347,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 24px;
+    font-size: clamp(18px, 7vw, 24px);
     position: relative;
     z-index: 5;
     transition: transform 0.1s;
@@ -254,6 +378,7 @@ body {
     flex: 35;
     position: relative;
     overflow: visible;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 #conveyor-belt {
@@ -406,3 +531,12 @@ body {
     border-radius: 0;
 }
 .overlay-content.transparent h2 { color: #f8fafc; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+
+@media (max-height: 700px) {
+  #game-header { 
+    height: 52px; 
+    margin: 8px; 
+    margin-top: calc(8px + env(safe-area-inset-top, 0px));
+  }
+  #boxes-area  { padding: 8px; }
+}
