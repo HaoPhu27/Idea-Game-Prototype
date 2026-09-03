@@ -28,6 +28,8 @@ class UIManager {
         
         this.overlayWin = document.getElementById('overlay-win');
         this.overlayLose = document.getElementById('overlay-lose');
+        this.loseReason = document.getElementById('lose-reason');
+        this.moveLimitDisplay = document.getElementById('move-limit');
         this.overlayLoading = document.getElementById('overlay-loading');
         this.overlayLevelSelect = document.getElementById('overlay-level-select');
         this.levelGrid = document.getElementById('level-grid');
@@ -87,11 +89,29 @@ class UIManager {
         document.addEventListener('pointercancel', this.handleDragEnd.bind(this));
     }
     
+    // Gioi han nuoc di chi la rang buoc that neu nguoi choi NHIN THAY no con
+    // bao nhieu — neu khong thi thua vi het nuoc chi la mot cu bat ngo.
+    renderMoveLimit() {
+        if (!this.moveLimitDisplay) return;
+        const lim = this.engine.moveLimit;
+        this.moveLimitDisplay.textContent = lim ? ` / ${lim}` : '';
+        const left = lim ? lim - this.engine.moveCount : Infinity;
+        this.moveLimitDisplay.classList.toggle('low', left <= 5);
+    }
+
     bindEngineCallbacks() {
         this.engine.onGameStateChanged = (state) => {
             if (state === 'WON') {
                 this.overlayWin.classList.remove('hidden');
             } else if (state === 'LOST') {
+                // Hai ly do thua khac han nhau, va nguoi choi phai biet minh
+                // hong o dau thi moi hoc duoc gi tu van thua.
+                if (this.loseReason) {
+                    const e = this.engine;
+                    this.loseReason.textContent = (e.moveLimit && e.moveCount >= e.moveLimit)
+                        ? `Out of moves — the limit is ${e.moveLimit}.`
+                        : 'No more empty slots to move items.';
+                }
                 this.overlayLose.classList.remove('hidden');
             } else {
                 this.overlayWin.classList.add('hidden');
@@ -101,18 +121,21 @@ class UIManager {
         
         this.engine.onMoveCountUpdated = (count) => {
             this.moveDisplay.textContent = count;
+            this.renderMoveLimit();
         };
         
         this.engine.onBoxUpdated = (box, isRemoved = false) => {
             this.updateRender();
         };
         
-        this.engine.onTrayExited = (trayId) => {
+        this.engine.onTrayDelivered = (trayId) => {
             this.trayRenderer.animateTrayExit(trayId, () => {
+                // Khay chua box da vao trong cua OUT -> hoan tat exit tren engine va cho phep khay moi di ra tu cua IN
+                this.engine.completeTrayExit(trayId);
+                this.conveyorRenderer.animateShift();
+                this.trayRenderer.animateShift();
                 this.updateRender();
             });
-            this.conveyorRenderer.animateShift();
-            this.trayRenderer.animateShift();
             if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
         };
 
@@ -191,6 +214,7 @@ class UIManager {
         this.engine.startLevel(levelData);
         this.levelDisplay.textContent = this.currentLevel;
         this.moveDisplay.textContent = "0";
+        this.renderMoveLimit();
         this._boLuotFlip = true;
         
         this.updateRender();

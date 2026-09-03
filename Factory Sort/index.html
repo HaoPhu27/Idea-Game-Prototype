@@ -26,7 +26,7 @@ window.addEventListener('unhandledrejection', function(e) {
     <div id="game-container">
         <header id="game-header">
             <div class="level-info">Level: <span id="level-display">Random</span></div>
-            <div class="move-info">Moves: <span id="move-display">0</span></div>
+            <div class="move-info">Moves: <span id="move-display">0</span><span id="move-limit"></span></div>
             <button id="btn-select-level" class="btn">Levels</button>
             <button id="btn-new-game" class="btn">New Game</button>
         </header>
@@ -62,7 +62,7 @@ window.addEventListener('unhandledrejection', function(e) {
         <div id="overlay-lose" class="overlay hidden">
             <div class="overlay-content">
                 <h2>Out of Space!</h2>
-                <p>No more empty slots to move items.</p>
+                <p id="lose-reason">No more empty slots to move items.</p>
                 <button id="btn-retry" class="btn primary">Try Again</button>
             </div>
         </div>

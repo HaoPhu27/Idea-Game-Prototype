@@ -11,6 +11,7 @@ import {
 import { simulate, solveIDA, solveGreedy, solveConstructive, isWrapped, isDeadlocked } from '../src/generator/Solver.js';
 import { LevelGenerator } from '../src/generator/LevelGenerator.js';
 import { GameEngine } from '../src/core/GameEngine.js';
+import * as G from '../src/generator/GameSim.js';
 
 let failures = 0;
 const t0 = Date.now();
@@ -92,40 +93,68 @@ console.log('\n=== TEST 2: doi chieu IDA* (loi giai tham chieu vs toi uu) ===');
   console.log(`  => 100% level deu duoc IDA* xac nhan CO loi giai.`);
 }
 
-/* ---------- Test 3: gradient do kho theo level number ---------- */
-console.log('\n=== TEST 3: lo trinh do kho theo level (configForLevelNumber) ===');
+/* ---------- Test 3: lo trinh do kho 50 level ---------- */
+console.log('\n=== TEST 3: lo trinh do kho 50 level (configForLevelNumber) ===');
 {
+  // 3a. Dinh tuyen tier: day la HOP DONG voi nguoi choi, khong phai chi tiet noi bo.
+  // L1-10 onboarding, L11-20 lam quen, tu L21: duoi 5 = hard, duoi 9 = super hard.
+  for (let L = 1; L <= 50; L++) {
+    const want = L <= 10 ? 'onboarding'
+               : L <= 20 ? 'acclimation'
+               : L % 10 === 9 ? 'superhard'
+               : L % 10 === 5 ? 'hard'
+               : 'normal';
+    const got = configForLevelNumber(L).tier;
+    check(got === want, `level ${L}: tier '${got}' nhung phai la '${want}'`);
+  }
+  console.log('  ✓ dinh tuyen tier dung cho ca 50 level');
+
+  // 3b. Do kho THAT = ty le thua cua chinh sach "smart": nguoi choi khong pham loi
+  // hien nhien nhung khong nhin truoc thu tu Khay. Van nao no van thua la van doi
+  // hoi lap ke hoach that — khac han "ban to, choi lau".
+  const PROBE = [1, 5, 10, 15, 20, 21, 25, 29, 35, 39, 45, 49, 50];
   const rows = [];
-  for (const lv of [1, 3, 5, 8, 12, 16, 20, 30, 45, 60, 90]) {
-    const samples = [];
-    for (let k = 0; k < 60; k++) {
-      const cfg = configForLevelNumber(lv, { seed: lv * 1000 + k, verify: false, computeOptimal: false });
-      const l = generateLevel(cfg);
-      const sim = simulate(l.boxes.map((b) => b.items), l.referenceSolution);
-      check(sim.ok, `level ${lv} sample ${k}: loi giai that bai`);
-      samples.push(l);
-    }
-    const m = (f) => (samples.reduce((a, s) => a + f(s), 0) / samples.length);
+  for (const L of PROBE) {
+    const cfg = configForLevelNumber(L);
+    const l = generateLevel({ ...cfg, computeOptimal: true });
+    const sim = simulate(l.boxes.map((b) => b.items), l.referenceSolution);
+    check(sim.ok, `level ${L}: loi giai tham chieu that bai`);
+
+    const ci = G.buildCatIndex(l), rng = G.mulberry32(4242);
+    let lost = 0;
+    for (let t = 0; t < 40; t++)
+      if (!G.playout(G.stateFromLevel(l), ci, 'smart', rng, 400).won) lost++;
+
     rows.push({
-      lv,
-      box: samples[0].config.numBoxes,
-      sets: samples[0].config.numSets,
-      cat: samples[0].config.numCategories,
-      r21: samples[0].config.ratio21.toFixed(2),
-      moves: m((s) => s.referenceSolution.length).toFixed(1),
-      free: m((s) => s.difficulty.freeSlots).toFixed(1),
-      held: m((s) => s.difficulty.maxWrappedHeld).toFixed(1),
-      score: m((s) => s.difficulty.score).toFixed(0),
-      limit: samples[0].rules.moveLimit ?? '-',
+      L, tier: cfg.tier, box: cfg.numBoxes, vr: cfg.visibleRows,
+      cma: cfg.conveyorMaxActive, par: l.difficulty.parMoves,
+      lim: l.rules.moveLimit ?? '-', loss: lost / 40,
     });
   }
-  console.log('  lv | box sets cat  r21 | moves free held | score  moveLimit');
-  for (const r of rows) {
-    console.log(
-      `  ${String(r.lv).padStart(2)} |  ${r.box}    ${String(r.sets).padStart(1)}   ${r.cat}  ${r.r21} | ` +
-        `${r.moves.padStart(5)} ${r.free.padStart(4)} ${r.held.padStart(4)} | ${r.score.padStart(5)}  ${r.limit}`
-    );
-  }
+  console.log('  lv | tier        box vr cma | par  limit | thua(smart)');
+  for (const r of rows)
+    console.log(`  ${String(r.L).padStart(2)} | ${r.tier.padEnd(11)} ${String(r.box).padStart(2)}  ${r.vr}   ${r.cma} | ` +
+      `${String(r.par).padStart(3)}  ${String(r.lim).padStart(5)} | ${(r.loss * 100).toFixed(0).padStart(3)}%`);
+
+  // 3c. Thu tu do kho phai dung. Neu hard khong kho hon normal thi nhan hard la noi doi.
+  const by = (t) => rows.filter((r) => r.tier === t);
+  const min = (a) => Math.min(...a.map((r) => r.loss));
+  const max = (a) => Math.max(...a.map((r) => r.loss));
+  check(max(by('onboarding')) === 0, 'level onboarding phai khong the thua');
+  check(max(by('acclimation')) <= 0.25, 'level lam quen thua qua nhieu');
+  check(min(by('hard')) > max(by('normal')), 'hard phai kho hon MOI level normal');
+  check(min(by('superhard')) > max(by('normal')), 'super hard phai kho hon MOI level normal');
+  check(min(by('superhard')) >= 0.75, 'super hard phai thua >= 75% duoi chinh sach smart');
+  check(min(by('hard')) >= 0.5, 'hard phai thua >= 50% duoi chinh sach smart');
+
+  // 3d. Kho, chu khong phai dai. Level kho nhat khong duoc dai hon level thuong
+  // qua mot chut — do kho phai den tu suy luan chu khong tu so nuoc di.
+  const maxPar = (a) => Math.max(...a.map((r) => r.par));
+  const parNormal = maxPar(by('normal'));
+  const parHardest = maxPar([...by('hard'), ...by('superhard')]);
+  check(parHardest <= parNormal + 3,
+    `level kho dang dai hon level thuong (par ${parHardest} vs ${parNormal}) — do kho sai huong`);
+  console.log(`  ✓ par lon nhat: normal ${parNormal}, hard/superhard ${parHardest} (kho chu khong dai)`);
 }
 
 /* ---------- Test 4: stress — cau hinh khac nghiet ---------- */
@@ -274,6 +303,13 @@ for (const levelNumber of [1, 5, 12, 25, 45, 70]) {
 
     const engine = new GameEngine();
     engine.startLevel(level);
+    // Test nay kiem tra HOP DONG HOP LUAT giua bo sinh man va engine: moi nuoc trong
+    // referenceSolution phai duoc engine chap nhan. No KHONG kiem luat gioi han nuoc di.
+    // referenceSolution la duong di NGUOC cua bo sinh man, dai hon par khoang refSlack
+    // (1.2-1.4 lan) va CO Y khong toi uu — do la cong suc cua bo sinh man, khong phai
+    // cua nguoi choi. Bat no vua moveLimit se la do sai thu do. Tinh cong bang cua
+    // moveLimit duoc kiem rieng o Test 8 bang loi giai TOI UU day du.
+    engine.moveLimit = null;
     check(
       engine.conveyor.maxActive === level.maxActiveTrays,
       `level ${levelNumber} seed ${seed}: conveyor.maxActive=${engine.conveyor.maxActive} khac level ${level.maxActiveTrays}`
@@ -283,13 +319,21 @@ for (const levelNumber of [1, 5, 12, 25, 45, 70]) {
     let bad = null;
     for (const mv of level.referenceSolution) {
       if (!engine.selectSource(mv.from, mv.index) || !engine.selectTarget(mv.to)) { bad = mv; break; }
+      // Giao hang moi khi co the de cot tut xuong (khop voi simulateWithLayout)
+      while (true) {
+        const box = engine.boxes.find((b) => b.isWrapped && engine.isAccessible(b.id) && engine.conveyor.findMatchingTray(b));
+        if (!box) break;
+        const tray = engine.conveyor.findMatchingTray(box);
+        engine.startDragWrappedBox(box.id);
+        if (!engine.dropOnTray(tray.id)) break;
+      }
     }
     if (bad) {
       check(false, `level ${levelNumber} seed ${seed}: engine tu choi nuoc ${JSON.stringify(bad)}`);
       continue;
     }
 
-    // 2) Lop vi mo: keo tung Thung da wrapped len Khay dang chay tren bang chuyen.
+    // 2) Lop vi mo: keo tung Thung da wrapped con lai len Khay dang chay tren bang chuyen.
     let guard = 0;
     while (engine.conveyor.hasRemainingTrays() && guard++ < 500) {
       const box = engine.boxes.find((b) => b.isWrapped && engine.conveyor.findMatchingTray(b));
@@ -306,6 +350,43 @@ for (const levelNumber of [1, 5, 12, 25, 45, 70]) {
       `${engine.conveyor.allTrays.length} khay chua giao`);
   }
   console.log(`  level ${String(levelNumber).padStart(2)} | thang ${won}/${n} | so khay che do itemType: ${itemTypeTrays}`);
+}
+/* ---------- Test 8: gioi han nuoc di co CONG BANG khong? ---------- */
+/*
+ * `moveLimit = ceil(par * moveLimitSlack)` va `par` den tu solveIDA(boxes) — mot loi
+ * giai chi nhin cac THUNG, khong biet gi ve thu tu Khay tren bang chuyen. Neu viec
+ * xep hang theo dung thu tu Khay ton them nuoc di thi gioi han se HEP HON toi uu that
+ * su va man choi tro nen KHONG THE THANG — mot loi khong test nao truoc day bat duoc,
+ * vi GameSim khong he mo hinh hoa moveLimit (moi ty le thua do duoc deu chi den tu
+ * deadlock).
+ *
+ * O day ta giai TOAN CUC bang solveFull: co bang chuyen, co cua so Khay, co thu tu.
+ * Luu y solveFull tra ve HAI loai nuoc — giao hang {k:'d'} va chuyen mon {k:'m'} —
+ * trong khi GameEngine.moveCount CHI dem nuoc chuyen mon (giao hang la mien phi).
+ * So sanh ca r.moves.length voi moveLimit se thoi phong con so len khoang gap doi.
+ */
+console.log('\n=== TEST 8: gioi han nuoc di vs loi giai toi uu day du (50 level) ===');
+{
+  const t8 = Date.now();
+  let checked = 0, cutoff = 0, minSlack = Infinity, worst = null;
+  for (let L = 1; L <= 50; L++) {
+    const lv = LevelGenerator.generateLevel({ levelNumber: L });
+    const lim = lv.rules && lv.rules.moveLimit;
+    if (!lim) continue; // vai man onboarding dau khong dat gioi han
+    const r = G.solveFull(G.stateFromLevel(lv), G.buildCatIndex(lv), {
+      timeBudgetMs: 4000, maxNodes: 3000000,
+    });
+    if (!r.solved) { cutoff++; continue; }
+    const opt = r.moves.filter((m) => m.k === 'm').length;
+    checked++;
+    check(opt <= lim, `level ${L}: toi uu day du ${opt} nuoc > gioi han ${lim} — KHONG THE THANG`);
+    if (lim - opt < minSlack) { minSlack = lim - opt; worst = L; }
+  }
+  check(cutoff === 0, `${cutoff} level khong giai kip trong ngan sach — khong ket luan duoc`);
+  console.log(
+    `  da kiem ${checked} level co gioi han | du dia hep nhat: ${minSlack} nuoc (level ${worst})` +
+    ` | ${((Date.now() - t8) / 1000).toFixed(1)}s`
+  );
 }
 
 console.log(`\n${failures === 0 ? '✅ TAT CA TEST PASS' : '❌ ' + failures + ' LOI'}  (${((Date.now() - t0) / 1000).toFixed(1)}s)`);

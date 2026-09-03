@@ -251,16 +251,20 @@ export class TrayRenderer {
             if (item.isExiting) {
                 item.currentTheta += deltaTheta;
                 
-                // Out port is at left edge (cos approaches -1). Front track (sin < 0).
-                if (!item.fadingOut && Math.cos(item.currentTheta) < -0.90 && Math.sin(item.currentTheta) < 0) {
+                // Out port is at left edge (cos approaches -1). Front track (sin <= 0).
+                if (!item.fadingOut && Math.cos(item.currentTheta) < -0.88 && Math.sin(item.currentTheta) <= 0.08) {
                     item.fadingOut = true;
                     item.el.classList.add('exiting'); // Trigger CSS fade out
+                    item.el.style.transition = 'transform 0.35s ease-in, opacity 0.35s ease-in';
+                    const curTransform = item.el.style.transform;
+                    item.el.style.transform = `${curTransform} translateX(-60px) scale(0.6)`;
+                    item.el.style.opacity = '0';
                     setTimeout(() => {
-                        if (item.onComplete) item.onComplete();
-                        if (item.el.parentNode) item.el.remove();
                         const idx = this.trayElements.indexOf(item);
                         if (idx > -1) this.trayElements.splice(idx, 1);
-                    }, 300);
+                        if (item.el.parentNode) item.el.remove();
+                        if (item.onComplete) item.onComplete();
+                    }, 350);
                 }
             }
         }
@@ -361,7 +365,7 @@ export class TrayRenderer {
      * deu trong khoang 0.3s.
      */
     _respace() {
-        const ring = this.trayElements.filter(t => !t.isExiting);
+        const ring = this.trayElements.filter(t => !t.fadingOut);
         const n = ring.length;
         if (n === 0) return;
 

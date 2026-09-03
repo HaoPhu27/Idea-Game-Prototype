@@ -9,12 +9,14 @@ export class GameEngine {
         this.selectedBoxId = null;
         this.draggedBoxId = null;
         this.moveCount = 0;
+        this.moveLimit = null;   // null = khong gioi han
         this.gameState = 'IDLE'; // IDLE, PLAYING, WON, LOST
         
         // Callbacks for UI
         this.onBoxUpdated = null;
         this.onBoxWrapped = null;
         this.onTrayExited = null;
+        this.onTrayDelivered = null;
         this.onGameStateChanged = null;
         this.onMoveCountUpdated = null;
     }
@@ -55,6 +57,13 @@ export class GameEngine {
         this.selectedSource = null; // { boxId, itemIndex }
         this.draggedBoxId = null;
         this.moveCount = 0;
+        // Gioi han nuoc di la RANG BUOC THAT, khong phai trang tri: bo sinh man
+        // tinh no tu par (moveLimit = ceil(par * slack)) va do kho cua man da
+        // duoc cham diem VOI gia dinh no co hieu luc. Truoc day gia tri nay
+        // duoc sinh ra roi bi bo qua, nen man "kho" that ra khong the thua.
+        // LUU Y: moveCount chi dem nuoc CHUYEN MON, khong dem luot giao Khay
+        // — dung dung nghia par cua bo giai.
+        this.moveLimit = (levelConfig.rules && levelConfig.rules.moveLimit) || null;
         this.setGameState('PLAYING');
     }
     
@@ -209,15 +218,28 @@ export class GameEngine {
         this._removeFromColumn(box.id);
         
         this.draggedBoxId = null;
+
+        if (this.onTrayDelivered) {
+            // Che do UI: Khay chua box tiep tuc chay tren bang chuyen ve cua OUT.
+            // Chi khi khay vao trong cua OUT thi khay moi moi duoc go va sinh ra tu cua IN.
+            this.onTrayDelivered(trayId);
+        } else {
+            // Che do khong UI (test / headless): go khay ngay lap tuc
+            this.conveyor.removeTray(trayId);
+            if (this.onTrayExited) this.onTrayExited(trayId);
+            this.checkConditions();
+        }
         
-        // Handle Tray exit & Conveyor shift
-        this.conveyor.removeTray(trayId);
-        
-        if (this.onTrayExited) this.onTrayExited(trayId);
         if (this.onBoxUpdated) this.onBoxUpdated(box, true); // True flag for 'removed'
 
-        this.checkConditions();
         return true;
+    }
+
+    /** Goi boi UI khi Khay chua box da di vao trong cua OUT */
+    completeTrayExit(trayId) {
+        this.conveyor.removeTray(trayId);
+        if (this.onTrayExited) this.onTrayExited(trayId);
+        this.checkConditions();
     }
 
     checkConditions() {
@@ -229,6 +251,21 @@ export class GameEngine {
         if (!this.conveyor.hasRemainingTrays() && noItemsLeft) {
             this.setGameState('WON');
             return;
+        }
+
+        // Het nuoc di. Chi ket thuc khi nguoi choi THUC SU khong con gi lam duoc:
+        // moveCount chi dem nuoc CHUYEN MON, con keo Thung da wrap len Khay thi
+        // khong ton nuoc di. Neu ket thuc ngay khi cham gioi han thi mot van hoan
+        // hao — nuoc cuoi cung wrap not Thung cuoi — se bi xu THUA truoc khi nguoi
+        // choi kip giao no, tuc la dung dung par thi khong bao gio thang duoc.
+        if (this.moveLimit && this.moveCount >= this.moveLimit) {
+            const canStillDeliver = this.boxes.some(
+                (b) => b && b.isWrapped && this.isAccessible(b.id) && this.conveyor.findMatchingTray(b)
+            );
+            if (!canStillDeliver) {
+                this.setGameState('LOST');
+                return;
+            }
         }
 
         // Check Lose

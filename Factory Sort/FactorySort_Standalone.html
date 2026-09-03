@@ -771,6 +771,10 @@ html, body {
     filter: brightness(1.2);
 }
 
+/* Con lai bao nhieu nuoc di: chuyen do khi sap het de nguoi choi kip doi ke hoach. */
+#move-limit { opacity: 0.6; }
+#move-limit.low { opacity: 1; color: #e5484d; font-weight: 700; }
+
 </style>
 
 <script>
@@ -793,7 +797,7 @@ window.addEventListener('unhandledrejection', function(e) {
     <div id="game-container">
         <header id="game-header">
             <div class="level-info">Level: <span id="level-display">Random</span></div>
-            <div class="move-info">Moves: <span id="move-display">0</span></div>
+            <div class="move-info">Moves: <span id="move-display">0</span><span id="move-limit"></span></div>
             <button id="btn-select-level" class="btn">Levels</button>
             <button id="btn-new-game" class="btn">New Game</button>
         </header>
@@ -829,7 +833,7 @@ window.addEventListener('unhandledrejection', function(e) {
         <div id="overlay-lose" class="overlay hidden">
             <div class="overlay-content">
                 <h2>Out of Space!</h2>
-                <p>No more empty slots to move items.</p>
+                <p id="lose-reason">No more empty slots to move items.</p>
                 <button id="btn-retry" class="btn primary">Try Again</button>
             </div>
         </div>
@@ -1181,12 +1185,14 @@ class GameEngine {
         this.selectedBoxId = null;
         this.draggedBoxId = null;
         this.moveCount = 0;
+        this.moveLimit = null;   // null = khong gioi han
         this.gameState = 'IDLE'; // IDLE, PLAYING, WON, LOST
         
         // Callbacks for UI
         this.onBoxUpdated = null;
         this.onBoxWrapped = null;
         this.onTrayExited = null;
+        this.onTrayDelivered = null;
         this.onGameStateChanged = null;
         this.onMoveCountUpdated = null;
     }
@@ -1227,6 +1233,13 @@ class GameEngine {
         this.selectedSource = null; // { boxId, itemIndex }
         this.draggedBoxId = null;
         this.moveCount = 0;
+        // Gioi han nuoc di la RANG BUOC THAT, khong phai trang tri: bo sinh man
+        // tinh no tu par (moveLimit = ceil(par * slack)) va do kho cua man da
+        // duoc cham diem VOI gia dinh no co hieu luc. Truoc day gia tri nay
+        // duoc sinh ra roi bi bo qua, nen man "kho" that ra khong the thua.
+        // LUU Y: moveCount chi dem nuoc CHUYEN MON, khong dem luot giao Khay
+        // — dung dung nghia par cua bo giai.
+        this.moveLimit = (levelConfig.rules && levelConfig.rules.moveLimit) || null;
         this.setGameState('PLAYING');
     }
     
@@ -1381,15 +1394,28 @@ class GameEngine {
         this._removeFromColumn(box.id);
         
         this.draggedBoxId = null;
+
+        if (this.onTrayDelivered) {
+            // Che do UI: Khay chua box tiep tuc chay tren bang chuyen ve cua OUT.
+            // Chi khi khay vao trong cua OUT thi khay moi moi duoc go va sinh ra tu cua IN.
+            this.onTrayDelivered(trayId);
+        } else {
+            // Che do khong UI (test / headless): go khay ngay lap tuc
+            this.conveyor.removeTray(trayId);
+            if (this.onTrayExited) this.onTrayExited(trayId);
+            this.checkConditions();
+        }
         
-        // Handle Tray exit & Conveyor shift
-        this.conveyor.removeTray(trayId);
-        
-        if (this.onTrayExited) this.onTrayExited(trayId);
         if (this.onBoxUpdated) this.onBoxUpdated(box, true); // True flag for 'removed'
 
-        this.checkConditions();
         return true;
+    }
+
+    /** Goi boi UI khi Khay chua box da di vao trong cua OUT */
+    completeTrayExit(trayId) {
+        this.conveyor.removeTray(trayId);
+        if (this.onTrayExited) this.onTrayExited(trayId);
+        this.checkConditions();
     }
 
     checkConditions() {
@@ -1401,6 +1427,21 @@ class GameEngine {
         if (!this.conveyor.hasRemainingTrays() && noItemsLeft) {
             this.setGameState('WON');
             return;
+        }
+
+        // Het nuoc di. Chi ket thuc khi nguoi choi THUC SU khong con gi lam duoc:
+        // moveCount chi dem nuoc CHUYEN MON, con keo Thung da wrap len Khay thi
+        // khong ton nuoc di. Neu ket thuc ngay khi cham gioi han thi mot van hoan
+        // hao — nuoc cuoi cung wrap not Thung cuoi — se bi xu THUA truoc khi nguoi
+        // choi kip giao no, tuc la dung dung par thi khong bao gio thang duoc.
+        if (this.moveLimit && this.moveCount >= this.moveLimit) {
+            const canStillDeliver = this.boxes.some(
+                (b) => b && b.isWrapped && this.isAccessible(b.id) && this.conveyor.findMatchingTray(b)
+            );
+            if (!canStillDeliver) {
+                this.setGameState('LOST');
+                return;
+            }
         }
 
         // Check Lose
@@ -2035,7 +2076,12 @@ const DEFAULTS = {
   undoCount: 3,
 
   // --- Van hanh ---
-  maxAttempts: 80,
+  // 400 chu khong phai 80. Mot vai cau hinh chat (super hard: cua so bang chuyen 1,
+  // 13 Thung, 3 hang hien) chi vua khuon sau hon 80 lan xay lai — man 29 can toi 120.
+  // Voi maxAttempts 80, generateLevel nem loi, LevelGenerator bat lay roi NOI LONG
+  // numSets, va nguoi choi nhan mot man DE HON han man da tuyen chon. Sinh man ton
+  // ~15 ms o truong hop nang nhat nen tran cao khong phai la van de hieu nang.
+  maxAttempts: 400,
   verify: true,           // luon replay lai loi giai qua engine sim truoc khi tra ve
   computeOptimal: 'auto', // 'auto' | true | false  -> co chay IDA* gan minMoves khong
 };
@@ -2131,174 +2177,208 @@ function generateLevelFromPreset(presetName, overrides = {}) {
   return generateLevel({ ...preset, ...overrides });
 }
 
+// Seed da TUYEN CHON cho 50 level chinh thuc (tools/curate50.mjs, 9/2026).
+//
+// Cau hinh chi quyet dinh KHUNG cua mot man (bao nhieu Thung, cua so bang chuyen
+// rong bao nhieu, may hang duoc nhin thay). Nhung hai man cung khung ma khac seed
+// co the lech nhau 40 diem phan tram ty le thua: seed moi la thu quyet dinh cac
+// item bi rai the nao va Khay doi theo thu tu nao. Vi vay 50 man nay khong duoc
+// sinh ngau nhien luc chay: moi man da duoc quet 72 seed, do bang 16 van thu va
+// 60 van xac nhan duoi chinh sach "smart", roi chot lai seed nao roi dung vao dai
+// ty le thua muc tieu cua tier do. Ca 50 man deu dat fit = 1.00.
+//
+// Doi mot so o day = doi han man choi do. Neu sua, chay lai tools/curate50.mjs
+// va cap nhat ca tools/levels50.json.
+const LEVEL_SEEDS = {
+   1: 506952114,  2: 1013904228,  3: 1520888018,  4: 2027848051,  5: 387284842,   // onboarding
+   6: 894229037,  7: 1401204908,  8: 1908133265,  9: 267625489, 10: 774561765,   // onboarding
+  11: 1281513879, 12: 1788648130, 13: 148053245, 14: 655227091, 15: 1161949554,   // acclimation
+  16: 1668893749, 17: 28663138, 18: 535306411, 19: 1042377310, 20: 1549321505,   // acclimation
+  21: 2056115239, 22: 416066765, 23: 922694200, 24: 1429986831, 25: 1939457187,   // normal/hard
+  26: 296858795, 27: 803209065, 28: 1310422506, 29: 1818538713, 30: 176217486,   // normal/superhard
+  31: 683391332, 32: 1190185066, 33: 1697121342, 34: 56819460, 35: 565418726,   // normal/hard
+  36: 1070969177, 37: 1577430313, 38: 2084437860, 39: 445363423, 40: 950866360,   // normal/superhard
+  41: 1457842231, 42: 1964643884, 43: 324199460, 44: 831397063, 45: 1338040336,   // normal/hard
+  46: 1845332967, 47: 204967733, 48: 711927766, 49: 1221382284, 50: 1725317259,   // normal/superhard
+};
+
 /**
  * Lo trinh do kho theo level number — nguon su that DUY NHAT cho cau hoi
  * "level N kho the nao" (UIManager chi truyen levelNumber vao day).
  *
- * ==== BAN THIET KE 9/2026: duong cong ep vao 30 LEVEL ====
+ * ==== BAN THIET KE 9/2026 (v2): 50 LEVEL, DO KHO DO BANG TY LE THUA ====
  *
- * Truoc day duong cong keo toi ~L70 va doan sau gan nhu phang. Ban moi dat toan bo
- * do kho vao 30 level va chia lam hai chang:
+ *   L1..L10    ONBOARDING. Day luat choi, khong thu thach. Ban nho, Khay chi doi
+ *              dung NHOM, khong co Thung bi che, khong gioi han nuoc di 4 man dau.
+ *   L11..L20   LAM QUEN DO KHO. Ban lon dan; L16 lan dau tien co Thung BI CHE;
+ *              Khay bat dau doi dung LOAI.
+ *   L21..L49   Duoi 5 = HARD (25/35/45). Duoi 9 = SUPER HARD (29/39/49).
+ *              Con lai = thuong.
  *
- *   L1..L10   LAM QUEN. Ban co nho, 1-3 nhom hang, Khay chi doi dung NHOM (khong
- *             doi dung loai), khong gioi han nuoc di/thoi gian trong 4 level dau,
- *             o trong gom lai cho de dan xep. Muc tieu la day duoc luat choi vao
- *             dau nguoi choi, khong phai thu thach ho.
+ * ==== VI SAO CAC CON SO NAY: do bang mo phong, khong phai doan ====
  *
- *   L11..L30  HARD / SUPER HARD xen ke DEU. Level le = HARD, level chan = SUPER
- *             HARD (L11 hard, L12 super, L13 hard, ...) — 10 man moi loai. Xen ke
- *             thay vi hai khoi lien nhau de nhip cua chang khong bi mot chieu:
- *             nguoi choi luon co mot man de tho giua hai man nghet.
+ * Do kho o day duoc do bang TY LE THUA cua chinh sach "smart" trong GameSim.js —
+ * mot nguoi choi khong bao gio pham loi hien nhien (khong tu tao Thung day lan
+ * lon, luon gom bo 3 truoc) nhung KHONG nhin truoc thu tu Khay va KHONG suy luan
+ * ve cot bi che. Van nao no van thua la van doi hoi LAP KE HOACH THAT.
  *
- *   L31+      Giu nguyen tran cua L30 (van xen ke hard/super hard). Bo luat khong
- *             con don bay nao chua dung.
+ * Quet 384 cau hinh (336 sinh duoc 100%) cho ba ket luan, va ca ba deu di nguoc
+ * ban thiet ke truoc:
  *
- * BANG CHUYEN — nguoc voi truc giac cu:
+ *   1. visibleRows la don bay MANH NHAT. Cung mot ban N=12: vr4 thua 0%, vr3 thua
+ *      22%. Chi can giau mot hang la doi han ban chat man choi — Thung rong khong
+ *      bao giờ roi cot, nen giai phong nham mot Thung o hang tren la khoa vinh vien
+ *      Thung ben duoi. Ban cu de cung visibleRows: 4 cho MOI level, tuc la duoi
+ *      N=13 khong bao gio co Thung bi che — do la ly do lon nhat khien level "kho"
+ *      truoc day khong he kho.
  *
- *     chang        | Khay chay cung luc
- *     L1..L5       |  3
- *     L6..L10      |  4
- *     L11..L30 le  |  5   (hard)
- *     L11..L30 chan|  6 hoac 7 (super hard, luan phien)
+ *   2. BANG CHUYEN HEP MOI LA KHO — nguoc han ban truoc (ban truoc noi rong hon
+ *      moi kho, va da noi rong len 5..7). So do:
  *
- * O ban truoc, cua so HEP duoc coi la kho (it cho giao hang => ton kho Khay cao).
- * Ban nay lam nguoc: cua so RONG hon cho level kho hon. Hai hieu ung that su nguoc
- * chieu nhau va deu co that:
- *   - rong hon => de GIAO hang hon  (giam ap luc ton kho)
- *   - rong hon => nhieu muc tieu phai doi chieu cung luc hon (tang tai doc vi)
- * Vi vay cham diem da tach lam hai truc rieng: trayBacklog (ton kho) va trayLoad
- * (tai doc vi) — xem finalize(). Dung gop hai thu nay lai lam mot lan nua.
+ *        Khay chay cung luc |  1     2     3
+ *        ty le thua         | 55-74% 45-51% 0-17%
  *
- * Luu y: day van la GIA THIET THIET KE, phai hieu chinh lai khi co telemetry that.
+ *      Moi cau hinh 0% trong quet deu la cma=3; hau het cau hinh >55% deu la cma=1.
+ *      Cua so hep ep nguoi choi phai GOI DUNG THU TU Khay se toi, khong duoc phep
+ *      gom bo 3 tuy y — do la rang buoc lap ke hoach, khong phai rang buoc thao tac.
+ *
+ *   3. PHONG TO BAN KHONG LAM KHO THEM, chi lam DAI THEM. N18 vr4 chi thua 9%
+ *      trong khi N12 vr3 thua 22% voi it hon 1/3 so nuoc di. Vi vay tier hard/super
+ *      hard o day GIU BAN NHO (N12..N14, par 13..24 nuoc) va don toan bo do kho
+ *      vao vr3 + cma hep + Khay dung loai. Dung "kho chu khong phai choi lau".
+ *
+ * Bang cau hinh chot cua ba tier cuoi (do voi 8 seed x 12 van moi cau hinh):
+ *
+ *     tier       | N     | vr | cma | Khay        | ty le thua do duoc
+ *     thuong     | 11-13 |  3 |  3  | 60-90% loai |  8-28%
+ *     hard       | 12-14 |  3 |  2  | 100% loai   |  63-70%
+ *     super hard |  13   |  3 |  1  | 100% loai   |  80-91%
+ *
+ * So o cot cuoi la do THAT SU tren 50 man da chot (60 van/man, chinh sach
+ * "smart"), khong phai muc tieu thiet ke. Cao hon dang ke so uoc luong truoc
+ * day (~45-51% / ~55-74%) vi hai ly do: seed cua tung man da duoc tuyen chon
+ * thay vi lay ngau nhien, va super hard nay ghim N = 13 thay vi noi den 14 —
+ * ban to hon chi lam man DAI hon chu khong kho hon.
+ *
+ * Luu y: van la GIA THIET THIET KE do bang bot, phai hieu chinh khi co telemetry
+ * that. Nhung khac ban truoc, moi con so o tren deu truy nguoc duoc ve mot phep do.
  */
 function configForLevelNumber(level, overrides = {}) {
   const L = Math.max(1, Math.floor(level));
-  // Chang 2 bat dau tu L11. Trong chang 2, level LE = hard, level CHAN = super hard.
-  const isRamp = L <= 10;
-  const isSuperHard = !isRamp && L % 2 === 0;
-  // t = tien do trong chang, 0..1. Dung de noi suy moi tham so lien tuc.
-  const t = isRamp ? (L - 1) / 9 : clamp((L - 11) / 19, 0, 1);
   const lerp = (a, b, x) => a + (b - a) * x;
 
-  /* --- Quy mo ban choi --- */
-  // Khu Thung la 3 cot x 4 hang = 12 o HIEN. Thung thu 13 tro di bi che o dinh cot
-  // va chi lo ra khi mot Thung phia duoi duoc giao xong.
-  //
-  //   chang 1  N = 5..12   (vung hien dan day, chua co Thung an)
-  //   hard     N = 12..16  (an 0 -> 4)
-  //   super    N = 13..18  (an 1 -> 6)
-  //
-  // Do ti le sinh man thanh cong theo N (40 seed moi muc, 9/2026): 100% tu N=8 den
-  // N=20; chi phi la so lan xay lai (0.1 lan o N<=13, 2.2 o N=18, 7.8 o N=20). Do
-  // la ly do tran dat o 18 chu khong cao hon — tren nua thi thoi gian sinh man bat
-  // dau thay duoc tren may yeu.
-  const numBoxes = isRamp
-    ? Math.round(lerp(5, 12, t))
-    : isSuperHard
-      ? Math.round(lerp(13, 18, t))
-      : Math.round(lerp(12, 16, t));
-  const numEmptyBoxes = 0;                                     // LUAT MOI
-  const numSets = numBoxes - 1;
+  const tier =
+    L <= 10 ? 'onboarding' :
+    L <= 20 ? 'acclimation' :
+    L % 10 === 9 ? 'superhard' :
+    L % 10 === 5 ? 'hard' : 'normal';
 
-  /* --- Item pool --- */
-  // Catalog co 8 nhom x 4 loai = 32 loai. Hai vai tro khac nhau, dung lan lon:
-  //
-  //   BIEN DO (chong nham chan) den tu viec MOI MAN RUT MOT LAT CAT KHAC NHAU tu
-  //   8 nhom: chon 3 trong 8 nhom da co 56 to hop, chon 4 co 70 — 30 man khong bao
-  //   gio phai lap lai bang mau/emoji.
-  //
-  //   DO KHO den tu viec rut lat cat do cho DAC: it nhom nhung nhieu loai trong
-  //   moi nhom. 9 bo trai deu tren 8 nhom thi moi mau gan nhu chi co mot loai —
-  //   nguoi choi phan loai bang mau la xong, khong can nhin emoji. Nguoc lai 9 bo
-  //   don vao 2 nhom x 4 loai thi mau vo dung, buoc phai doc emoji.
-  //
-  // Vi vay so nhom GIAM dan trong chang 2 trong khi so loai/nhom TANG.
-  //
-  // Ban co lon hon (toi 17 bo) buoc pool phai rong hon truoc: 3 nhom x 4 loai = 12
-  // loai, moi loai dung toi 2 bo, vua du 17 bo. Khong the ep ve 2 nhom nhu ban 10
-  // Thung nua — do la cai gia phai tra cho khu Thung 3x4.
-  const numCategories = isRamp
-    ? Math.min(1 + Math.round(t * 2), 3)
-    : isSuperHard
-      ? Math.round(lerp(4, 3, t))
-      : Math.round(lerp(5, 4, t));
-  const itemTypesPerCategory = isRamp
-    ? 2
-    : isSuperHard
-      ? MAX_TYPES_PER_CAT
-      : Math.min(3, MAX_TYPES_PER_CAT);
-  const poolSize = numCategories * itemTypesPerCategory;
+  let c;
+  if (tier === 'onboarding') {
+    // Muc tieu: thua 0%. Khong Thung bi che, Khay rong rai, nhieu Thung gan xong.
+    const t = (L - 1) / 9;
+    c = {
+      numBoxes: [4, 5, 5, 6, 6, 7, 7, 8, 9, 9][L - 1],
+      numCategories: L <= 3 ? 1 : L <= 6 ? 2 : 3,
+      itemTypesPerCategory: 2,
+      visibleRows: 4,
+      ratio21: lerp(1.0, 0.6, t),
+      trayOrder: L <= 4 ? 'wrapOrder' : 'shuffled',
+      trayMatchMode: 'category',
+      strictTrayRatio: 0,
+      conveyorMaxActive: L <= 3 ? 4 : 3,
+      moveLimitSlack: L <= 4 ? null : lerp(2.2, 1.7, t),
+      secondsPerMove: null,
+      undoCount: 5,
+    };
+  } else if (tier === 'acclimation') {
+    // Muc tieu: thua ~0->15%. L16 lan dau co Thung bi che va Khay doi dung loai.
+    const t = (L - 11) / 9;
+    const hidden = L >= 16;
+    c = {
+      numBoxes: Math.round(lerp(9, 12, t)),
+      numCategories: hidden ? 4 : 3,
+      itemTypesPerCategory: hidden ? 2 : 3,
+      visibleRows: hidden ? 3 : 4,
+      ratio21: lerp(0.55, 0.2, t),
+      trayOrder: 'shuffled',
+      trayMatchMode: hidden ? 'itemType' : 'category',
+      strictTrayRatio: lerp(0, 0.6, t),
+      conveyorMaxActive: 3,
+      moveLimitSlack: lerp(1.7, 1.45, t),
+      secondsPerMove: lerp(9, 6, t),
+      undoCount: 4,
+    };
+  } else if (tier === 'hard') {
+    const u = (L - 25) / 20;                        // 25,35,45 -> 0, 0.5, 1
+    c = {
+      numBoxes: Math.round(lerp(12, 14, u)),
+      numCategories: 4, itemTypesPerCategory: 2,
+      visibleRows: 3, ratio21: 0.4, trayOrder: 'reverse',
+      trayMatchMode: 'itemType', strictTrayRatio: 1.0,
+      conveyorMaxActive: 2,
+      moveLimitSlack: lerp(1.40, 1.25, u),
+      secondsPerMove: lerp(7, 5, u),
+      undoCount: 2,
+    };
+  } else if (tier === 'superhard') {
+    const u = (L - 29) / 20;                        // 29,39,49 -> 0, 0.5, 1
+    c = {
+      numBoxes: 13,   // do duoc: N13 kho hon HAN N14 o cma1 (90% vs 45%)
+      numCategories: 4, itemTypesPerCategory: 2,
+      visibleRows: 3, ratio21: 0.4, trayOrder: 'reverse',
+      trayMatchMode: 'itemType', strictTrayRatio: 1.0,
+      conveyorMaxActive: 1,
+      moveLimitSlack: lerp(1.30, 1.15, u),
+      secondsPerMove: lerp(6, 4.5, u),
+      undoCount: 1,
+    };
+  } else {
+    const t = clamp((L - 21) / 28, 0, 1);
+    c = {
+      numBoxes: Math.round(lerp(11, 13, t)),
+      numCategories: 3, itemTypesPerCategory: 3,
+      visibleRows: 3, ratio21: lerp(0.35, 0.1, t), trayOrder: 'shuffled',
+      trayMatchMode: 'itemType', strictTrayRatio: lerp(0.6, 0.9, t),
+      conveyorMaxActive: 3,
+      moveLimitSlack: lerp(1.50, 1.35, t),
+      secondsPerMove: lerp(8, 6, t),
+      undoCount: 3,
+    };
+  }
 
-  /* --- Do phan tan --- */
-  const ratio21 = isRamp ? lerp(1.0, 0.65, t) : lerp(0.6, 0.15, t);
-  // extraScramble = 0 O MOI LEVEL. Hai ly do cong lai:
-  //   1. Chinh file nay da do va ghi lai (xem DEFAULTS): xao them chi keo dai loi
-  //      giai THAM CHIEU, con loi giai TOI UU hau nhu khong doi — no la can gat DO
-  //      NHIEU chu khong phai do kho, va cham diem chuan hoa theo parMoves nen no
-  //      khong dong gop gi vao diem.
-  //   2. Tu khi co khu Thung 3x4, no con PHA sinh man: xao them lam loi giai cham
-  //      vao MOI Thung ngay tu dau, nen khong Thung nao du dieu kien nam o vung an.
-  //      Do o L30 (N=18, 12 seed): extraScramble 0 -> 3.6 lan xay lai trung binh;
-  //      0.1 -> 38; 0.3 -> 51; 0.5 -> khong sinh noi trong 80 lan thu.
-  // Tham so van con trong DEFAULTS cho nhanh debug khong dung bo cuc cot.
-  const extraScramble = 0;
-  const trayOrder = L <= 4 ? 'wrapOrder' : isRamp ? 'shuffled' : 'reverse';
-  const maxSetsPerType = Math.max(
-    Math.ceil(numSets / poolSize),
-    isRamp ? 3 : isSuperHard ? 1 : 2
-  );
+  const numSets = c.numBoxes - 1;
+  const poolSize = c.numCategories * c.itemTypesPerCategory;
+  const maxSetsPerType = Math.max(3, Math.ceil(numSets / poolSize));
   if (poolSize * maxSetsPerType < numSets) {
-    // Chan an toan: neu lat cat qua hep cho so bo can thiet thi noi so loai/nhom
-    // truoc khi noi so nhom (giu do "dac" cua mau).
     throw new Error(`configForLevelNumber(${L}): pool ${poolSize} qua nho cho ${numSets} bo`);
   }
 
-  /* --- O trong: 3 o chia lam may Thung --- */
-  // 2 => 2+1 (con mot Thung chi 1 vat, de dan xep) | 3 => 1+1+1 (nghet)
-  const freeSlotBoxes = isRamp ? 2 : isSuperHard ? 3 : 2;
-
-  /* --- Bang chuyen: SAN 3, hard 5, super hard 6/7 --- */
-  // Super hard luan phien 6 va 7 de hai man super hard lien tiep khong giong het
-  // nhau; 7 roi vao cac level chia het cho 4.
-  // Chan tren numSets-1: phai LUON con it nhat mot Khay nam ngoai cua so, neu khong
-  // thi bang chuyen khong con la bang chuyen — nguoi choi nhin thay ca hang doi va
-  // moi Thung wrapped deu giao duoc ngay (do lai o L12 ban truoc: wrap = 1.00 tuyet
-  // doi, truc ton kho chet han). Chi cac level onboarding dau moi cham chan nay.
-  const conveyorMaxActive = Math.min(
-    isRamp ? (L <= 5 ? 3 : 4) : isSuperHard ? (L % 4 === 0 ? 7 : 6) : 5,
-    Math.max(2, numSets - 1)
-  );
-
-  /* --- Luat Khay & ap luc meta --- */
-  // Chang 1 khong bao gio doi khop dung loai item — do la thu cua chang 2.
-  const strictTrayRatio = isRamp ? 0 : isSuperHard ? lerp(0.5, 1.0, t) : lerp(0.15, 0.6, t);
-  const trayMatchMode = strictTrayRatio >= 0.5 ? 'itemType' : 'category';
-  const moveLimitSlack = L <= 4 ? null : isRamp ? lerp(1.9, 1.5, t) : lerp(1.4, 1.05, t);
-  const secondsPerMove = isRamp ? null : lerp(7.5, 3.5, t);
-  const undoCount = isRamp ? 3 : isSuperHard ? 1 : 2;
-
   return {
-    seed: (L * 2654435761) % 2147483647,
-    numBoxes,
-    numEmptyBoxes,
+    // Man 1-50 dung seed da tuyen chon; ngoai pham vi do thi quay ve seed suy ra.
+    seed: LEVEL_SEEDS[L] ?? (L * 2654435761) % 2147483647,
+    numBoxes: c.numBoxes,
+    numEmptyBoxes: 0,
     noEmptyBoxes: true,
     numSets,
-    numCategories,
-    itemTypesPerCategory,
+    numCategories: c.numCategories,
+    itemTypesPerCategory: c.itemTypesPerCategory,
     maxSetsPerType,
-    freeSlotBoxes,
-    ratio21,
-    extraScramble,
-    trayOrder,
-    trayMatchMode,
-    strictTrayRatio,
-    conveyorMaxActive,
-    moveLimitSlack,
-    secondsPerMove,
-    undoCount,
+    // O trong luon la 3 (numSets = numBoxes - 1), nen day chi la goi y phan bo.
+    freeSlotBoxes: 2,
+    ratio21: c.ratio21,
+    extraScramble: 0,
+    trayOrder: c.trayOrder,
+    trayMatchMode: c.trayMatchMode,
+    strictTrayRatio: c.strictTrayRatio,
+    // cma = 1 la HOP LE va la don bay kho nhat: chi mot Khay voi toi duoc.
+    conveyorMaxActive: Math.max(1, Math.min(c.conveyorMaxActive, numSets)),
+    moveLimitSlack: c.moveLimitSlack,
+    secondsPerMove: c.secondsPerMove,
+    undoCount: c.undoCount,
     columns: 3,
-    visibleRows: 4,
-    tier: isRamp ? 'ramp' : isSuperHard ? 'superhard' : 'hard',
+    visibleRows: c.visibleRows,
+    tier,
     ...overrides,
   };
 }
@@ -2767,45 +2847,46 @@ function finalize(cfg, built, attempt) {
   // khong dung de cham diem.
   difficulty.refSlack = +(refMoves / Math.max(1, parMoves)).toFixed(2);
 
-  // Diem do kho 1..100 — 6 truc chuan hoa ve [0,1] roi tron theo trong so.
+  // Diem do kho 1..100 — 8 truc chuan hoa ve [0,1] roi tron theo trong so.
   //
-  // DUONG CONG 30 LEVEL (do 9/2026, 20 seed moi level, sau khi doi sang luat
-  // khong-Thung-rong va bang chuyen rong dan):
+  // HIEU CHUAN LAI 9/2026 CHO DUONG CONG 50 LEVEL. Thuoc do su that cua do kho
+  // KHONG phai diem nay ma la TY LE THUA cua chinh sach "smart" (GameSim): mot
+  // nguoi choi khong bao gio pham loi hien nhien nhung khong nhin truoc thu tu
+  // Khay lan cac Thung bi che. Van nao no van thua la van doi hoi lap ke hoach
+  // that. Diem so duoi day chi de XEP HANG va hien thi; no phai DI CUNG CHIEU voi
+  // ty le thua do duoc, neu khong thi no dang noi doi.
   //
-  //   level | tier      | box | Khay | cuaSo | par  | wrapped | score
-  //      1  | ramp      |  4  |  3   |   2   |  3.6 |  1.00   |  21
-  //      5  | ramp      |  6  |  5   |   3   |  6.2 |  1.05   |  30
-  //     10  | ramp      |  8  |  7   |   4   |  8.9 |  1.25   |  38
-  //     11  | hard      |  9  |  8   |   5   | 10.9 |  2.05   |  51
-  //     12  | superhard |  9  |  8   |   7   | 10.9 |  1.70   |  61
-  //     21  | hard      | 10  |  9   |   5   | 15.1 |  3.00   |  66
-  //     26  | superhard | 10  |  9   |   6   | 15.7 |  3.25   |  83
-  //     29  | hard      | 10  |  9   |   5   | 15.5 |  3.20   |  74
-  //     30  | superhard | 10  |  9   |   6   | 15.8 |  3.15   |  84
+  //   tier        | box  | cuaSo | visibleRows | par   | thua(smart) | score
+  //   onboarding  | 4-9  |  3-4  |      4      |  3-10 |     0%      | 20-37
+  //   acclimation | 9-12 |   3   |     3-4     |  9-13 |     0%      | 40-53
+  //   normal      | 11-13|   3   |      3      | 13-19 |    8-28%    | 55-66
+  //   hard        | 12-14|   2   |      3      | 13-18 |    63-70%   | 66-74
+  //   superhard   |  13  |   1   |      3      | 16-17 |    80-91%   | 78-79
   //
-  // Hai DUONG rieng biet chu khong phai mot: hard 51 -> 74, super hard 61 -> 84,
-  // xen ke tung level. Khoang cach ~10 diem giua hai tier chinh la nhip nghi ma
-  // ban thiet ke muon. Ca hai deu cham tran o L30, dung nhu yeu cau.
+  // Hai phat hien bat buoc phai phan anh vao trong so:
   //
-  // Luu y cot 'wrapped': super hard co ton kho Khay THAP hon hard (1.7 vs 2.05 o
-  // L11-12) vi cua so rong hon giao hang de hon. Do la ly do truc trayBacklog bi ha
-  // trong so tu 0.20 xuong 0.10 va truc trayLoad ra doi — xem phan cham diem.
-  // Moi chi so CAU TRUC cua ban co deu cham tran quanh level 40: quy mo bi chan boi
-  // 10 Thung (gioi han ban choi trong GDD) va 4 nhom hang x 3 loai (toan bo
-  // ITEM_CATALOG). Voi numSets = numBoxes - 1 thi F = 3N - 3S = 3 la HANG SO, nghia
-  // la truc "ap luc o trong" cu (parMoves / freeSlots) chi la ban sao ti le cua truc
-  // khoi luong — 24% trong so cham diem cho cung mot thong tin hai lan. No duoc thay
-  // bang do PHAN TAN (spread), thu that su thay doi theo ratio21 tu 2.00 den 2.89.
+  // (1) PHONG TO BAN KHONG LAM KHO THEM, chi lam DAI THEM. N18/visibleRows4 chi
+  //     thua 9% trong khi N12/visibleRows3 thua 22% voi mot phan ba so nuoc di.
+  //     Vi vay truc volume bi ha tu 0.26 xuong 0.20: par dai khong con duoc
+  //     thuong nhieu. Yeu cau thiet ke la "kho chu khong phai choi lau".
   //
-  // Ket luan thiet ke: quy mo ban co (par ~15.8) cham tran o L21 khi numBoxes = 10.
-  // Tu do den L30, do kho di len bang DO DAC CUA POOL (it nhom hang hon, nhieu loai
-  // trong moi nhom hon => mau sac vo dung, phai doc emoji), do nghiem ngat cua Khay,
-  // tai doc vi bang chuyen, va o trong bi xe le 1+1+1. Tat ca deu cham tran o L30 —
-  // do la CO Y, vi ban thiet ke chi dat 30 level. L31+ lap lai muc L29/L30.
-  // Mau so 30: khu Thung 3x4 keo par tu ~16 (ban 10 Thung cu) len ~29 o L30. Giu
-  // mau so 24 cu thi moi level tu L24 tro len deu bao hoa truc nay va khong con
-  // phan biet duoc nhau.
-  const nm = Math.min(parMoves / 30, 1);                                   // khoi luong
+  // (2) CUA SO BANG CHUYEN LA DON BAY MANH NHAT, va no NGUOC CHIEU voi truc
+  //     trayLoad cu. Do la mot LOI THAT trong ban cham diem truoc: cong thuc cu
+  //     clamp((conveyorMaxActive - 3) / 4) coi NHIEU Khay la kho hon, nen no cho
+  //     0 diem cho moi level hard/super hard (cua so 1-2) va chi cho diem duong
+  //     cho level onboarding (cua so 4). Do duoc: cua so 1 thua 55-74%, cua so 2
+  //     thua 45-51%, cua so 3 thua 0-17%. Cua so la mot TIEN TO CO DINH cua bang
+  //     chuyen, khong xoay vong duoc, nen cua so 1 nghia la chi mot Khay voi toi.
+  //     Truc nay doi thanh DO CHAT cua cua so va nhan trong so lon thu hai.
+  //
+  // Them truc CHIEU SAU: Thung nam ngoai visibleRows bi che hoan toan va chi lo ra
+  // khi mot lan giao hang lam sup cot. Thong tin an la nguon kho "hay" nhat vi no
+  // phat nguoi choi khong lap ke hoach chu khong bat ho bam them nuoc di.
+  //
+  // Da BO tin dung cho secondsPerMove va undoCount: GameEngine khong cai dat dong
+  // ho lan hoan tac (kiem chung bang grep 9/2026), nen cham diem cho chung la tinh
+  // cong mot luat khong ton tai. Trong ba thu do, chi moveLimit la co that.
+  const nm = Math.min(parMoves / 22, 1);                                   // khoi luong
   const nd = clamp((difficulty.avgSpread - 1) / 2, 0, 1);                  // phan tan bo item
   const nx = difficulty.mixedBoxRatio;                                     // do dan xen
   // Nhieu thi giac = vua phai co nhieu loai item, VUA co nhieu loai cung mot nhom hang.
@@ -2822,37 +2903,45 @@ function finalize(cfg, built, attempt) {
   // tran THUC TE do duoc duoi luat hien hanh (xem bang trong comment ben tren),
   // khong phai mot so tron. Cua so bang chuyen rong hon => con so nay THAP hon.
   const nw = Math.min(maxWrappedHeld / 4, 1);                              // ton kho Khay
-  // Tai doc vi: moi lan wrap xong mot Thung, nguoi choi phai doi chieu no voi TAT CA
-  // Khay dang chay. 3 Khay lam mot liec mat; 7 Khay la mot bai quet. Truc nay nguoc
-  // chieu voi nw — do la CO Y, xem comment o configForLevelNumber.
-  const nt = clamp((cfg.conveyorMaxActive - 3) / 4, 0, 1);                 // tai doc vi Khay
+  // Do CHAT cua cua so bang chuyen. `allTrays.slice(0, conveyorMaxActive)` la mot
+  // tien to CO DINH: cua so 1 nghia la ca man chi co dung mot Khay voi toi, moi
+  // Thung wrap ra deu phai vua Khay do hoac nam lai chiem cho. Day la don bay do
+  // kho manh nhat do duoc nen no giu trong so lon thu hai.
+  // Bac thang, khong tuyen tinh: ty le thua do duoc nhay vot giua cua so 3 va 2
+  // (0-17% -> 45-51%) roi nhay tiep o cua so 1 (55-74%). Mot ham tuyen tinh se lam
+  // nhoe dung cho ranh gioi quan trong nhat cua game.
+  const WINDOW_TIGHTNESS = { 1: 1, 2: 0.62, 3: 0.15, 4: 0.04 };
+  const nq = WINDOW_TIGHTNESS[cfg.conveyorMaxActive] ?? 0;                 // cua so chat
+  // Chieu sau thong tin an: so Thung nam ngoai vung hien. Chung chi lo ra khi mot
+  // lan giao hang lam sup cot, nen nguoi choi phai suy luan ve thu minh chua thay.
+  const nh = clamp(Math.max(0, cfg.numBoxes - cfg.columns * cfg.visibleRows) / 6, 0, 1);
   // Do NGHIEM NGAT cua luat choi. Truoc day cu buoc nhay lon nhat cua duong cong
   // (level 40: Khay doi khop dung loai item) hoan toan vo hinh voi diem so, vi no
   // khong lam thay doi bat ky chi so nao cua ban co ban dau.
   const ns = clamp(
-    strictRatio * 0.3 +
-      (cfg.trayOrder === 'reverse' ? 0.2 : cfg.trayOrder === 'shuffled' ? 0.1 : 0) +
-      (cfg.moveLimitSlack == null ? 0 : clamp((1.8 - cfg.moveLimitSlack) / 0.75, 0, 1) * 0.2) +
-      (cfg.secondsPerMove == null ? 0 : clamp((8 - cfg.secondsPerMove) / 4.5, 0, 1) * 0.15) +
-      clamp((3 - cfg.undoCount) / 2, 0, 1) * 0.15,
+    strictRatio * 0.45 +
+      (cfg.trayOrder === 'reverse' ? 0.25 : cfg.trayOrder === 'shuffled' ? 0.12 : 0) +
+      (cfg.moveLimitSlack == null ? 0 : clamp((1.8 - cfg.moveLimitSlack) / 0.75, 0, 1) * 0.3),
     0,
     1
   );
   difficulty.components = {
     volume: +nm.toFixed(3), spread: +nd.toFixed(3), interleave: +nx.toFixed(3),
-    confusion: +nc.toFixed(3), trayBacklog: +nw.toFixed(3), trayLoad: +nt.toFixed(3),
+    confusion: +nc.toFixed(3), trayBacklog: +nw.toFixed(3),
+    windowTightness: +nq.toFixed(3), hiddenDepth: +nh.toFixed(3),
     strictness: +ns.toFixed(3),
   };
-  // Trong so doi 9/2026 cung voi ban thiet ke 30 level:
-  //   - volume 0.30 -> 0.26: quy mo ban co cham tran tu L20, bot phu thuoc vao no.
-  //   - confusion 0.08 -> 0.12: catalog 32 loai cho truc nay du dia that su.
-  //   - trayBacklog 0.20 -> 0.10 va tach ra truc trayLoad 0.10: cua so bang chuyen
-  //     gio RONG dan theo do kho nen mot minh trayBacklog se cham nguoc dau.
+  // Trong so doi lai 9/2026 cho duong cong 50 level, can theo ty le thua do duoc:
+  //   - volume 0.26 -> 0.20: par dai khong con duoc thuong nhieu ("kho chu khong dai").
+  //   - trayLoad 0.10 -> windowTightness 0.20: sua truc bi NGUOC va tra no ve dung
+  //     tam quan trong da do duoc (cua so 1 thua 55-74%, cua so 3 thua 0-17%).
+  //   - them hiddenDepth 0.08: thong tin an lam kho ma khong ton them nuoc di.
+  //   - strictness 0.18 -> 0.10: da bo hai thanh phan khong duoc cai dat.
   difficulty.score = clamp(
     Math.round(
       100 *
-        (0.26 * nm + 0.14 * nd + 0.10 * nx + 0.12 * nc +
-         0.10 * nw + 0.10 * nt + 0.18 * ns)
+        (0.20 * nm + 0.12 * nd + 0.10 * nx + 0.12 * nc +
+         0.08 * nw + 0.20 * nq + 0.08 * nh + 0.10 * ns)
     ),
     1,
     100
@@ -3602,16 +3691,20 @@ class TrayRenderer {
             if (item.isExiting) {
                 item.currentTheta += deltaTheta;
                 
-                // Out port is at left edge (cos approaches -1). Front track (sin < 0).
-                if (!item.fadingOut && Math.cos(item.currentTheta) < -0.90 && Math.sin(item.currentTheta) < 0) {
+                // Out port is at left edge (cos approaches -1). Front track (sin <= 0).
+                if (!item.fadingOut && Math.cos(item.currentTheta) < -0.88 && Math.sin(item.currentTheta) <= 0.08) {
                     item.fadingOut = true;
                     item.el.classList.add('exiting'); // Trigger CSS fade out
+                    item.el.style.transition = 'transform 0.35s ease-in, opacity 0.35s ease-in';
+                    const curTransform = item.el.style.transform;
+                    item.el.style.transform = `${curTransform} translateX(-60px) scale(0.6)`;
+                    item.el.style.opacity = '0';
                     setTimeout(() => {
-                        if (item.onComplete) item.onComplete();
-                        if (item.el.parentNode) item.el.remove();
                         const idx = this.trayElements.indexOf(item);
                         if (idx > -1) this.trayElements.splice(idx, 1);
-                    }, 300);
+                        if (item.el.parentNode) item.el.remove();
+                        if (item.onComplete) item.onComplete();
+                    }, 350);
                 }
             }
         }
@@ -3712,7 +3805,7 @@ class TrayRenderer {
      * deu trong khoang 0.3s.
      */
     _respace() {
-        const ring = this.trayElements.filter(t => !t.isExiting);
+        const ring = this.trayElements.filter(t => !t.fadingOut);
         const n = ring.length;
         if (n === 0) return;
 
@@ -3818,6 +3911,8 @@ class UIManager {
         
         this.overlayWin = document.getElementById('overlay-win');
         this.overlayLose = document.getElementById('overlay-lose');
+        this.loseReason = document.getElementById('lose-reason');
+        this.moveLimitDisplay = document.getElementById('move-limit');
         this.overlayLoading = document.getElementById('overlay-loading');
         this.overlayLevelSelect = document.getElementById('overlay-level-select');
         this.levelGrid = document.getElementById('level-grid');
@@ -3877,11 +3972,29 @@ class UIManager {
         document.addEventListener('pointercancel', this.handleDragEnd.bind(this));
     }
     
+    // Gioi han nuoc di chi la rang buoc that neu nguoi choi NHIN THAY no con
+    // bao nhieu — neu khong thi thua vi het nuoc chi la mot cu bat ngo.
+    renderMoveLimit() {
+        if (!this.moveLimitDisplay) return;
+        const lim = this.engine.moveLimit;
+        this.moveLimitDisplay.textContent = lim ? ` / ${lim}` : '';
+        const left = lim ? lim - this.engine.moveCount : Infinity;
+        this.moveLimitDisplay.classList.toggle('low', left <= 5);
+    }
+
     bindEngineCallbacks() {
         this.engine.onGameStateChanged = (state) => {
             if (state === 'WON') {
                 this.overlayWin.classList.remove('hidden');
             } else if (state === 'LOST') {
+                // Hai ly do thua khac han nhau, va nguoi choi phai biet minh
+                // hong o dau thi moi hoc duoc gi tu van thua.
+                if (this.loseReason) {
+                    const e = this.engine;
+                    this.loseReason.textContent = (e.moveLimit && e.moveCount >= e.moveLimit)
+                        ? `Out of moves — the limit is ${e.moveLimit}.`
+                        : 'No more empty slots to move items.';
+                }
                 this.overlayLose.classList.remove('hidden');
             } else {
                 this.overlayWin.classList.add('hidden');
@@ -3891,18 +4004,21 @@ class UIManager {
         
         this.engine.onMoveCountUpdated = (count) => {
             this.moveDisplay.textContent = count;
+            this.renderMoveLimit();
         };
         
         this.engine.onBoxUpdated = (box, isRemoved = false) => {
             this.updateRender();
         };
         
-        this.engine.onTrayExited = (trayId) => {
+        this.engine.onTrayDelivered = (trayId) => {
             this.trayRenderer.animateTrayExit(trayId, () => {
+                // Khay chua box da vao trong cua OUT -> hoan tat exit tren engine va cho phep khay moi di ra tu cua IN
+                this.engine.completeTrayExit(trayId);
+                this.conveyorRenderer.animateShift();
+                this.trayRenderer.animateShift();
                 this.updateRender();
             });
-            this.conveyorRenderer.animateShift();
-            this.trayRenderer.animateShift();
             if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
         };
 
@@ -3981,6 +4097,7 @@ class UIManager {
         this.engine.startLevel(levelData);
         this.levelDisplay.textContent = this.currentLevel;
         this.moveDisplay.textContent = "0";
+        this.renderMoveLimit();
         this._boLuotFlip = true;
         
         this.updateRender();

@@ -763,3 +763,7 @@ html, body {
     border: 2px solid #fff;
     filter: brightness(1.2);
 }
+
+/* Con lai bao nhieu nuoc di: chuyen do khi sap het de nguoi choi kip doi ke hoach. */
+#move-limit { opacity: 0.6; }
+#move-limit.low { opacity: 1; color: #e5484d; font-weight: 700; }
