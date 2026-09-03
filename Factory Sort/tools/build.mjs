@@ -129,4 +129,14 @@ if (/url\(\s*['"]?assets\//.test(standalone)) {
 
 fs.writeFileSync(path.join(ROOT, 'FactorySort_Standalone.html'), standalone);
 
-console.log(`Da build: bundle.js (${bundle.split('\n').length} dong) + FactorySort_Standalone.html`);
+const VERIFY_SRC = path.join(ROOT, 'tools', 'verify.html');
+if (fs.existsSync(VERIFY_SRC)) {
+  const verify = fs.readFileSync(VERIFY_SRC, 'utf8');
+  const VERIFY_SCRIPT = '<script src="../bundle.js"></script>';
+  if (verify.includes(VERIFY_SCRIPT)) {
+    const builtVerify = verify.replace(VERIFY_SCRIPT, `<script>\n${bundle}\n</script>`);
+    fs.writeFileSync(path.join(ROOT, 'tools', 'verify_build.html'), builtVerify);
+  }
+}
+
+console.log(`Da build: bundle.js (${bundle.split('\n').length} dong) + FactorySort_Standalone.html + verify_build.html`);

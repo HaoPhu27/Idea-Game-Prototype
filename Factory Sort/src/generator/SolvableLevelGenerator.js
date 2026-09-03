@@ -61,6 +61,12 @@ for (const cat of CATEGORIES) {
 }
 export const getTypeInfo = (id) => TYPE_INDEX.get(id);
 
+// So loai item nhieu nhat trong MOT nhom hang, va tong so loai cua ca catalog.
+// Cham diem va clamp phai doc hai so nay chu khong hardcode "3" / "12": catalog da
+// mo rong tu 4 nhom x 3 loai len 8 nhom x 4 loai (9/2026) va con co the doi tiep.
+export const MAX_TYPES_PER_CAT = Math.max(...CATEGORIES.map((c) => c.items.length));
+export const TOTAL_TYPES = CATEGORIES.reduce((n, c) => n + c.items.length, 0);
+
 /* ------------------------------------------------------------------ */
 /* Tham so                                                             */
 /* ------------------------------------------------------------------ */
@@ -71,12 +77,37 @@ export const DEFAULTS = {
   // --- Quy mo ban choi ---
   numBoxes: 6,            // tong so Thung
   boxCapacity: 3,         // GDD: co dinh 3
-  numEmptyBoxes: 1,       // so Thung RONG hoan toan luc bat dau (luat cung >= 1)
-  numSets: null,          // so bo 3 item = so Tray. null => numBoxes - numEmptyBoxes
+  numEmptyBoxes: 0,       // so Thung RONG hoan toan luc bat dau.
+                          // LUAT MOI (9/2026): = 0. Luc spawn KHONG duoc co Thung
+                          // rong nao, moi Thung phai co it nhat 1 vat. Xem
+                          // noEmptyBoxes ben duoi va buoc 5 trong buildOnce().
+  numSets: null,          // so bo 3 item = so Tray. null => numBoxes - 1
+
+  // Luc spawn moi Thung phai co >= 1 vat. Voi cap=3 va S = N-1 thi con dung
+  // 3 o trong, va vi khong Thung nao duoc rong nen mot Thung giu toi da 2 o trong.
+  // Bat buoc voi moi man choi that; chi tat khi debug.
+  noEmptyBoxes: true,
+
+  // --- BO CUC KHU THUNG: cot doc, co Thung bi che ---
+  // Khu Thung la `columns` cot; moi cot chi hien `visibleRows` Thung duoi cung,
+  // phan tren BI CHE va KHOA HOAN TOAN (khong keo item vao/ra duoc). Khi mot Thung
+  // duoc giao cho Khay, no roi khoi cot, ca cot tut xuong va lo them 1 Thung.
+  //
+  // Toan bo noi dung — ke ca phan an — duoc chot ngay luc spawn, nen bo sinh man
+  // van chung minh duoc tinh giai duoc. Nhung loi giai tham chieu PHAI khong dung
+  // toi Thung nao dang bi che: xem assignLayout() va simulateWithLayout().
+  columns: 3,
+  visibleRows: 4,
+  // Khi noEmptyBoxes: 3 o trong nam o MAY Thung khac nhau.
+  //   2 => phan bo 2+1 (co mot Thung 2 o trong = cho dan xep rong rai) -> DE hon
+  //   3 => phan bo 1+1+1 (khong Thung nao co qua 1 o trong)            -> KHO hon
+  // Day la can gat thay the cho compactFreeSlots cu, von vo nghia khi khong con
+  // Thung rong de gom o trong vao.
+  freeSlotBoxes: 2,
 
   // --- Item pool ---
-  numCategories: 2,       // 1..4
-  itemTypesPerCategory: 2,// 1..3
+  numCategories: 2,       // 1..CATEGORIES.length (hien tai 8)
+  itemTypesPerCategory: 2,// 1..MAX_TYPES_PER_CAT (hien tai 4)
   maxSetsPerType: 3,      // 1 loai item co the chiem toi da may bo (=> may Tray)
 
   // --- DO KHO: do phan tan ---
@@ -107,6 +138,8 @@ export const DEFAULTS = {
                           // parMoves nen extraScramble gan nhu khong anh huong diem.
 
   // --- DO KHO: khong gian xoay xo ---
+  // CHI CON HIEU LUC KHI noEmptyBoxes = false (nhanh debug). Voi luat moi thi o
+  // trong duoc rai theo freeSlotBoxes o tren, khong con Thung rong de gom vao.
   compactFreeSlots: true, // true  => don het o trong ve dung numEmptyBoxes box rong
                           //           (chat, giong LevelGenerator hien tai)
                           // false => de o trong rai rac (thoang, de hon)
@@ -131,13 +164,16 @@ export const DEFAULTS = {
   computeOptimal: 'auto', // 'auto' | true | false  -> co chay IDA* gan minMoves khong
 };
 
+// Cac preset deu theo LUAT MOI: khong Thung rong luc spawn (noEmptyBoxes mac dinh
+// true trong DEFAULTS), numSets = numBoxes - 1, va cua so bang chuyen ROI RA theo
+// do kho dung nhu configForLevelNumber.
 export const PRESETS = {
-  //          box  rong  bo   cat  type/cat  ratio21  ...
-  tutorial: { numBoxes: 4, numEmptyBoxes: 1, numSets: 2, numCategories: 1, itemTypesPerCategory: 2, ratio21: 1.0,  compactFreeSlots: false },
-  easy:     { numBoxes: 6, numEmptyBoxes: 1, numSets: 4, numCategories: 2, itemTypesPerCategory: 2, ratio21: 0.85, compactFreeSlots: false, moveLimitSlack: 1.8 },
-  normal:   { numBoxes: 7, numEmptyBoxes: 1,             numCategories: 3, itemTypesPerCategory: 2, ratio21: 0.60, moveLimitSlack: 1.5 },
-  hard:     { numBoxes: 9, numEmptyBoxes: 1,             numCategories: 3, itemTypesPerCategory: 3, ratio21: 0.35, extraScramble: 0.5, trayOrder: 'shuffled', moveLimitSlack: 1.25 },
-  expert:   { numBoxes: 10, numEmptyBoxes: 1,            numCategories: 4, itemTypesPerCategory: 3, ratio21: 0.10, extraScramble: 1.0, trayOrder: 'reverse', moveLimitSlack: 1.10, secondsPerMove: 5 },
+  //          box  cat  type/cat  ratio21  oTrong  bangChuyen ...
+  tutorial: { numBoxes: 4, numCategories: 1, itemTypesPerCategory: 2, ratio21: 1.0,  freeSlotBoxes: 2, conveyorMaxActive: 3 },
+  easy:     { numBoxes: 6, numCategories: 2, itemTypesPerCategory: 2, ratio21: 0.85, freeSlotBoxes: 2, conveyorMaxActive: 4, moveLimitSlack: 1.8 },
+  normal:   { numBoxes: 8, numCategories: 4, itemTypesPerCategory: 2, ratio21: 0.60, freeSlotBoxes: 2, conveyorMaxActive: 4, moveLimitSlack: 1.5 },
+  hard:     { numBoxes: 9, numCategories: 4, itemTypesPerCategory: 3, ratio21: 0.35, freeSlotBoxes: 2, conveyorMaxActive: 5, extraScramble: 0.5, trayOrder: 'shuffled', moveLimitSlack: 1.25, strictTrayRatio: 0.4, undoCount: 2 },
+  expert:   { numBoxes: 10, numCategories: 2, itemTypesPerCategory: 4, ratio21: 0.15, freeSlotBoxes: 3, conveyorMaxActive: 7, extraScramble: 1.2, trayOrder: 'reverse', moveLimitSlack: 1.05, secondsPerMove: 3.5, strictTrayRatio: 1.0, undoCount: 1 },
 };
 
 /* ------------------------------------------------------------------ */
@@ -201,7 +237,10 @@ export function generateLevel(userConfig = {}) {
       built.wrapOrder = sim.wrapOrder;
     }
 
-    return finalize(cfg, built, attempt);
+    // finalize() co the tra ve null khi khong xep duoc bo cuc cot nao ma loi giai
+    // khong cham vao Thung bi che — khi do thu lai voi lan xay khac.
+    const level = finalize(cfg, built, attempt);
+    if (level) return level;
   }
 
   throw new Error(
@@ -220,72 +259,158 @@ export function generateLevelFromPreset(presetName, overrides = {}) {
  * Lo trinh do kho theo level number — nguon su that DUY NHAT cho cau hoi
  * "level N kho the nao" (UIManager chi truyen levelNumber vao day).
  *
- * Duong cong chia lam ba giai doan, vi cac lever KHONG cung tuoi tho:
+ * ==== BAN THIET KE 9/2026: duong cong ep vao 30 LEVEL ====
  *
- *   GD1  L1..~20   Quy mo:      numBoxes 4->10, numCategories 1->4, itemTypes 2->3.
- *                  Day la nguon do kho re nhat va de doc nhat cho nguoi choi.
- *   GD2  ~20..40   Phan tan:    quy mo da CHAM TRAN (10 Thung la gioi han ban choi,
- *                  4 la toan bo so nhom hang co that trong ITEM_CATALOG), nen do kho
- *                  chuyen sang ratio21 giam, extraScramble tang, maxSetsPerType giam
- *                  (it bo trung loai hon => moi item chi co dung 2 ban sao anh em,
- *                  it duong gom hon).
- *   GD3  40+       Luat & ap luc: Khay doi khop dung LOAI ITEM chu khong chi nhom
- *                  hang, cua so bang chuyen hep lai, gioi han nuoc di / thoi gian /
- *                  undo siet dan.
+ * Truoc day duong cong keo toi ~L70 va doan sau gan nhu phang. Ban moi dat toan bo
+ * do kho vao 30 level va chia lam hai chang:
  *
- * Truoc day moi lever deu pin het truoc level ~19 va level 20..90 gan nhu giong het
- * nhau; cac moc duoi day duoc gian ra de duong cong con song toi khoang level 90.
+ *   L1..L10   LAM QUEN. Ban co nho, 1-3 nhom hang, Khay chi doi dung NHOM (khong
+ *             doi dung loai), khong gioi han nuoc di/thoi gian trong 4 level dau,
+ *             o trong gom lai cho de dan xep. Muc tieu la day duoc luat choi vao
+ *             dau nguoi choi, khong phai thu thach ho.
+ *
+ *   L11..L30  HARD / SUPER HARD xen ke DEU. Level le = HARD, level chan = SUPER
+ *             HARD (L11 hard, L12 super, L13 hard, ...) — 10 man moi loai. Xen ke
+ *             thay vi hai khoi lien nhau de nhip cua chang khong bi mot chieu:
+ *             nguoi choi luon co mot man de tho giua hai man nghet.
+ *
+ *   L31+      Giu nguyen tran cua L30 (van xen ke hard/super hard). Bo luat khong
+ *             con don bay nao chua dung.
+ *
+ * BANG CHUYEN — nguoc voi truc giac cu:
+ *
+ *     chang        | Khay chay cung luc
+ *     L1..L5       |  3
+ *     L6..L10      |  4
+ *     L11..L30 le  |  5   (hard)
+ *     L11..L30 chan|  6 hoac 7 (super hard, luan phien)
+ *
+ * O ban truoc, cua so HEP duoc coi la kho (it cho giao hang => ton kho Khay cao).
+ * Ban nay lam nguoc: cua so RONG hon cho level kho hon. Hai hieu ung that su nguoc
+ * chieu nhau va deu co that:
+ *   - rong hon => de GIAO hang hon  (giam ap luc ton kho)
+ *   - rong hon => nhieu muc tieu phai doi chieu cung luc hon (tang tai doc vi)
+ * Vi vay cham diem da tach lam hai truc rieng: trayBacklog (ton kho) va trayLoad
+ * (tai doc vi) — xem finalize(). Dung gop hai thu nay lai lam mot lan nua.
+ *
  * Luu y: day van la GIA THIET THIET KE, phai hieu chinh lai khi co telemetry that.
  */
 export function configForLevelNumber(level, overrides = {}) {
   const L = Math.max(1, Math.floor(level));
+  // Chang 2 bat dau tu L11. Trong chang 2, level LE = hard, level CHAN = super hard.
+  const isRamp = L <= 10;
+  const isSuperHard = !isRamp && L % 2 === 0;
+  // t = tien do trong chang, 0..1. Dung de noi suy moi tham so lien tuc.
+  const t = isRamp ? (L - 1) / 9 : clamp((L - 11) / 19, 0, 1);
+  const lerp = (a, b, x) => a + (b - a) * x;
 
-  /* --- GD1: quy mo --- */
-  const numBoxes = Math.min(4 + Math.floor(L / 3), 10);       // tran o L=18
-  const numEmptyBoxes = 1;                                     // luat cung GDD muc 6
-  // Level dau: bot 1 bo item -> ban co thoang hon (nhieu o trong hon)
-  const numSets = L <= 6 ? numBoxes - 2 : numBoxes - 1;
-  const numCategories = Math.min(1 + Math.floor(L / 4), 4);    // tran o L=12
-  const itemTypesPerCategory = Math.min(2 + Math.floor(L / 12), 3);
+  /* --- Quy mo ban choi --- */
+  // Khu Thung la 3 cot x 4 hang = 12 o HIEN. Thung thu 13 tro di bi che o dinh cot
+  // va chi lo ra khi mot Thung phia duoi duoc giao xong.
+  //
+  //   chang 1  N = 5..12   (vung hien dan day, chua co Thung an)
+  //   hard     N = 12..16  (an 0 -> 4)
+  //   super    N = 13..18  (an 1 -> 6)
+  //
+  // Do ti le sinh man thanh cong theo N (40 seed moi muc, 9/2026): 100% tu N=8 den
+  // N=20; chi phi la so lan xay lai (0.1 lan o N<=13, 2.2 o N=18, 7.8 o N=20). Do
+  // la ly do tran dat o 18 chu khong cao hon — tren nua thi thoi gian sinh man bat
+  // dau thay duoc tren may yeu.
+  const numBoxes = isRamp
+    ? Math.round(lerp(5, 12, t))
+    : isSuperHard
+      ? Math.round(lerp(13, 18, t))
+      : Math.round(lerp(12, 16, t));
+  const numEmptyBoxes = 0;                                     // LUAT MOI
+  const numSets = numBoxes - 1;
+
+  /* --- Item pool --- */
+  // Catalog co 8 nhom x 4 loai = 32 loai. Hai vai tro khac nhau, dung lan lon:
+  //
+  //   BIEN DO (chong nham chan) den tu viec MOI MAN RUT MOT LAT CAT KHAC NHAU tu
+  //   8 nhom: chon 3 trong 8 nhom da co 56 to hop, chon 4 co 70 — 30 man khong bao
+  //   gio phai lap lai bang mau/emoji.
+  //
+  //   DO KHO den tu viec rut lat cat do cho DAC: it nhom nhung nhieu loai trong
+  //   moi nhom. 9 bo trai deu tren 8 nhom thi moi mau gan nhu chi co mot loai —
+  //   nguoi choi phan loai bang mau la xong, khong can nhin emoji. Nguoc lai 9 bo
+  //   don vao 2 nhom x 4 loai thi mau vo dung, buoc phai doc emoji.
+  //
+  // Vi vay so nhom GIAM dan trong chang 2 trong khi so loai/nhom TANG.
+  //
+  // Ban co lon hon (toi 17 bo) buoc pool phai rong hon truoc: 3 nhom x 4 loai = 12
+  // loai, moi loai dung toi 2 bo, vua du 17 bo. Khong the ep ve 2 nhom nhu ban 10
+  // Thung nua — do la cai gia phai tra cho khu Thung 3x4.
+  const numCategories = isRamp
+    ? Math.min(1 + Math.round(t * 2), 3)
+    : isSuperHard
+      ? Math.round(lerp(4, 3, t))
+      : Math.round(lerp(5, 4, t));
+  const itemTypesPerCategory = isRamp
+    ? 2
+    : isSuperHard
+      ? MAX_TYPES_PER_CAT
+      : Math.min(3, MAX_TYPES_PER_CAT);
   const poolSize = numCategories * itemTypesPerCategory;
 
-  /* --- GD2: do phan tan --- */
-  // ratio21 giam dan 1.0 -> 0.15: bo item bi xe le nhieu hon theo level.
-  // He so 0.028 (truoc la 0.045) keo diem cham day tu L=19 sang L=30, de GD2
-  // con viec de lam sau khi quy mo da het du dia.
-  const ratio21 = Math.max(0.15, 1.0 - L * 0.028);
-  const extraScramble = Math.min(2.0, Math.max(0, (L - 12) * 0.05));
-  const trayOrder = L < 8 ? 'wrapOrder' : L < 20 ? 'shuffled' : 'reverse';
-  // Cang it bo DUNG CHUNG mot loai item thi cang kho: moi item chi co dung 2 ban
-  // sao anh em, khong con nhieu cach gom thay the. Chan duoi = so bo toi thieu ma
-  // pool hien tai buoc phai gom, de khong bao gio vi pham kiem tra o normalizeConfig.
+  /* --- Do phan tan --- */
+  const ratio21 = isRamp ? lerp(1.0, 0.65, t) : lerp(0.6, 0.15, t);
+  // extraScramble = 0 O MOI LEVEL. Hai ly do cong lai:
+  //   1. Chinh file nay da do va ghi lai (xem DEFAULTS): xao them chi keo dai loi
+  //      giai THAM CHIEU, con loi giai TOI UU hau nhu khong doi — no la can gat DO
+  //      NHIEU chu khong phai do kho, va cham diem chuan hoa theo parMoves nen no
+  //      khong dong gop gi vao diem.
+  //   2. Tu khi co khu Thung 3x4, no con PHA sinh man: xao them lam loi giai cham
+  //      vao MOI Thung ngay tu dau, nen khong Thung nao du dieu kien nam o vung an.
+  //      Do o L30 (N=18, 12 seed): extraScramble 0 -> 3.6 lan xay lai trung binh;
+  //      0.1 -> 38; 0.3 -> 51; 0.5 -> khong sinh noi trong 80 lan thu.
+  // Tham so van con trong DEFAULTS cho nhanh debug khong dung bo cuc cot.
+  const extraScramble = 0;
+  const trayOrder = L <= 4 ? 'wrapOrder' : isRamp ? 'shuffled' : 'reverse';
   const maxSetsPerType = Math.max(
     Math.ceil(numSets / poolSize),
-    L < 35 ? 3 : L < 60 ? 2 : 1
+    isRamp ? 3 : isSuperHard ? 1 : 2
+  );
+  if (poolSize * maxSetsPerType < numSets) {
+    // Chan an toan: neu lat cat qua hep cho so bo can thiet thi noi so loai/nhom
+    // truoc khi noi so nhom (giu do "dac" cua mau).
+    throw new Error(`configForLevelNumber(${L}): pool ${poolSize} qua nho cho ${numSets} bo`);
+  }
+
+  /* --- O trong: 3 o chia lam may Thung --- */
+  // 2 => 2+1 (con mot Thung chi 1 vat, de dan xep) | 3 => 1+1+1 (nghet)
+  const freeSlotBoxes = isRamp ? 2 : isSuperHard ? 3 : 2;
+
+  /* --- Bang chuyen: SAN 3, hard 5, super hard 6/7 --- */
+  // Super hard luan phien 6 va 7 de hai man super hard lien tiep khong giong het
+  // nhau; 7 roi vao cac level chia het cho 4.
+  // Chan tren numSets-1: phai LUON con it nhat mot Khay nam ngoai cua so, neu khong
+  // thi bang chuyen khong con la bang chuyen — nguoi choi nhin thay ca hang doi va
+  // moi Thung wrapped deu giao duoc ngay (do lai o L12 ban truoc: wrap = 1.00 tuyet
+  // doi, truc ton kho chet han). Chi cac level onboarding dau moi cham chan nay.
+  const conveyorMaxActive = Math.min(
+    isRamp ? (L <= 5 ? 3 : 4) : isSuperHard ? (L % 4 === 0 ? 7 : 6) : 5,
+    Math.max(2, numSets - 1)
   );
 
-  /* --- GD3: luat chat hon & ap luc meta --- */
-  // Luat Khay chat dan: khong lat cong tac ca ban o dung level 40 (lam diem do kho
-  // nhay 16 diem trong mot level), ma tang dan ti le Khay doi dung LOAI ITEM tu
-  // L34 den L52. Tung Khay mang matchMode rieng — engine da ho tro san (Tray.js).
-  const strictTrayRatio = clamp((L - 34) / 18, 0, 1);
-  const trayMatchMode = strictTrayRatio >= 0.5 ? 'itemType' : 'category'; // nhan tong quat
-  // Cua so Khay hep => phai wrapped DUNG loai dang co mat, giu nhieu Thung wrapped
-  // tren tay hon. Khong de doa solvability: F = 3N - 3S bat bien qua ca nuoc di lan
-  // luot giao hang, nen luon con o trong o mot Thung chua wrapped.
-  const conveyorMaxActive = L < 28 ? 4 : L < 55 ? 3 : 2;
-  const moveLimitSlack = L < 5 ? null : Math.max(1.05, 2.0 - L * 0.018);
-  const secondsPerMove = L < 25 ? null : Math.max(3.5, 8 - (L - 25) * 0.05);
-  const undoCount = L < 30 ? 3 : L < 60 ? 2 : 1;
+  /* --- Luat Khay & ap luc meta --- */
+  // Chang 1 khong bao gio doi khop dung loai item — do la thu cua chang 2.
+  const strictTrayRatio = isRamp ? 0 : isSuperHard ? lerp(0.5, 1.0, t) : lerp(0.15, 0.6, t);
+  const trayMatchMode = strictTrayRatio >= 0.5 ? 'itemType' : 'category';
+  const moveLimitSlack = L <= 4 ? null : isRamp ? lerp(1.9, 1.5, t) : lerp(1.4, 1.05, t);
+  const secondsPerMove = isRamp ? null : lerp(7.5, 3.5, t);
+  const undoCount = isRamp ? 3 : isSuperHard ? 1 : 2;
 
   return {
     seed: (L * 2654435761) % 2147483647,
     numBoxes,
     numEmptyBoxes,
+    noEmptyBoxes: true,
     numSets,
     numCategories,
     itemTypesPerCategory,
     maxSetsPerType,
+    freeSlotBoxes,
     ratio21,
     extraScramble,
     trayOrder,
@@ -295,7 +420,9 @@ export function configForLevelNumber(level, overrides = {}) {
     moveLimitSlack,
     secondsPerMove,
     undoCount,
-    compactFreeSlots: L > 6,
+    columns: 3,
+    visibleRows: 4,
+    tier: isRamp ? 'ramp' : isSuperHard ? 'superhard' : 'hard',
     ...overrides,
   };
 }
@@ -307,14 +434,15 @@ export function configForLevelNumber(level, overrides = {}) {
 function normalizeConfig(user) {
   const cfg = { ...DEFAULTS, ...user };
   cfg.numCategories = clamp(cfg.numCategories, 1, CATEGORIES.length);
-  cfg.itemTypesPerCategory = clamp(cfg.itemTypesPerCategory, 1, 3);
+  cfg.itemTypesPerCategory = clamp(cfg.itemTypesPerCategory, 1, MAX_TYPES_PER_CAT);
   cfg.boxCapacity = cfg.boxCapacity || CAPACITY;
-  cfg.numEmptyBoxes = Math.max(1, cfg.numEmptyBoxes); // luat cung GDD muc 6
-  if (cfg.numSets == null) cfg.numSets = cfg.numBoxes - cfg.numEmptyBoxes;
+  // LUAT MOI: khong Thung rong luc spawn => numEmptyBoxes = 0.
+  cfg.numEmptyBoxes = cfg.noEmptyBoxes ? 0 : Math.max(0, cfg.numEmptyBoxes);
+  if (cfg.numSets == null) cfg.numSets = cfg.numBoxes - 1;
 
   if (cfg.numSets < 1) throw new Error('numSets phai >= 1');
   if (cfg.numSets > cfg.numBoxes - 1)
-    throw new Error('Phai chua it nhat 1 Thung rong: numSets <= numBoxes - 1');
+    throw new Error('Phai con o trong de xoay xo: numSets <= numBoxes - 1');
 
   const poolSize = cfg.numCategories * cfg.itemTypesPerCategory;
   if (poolSize * cfg.maxSetsPerType < cfg.numSets) {
@@ -323,14 +451,27 @@ function normalizeConfig(user) {
         `Tang numCategories hoac itemTypesPerCategory.`
     );
   }
-  // Kha thi? Neu moi Thung co item deu buoc phai DAY (compaction gom het o trong
-  // vao cac Thung rong), thi 1 loai item khong duoc chiem qua 2 o trong 1 Thung
-  // (neu khong se thanh 3-cung-loai = wrapped san). Suy ra dieu kien dem:
-  //     3 * (so bo toi da cua 1 loai) <= 2 * numSets
-  const emptyBoxesAfterCompaction = cfg.compactFreeSlots
-    ? cfg.numBoxes - cfg.numSets
-    : Math.min(cfg.numEmptyBoxes, cfg.numBoxes - cfg.numSets);
-  const boxesForcedFull = emptyBoxesAfterCompaction === cfg.numBoxes - cfg.numSets;
+  if (cfg.noEmptyBoxes) {
+    // Dem o: N Thung, 3S vat, moi Thung >= 1 vat va <= cap vat.
+    //   - du vat de phu het Thung:            3S >= N
+    //   - du o trong de khong Thung nao day het: hien nhien voi S <= N-1
+    if (cfg.boxCapacity * cfg.numSets < cfg.numBoxes) {
+      throw new Error(
+        `noEmptyBoxes: ${cfg.numSets} bo x ${cfg.boxCapacity} vat = ` +
+          `${cfg.boxCapacity * cfg.numSets} vat, khong du de moi Thung trong ` +
+          `${cfg.numBoxes} Thung co it nhat 1 vat. Giam numBoxes hoac tang numSets.`
+      );
+    }
+    // So o trong = cap*(N - S). Moi Thung giu toi da cap-1 o trong (vi phai con
+    // >= 1 vat), nen phai rai ra it nhat ceil(freeSlots / (cap-1)) Thung.
+    const freeSlots = cfg.boxCapacity * (cfg.numBoxes - cfg.numSets);
+    const minSpread = Math.ceil(freeSlots / (cfg.boxCapacity - 1));
+    cfg.freeSlotBoxes = clamp(cfg.freeSlotBoxes ?? minSpread, minSpread, Math.min(freeSlots, cfg.numBoxes));
+  }
+
+  // Khi khong con Thung rong, gan nhu moi Thung deu DAY (chi freeSlotBoxes Thung
+  // con o trong), nen dieu kien dem duoi day ap dung y het truong hop compaction cu.
+  const boxesForcedFull = cfg.noEmptyBoxes || cfg.compactFreeSlots;
   if (boxesForcedFull) {
     const minMaxUsage = Math.ceil(cfg.numSets / poolSize);
     if (3 * minMaxUsage > 2 * cfg.numSets) {
@@ -478,11 +619,52 @@ function buildOnce(cfg, rng) {
     if (!done) break;
   }
 
-  // --- 5. Compaction: dam bao dung so Thung RONG hoan toan ---
-  // compactFreeSlots = true  -> don TOAN BO o trong vao (N - S) box rong  (ban chat, kho)
-  //                  = false -> chi dam bao numEmptyBoxes box rong, phan con lai
-  //                             de lam "lo" rai rac trong cac box khac       (thoang, de)
-  {
+  // --- 5. Tao hinh o trong ---
+  //
+  // LUAT MOI (9/2026): luc spawn KHONG duoc co Thung rong — moi Thung phai co it
+  // nhat 1 vat. Buoc compaction cu (don sach mot so Thung thanh rong) bi thay bang
+  // buoc nay: rai dung H = cap*(N-S) o trong vao dung cfg.freeSlotBoxes Thung, moi
+  // Thung khong qua cap-1 o trong.
+  //
+  //   freeSlotBoxes = 2 => 3 o trong chia 2+1  (co mot Thung chi 1 vat = cho dan xep)
+  //   freeSlotBoxes = 3 => 3 o trong chia 1+1+1 (khong dau nao du cho de dan xep)
+  //
+  // Nhanh cu (co Thung rong) van giu lai cho debug: cfg.noEmptyBoxes = false.
+  if (cfg.noEmptyBoxes) {
+    const H = cap * (N - S);
+    const k = cfg.freeSlotBoxes;
+
+    // Chia H o trong vao k Thung cang deu cang tot, moi Thung <= cap-1.
+    const holePlan = Array(k).fill(Math.floor(H / k));
+    for (let i = 0; i < H % k; i++) holePlan[i]++;
+    if (holePlan.some((h) => h > cap - 1)) return null;
+
+    // Thung dang VOI nhat nhan phan o trong lon nhat => it phai di chuyen nhat.
+    const byLoad = range(N).sort((a, b) => boxes[a].length - boxes[b].length);
+    const targetLen = Array(N).fill(cap);
+    holePlan.forEach((h, i) => { targetLen[byLoad[i]] = cap - h; });
+
+    // Chuyen vat tu Thung thua sang Thung thieu cho toi khi khop targetLen.
+    // Tong do dai khong doi (= 3S = tong targetLen) nen vong lap chac chan dung.
+    let guard = 0;
+    for (;;) {
+      const donors = range(N).filter((i) => boxes[i].length > targetLen[i]);
+      const receivers = range(N).filter((i) => boxes[i].length < targetLen[i]);
+      if (!donors.length && !receivers.length) break;
+      if (++guard > 800) return null;
+
+      let moved = false;
+      outer:
+      for (const from of shuffle(rng, donors)) {
+        for (const to of shuffle(rng, receivers)) {
+          for (let j = boxes[from].length - 1; j >= 0; j--) {
+            if (tryReverse(from, j, to)) { moved = true; break outer; }
+          }
+        }
+      }
+      if (!moved) return null;
+    }
+  } else {
     const targetEmpty = cfg.compactFreeSlots ? N - S : Math.min(cfg.numEmptyBoxes, N - S);
     const sortedByLoad = range(N).sort((a, b) => boxes[a].length - boxes[b].length);
     const mustEmpty = sortedByLoad.slice(0, targetEmpty);
@@ -515,7 +697,11 @@ function buildOnce(cfg, rng) {
     if (isWrapped(boxes[i], cap)) return null; // khong duoc co box wrapped san
   }
   const emptyCount = boxes.filter((b) => b.length === 0).length;
-  if (emptyCount < cfg.numEmptyBoxes) return null;
+  if (cfg.noEmptyBoxes) {
+    if (emptyCount > 0) return null;           // luat cung: khong Thung rong luc spawn
+  } else if (emptyCount < cfg.numEmptyBoxes) {
+    return null;
+  }
 
   // --- 7. Loi giai forward = dao nguoc danh sach nuoc di nguoc ---
   //
@@ -630,7 +816,28 @@ function finalize(cfg, built, attempt) {
   const filledBoxes = boxes.filter((b) => b.length > 0).length;
   const catsUsed = new Set(setType.map((t) => getTypeInfo(t).categoryId)).size;
   const typesUsed = new Set(setType).size;
-  const maxWrappedHeld = simulateDelivery(boxes, solution, trays, cfg);
+  // --- Bo cuc cot + kiem tra tam voi ---
+  // Xep Thung vao cot roi CHAY THU ca van. Neu loi giai cham vao Thung dang bi che
+  // thi bo cuc nay hong; thu lai vai lan roi bo ca lan sinh man (generateLevel se
+  // sinh lai voi seed khac). Day la ly do finalize() co the tra ve null.
+  const layoutRng = makeRng(cfg.seed + 104729 + attempt * 31);
+  let columns = null, worstHeld = 0;
+  for (let k = 0; k < 12 && !columns; k++) {
+    const cand = assignLayout(cfg, boxes, solution, layoutRng);
+    if (!cand) break;
+    // Phai dung voi MOI chinh sach giao hang, khong chi mot. Lay ton kho lon nhat
+    // trong cac chinh sach lam so cham diem — do la truong hop xau nhat nguoi choi
+    // co the roi vao.
+    let held = 0, allOk = true;
+    for (let pol = 0; pol < 4; pol++) {
+      const r = simulateWithLayout(boxes, solution, trays, cfg, cand, pol);
+      if (!r) { allOk = false; break; }
+      held = Math.max(held, r.maxWrappedHeld);
+    }
+    if (allOk) { columns = cand; worstHeld = held; }
+  }
+  if (!columns) return null;
+  const maxWrappedHeld = worstHeld;
 
   const difficulty = {
     refMoves,
@@ -686,12 +893,27 @@ function finalize(cfg, built, attempt) {
 
   // Diem do kho 1..100 — 6 truc chuan hoa ve [0,1] roi tron theo trong so.
   //
-  // TRAN DO KHO CUA BO LUAT (do thang 9/2026, 30 seed moi level):
-  //   level |  par | spread | wrapped | free
-  //      8  |  7.3 |  2.20  |   1.0   |  3
-  //     20  | 15.1 |  2.56  |   2.5   |  3
-  //     40  | 17.2 |  2.89  |   7.0   |  3
-  //     90  | 17.0 |  2.89  |   8.0   |  3
+  // DUONG CONG 30 LEVEL (do 9/2026, 20 seed moi level, sau khi doi sang luat
+  // khong-Thung-rong va bang chuyen rong dan):
+  //
+  //   level | tier      | box | Khay | cuaSo | par  | wrapped | score
+  //      1  | ramp      |  4  |  3   |   2   |  3.6 |  1.00   |  21
+  //      5  | ramp      |  6  |  5   |   3   |  6.2 |  1.05   |  30
+  //     10  | ramp      |  8  |  7   |   4   |  8.9 |  1.25   |  38
+  //     11  | hard      |  9  |  8   |   5   | 10.9 |  2.05   |  51
+  //     12  | superhard |  9  |  8   |   7   | 10.9 |  1.70   |  61
+  //     21  | hard      | 10  |  9   |   5   | 15.1 |  3.00   |  66
+  //     26  | superhard | 10  |  9   |   6   | 15.7 |  3.25   |  83
+  //     29  | hard      | 10  |  9   |   5   | 15.5 |  3.20   |  74
+  //     30  | superhard | 10  |  9   |   6   | 15.8 |  3.15   |  84
+  //
+  // Hai DUONG rieng biet chu khong phai mot: hard 51 -> 74, super hard 61 -> 84,
+  // xen ke tung level. Khoang cach ~10 diem giua hai tier chinh la nhip nghi ma
+  // ban thiet ke muon. Ca hai deu cham tran o L30, dung nhu yeu cau.
+  //
+  // Luu y cot 'wrapped': super hard co ton kho Khay THAP hon hard (1.7 vs 2.05 o
+  // L11-12) vi cua so rong hon giao hang de hon. Do la ly do truc trayBacklog bi ha
+  // trong so tu 0.20 xuong 0.10 va truc trayLoad ra doi — xem phan cham diem.
   // Moi chi so CAU TRUC cua ban co deu cham tran quanh level 40: quy mo bi chan boi
   // 10 Thung (gioi han ban choi trong GDD) va 4 nhom hang x 3 loai (toan bo
   // ITEM_CATALOG). Voi numSets = numBoxes - 1 thi F = 3N - 3S = 3 la HANG SO, nghia
@@ -699,17 +921,35 @@ function finalize(cfg, built, attempt) {
   // khoi luong — 24% trong so cham diem cho cung mot thong tin hai lan. No duoc thay
   // bang do PHAN TAN (spread), thu that su thay doi theo ratio21 tu 2.00 den 2.89.
   //
-  // Ket luan thiet ke: sau level ~40, do kho KHONG the tang bang cau truc ban co nua,
-  // chi con tang bang ton kho Khay (wrapped phai giu tren tay) va do nghiem ngat cua
-  // luat. Diem so phan anh dung dieu do thay vi nguy tao them do kho gia.
-  const nm = Math.min(parMoves / 24, 1);                                   // khoi luong
+  // Ket luan thiet ke: quy mo ban co (par ~15.8) cham tran o L21 khi numBoxes = 10.
+  // Tu do den L30, do kho di len bang DO DAC CUA POOL (it nhom hang hon, nhieu loai
+  // trong moi nhom hon => mau sac vo dung, phai doc emoji), do nghiem ngat cua Khay,
+  // tai doc vi bang chuyen, va o trong bi xe le 1+1+1. Tat ca deu cham tran o L30 —
+  // do la CO Y, vi ban thiet ke chi dat 30 level. L31+ lap lai muc L29/L30.
+  // Mau so 30: khu Thung 3x4 keo par tu ~16 (ban 10 Thung cu) len ~29 o L30. Giu
+  // mau so 24 cu thi moi level tu L24 tro len deu bao hoa truc nay va khong con
+  // phan biet duoc nhau.
+  const nm = Math.min(parMoves / 30, 1);                                   // khoi luong
   const nd = clamp((difficulty.avgSpread - 1) / 2, 0, 1);                  // phan tan bo item
   const nx = difficulty.mixedBoxRatio;                                     // do dan xen
   // Nhieu thi giac = vua phai co nhieu loai item, VUA co nhieu loai cung mot nhom hang.
   // Chi dung ti le types/cats la sai: level 1 co 1 nhom x 2 loai cho ti le 2.0 (cao)
   // du ban co chi vo ven 2 loai item — de nhu cho.
-  const nc = Math.min(typesUsed / 12, 1) * clamp(difficulty.categoryConfusion / 3, 0, 1);
-  const nw = Math.min(maxWrappedHeld / 8, 1);                              // suc ep tang Tray
+  // Nhieu thi giac. Hai thua so, ca hai chuan hoa theo CATALOG chu khong hardcode:
+  //   (1) bao nhieu loai item khac nhau xuat hien, so voi so bo cua man;
+  //   (2) trung binh moi NHOM HANG co bao nhieu loai — day moi la thu lam mau sac
+  //       mat tac dung. 1 loai/nhom => phan loai bang mau la xong.
+  const nc =
+    clamp((typesUsed - 1) / Math.max(1, cfg.numSets - 1), 0, 1) *
+    clamp((difficulty.categoryConfusion - 1) / Math.max(1, MAX_TYPES_PER_CAT - 1), 0, 1);
+  // Ton kho Khay: bao nhieu Thung wrapped phai giu tren tay cung luc. Mau so la
+  // tran THUC TE do duoc duoi luat hien hanh (xem bang trong comment ben tren),
+  // khong phai mot so tron. Cua so bang chuyen rong hon => con so nay THAP hon.
+  const nw = Math.min(maxWrappedHeld / 4, 1);                              // ton kho Khay
+  // Tai doc vi: moi lan wrap xong mot Thung, nguoi choi phai doi chieu no voi TAT CA
+  // Khay dang chay. 3 Khay lam mot liec mat; 7 Khay la mot bai quet. Truc nay nguoc
+  // chieu voi nw — do la CO Y, xem comment o configForLevelNumber.
+  const nt = clamp((cfg.conveyorMaxActive - 3) / 4, 0, 1);                 // tai doc vi Khay
   // Do NGHIEM NGAT cua luat choi. Truoc day cu buoc nhay lon nhat cua duong cong
   // (level 40: Khay doi khop dung loai item) hoan toan vo hinh voi diem so, vi no
   // khong lam thay doi bat ky chi so nao cua ban co ban dau.
@@ -724,12 +964,19 @@ function finalize(cfg, built, attempt) {
   );
   difficulty.components = {
     volume: +nm.toFixed(3), spread: +nd.toFixed(3), interleave: +nx.toFixed(3),
-    confusion: +nc.toFixed(3), trayBacklog: +nw.toFixed(3), strictness: +ns.toFixed(3),
+    confusion: +nc.toFixed(3), trayBacklog: +nw.toFixed(3), trayLoad: +nt.toFixed(3),
+    strictness: +ns.toFixed(3),
   };
+  // Trong so doi 9/2026 cung voi ban thiet ke 30 level:
+  //   - volume 0.30 -> 0.26: quy mo ban co cham tran tu L20, bot phu thuoc vao no.
+  //   - confusion 0.08 -> 0.12: catalog 32 loai cho truc nay du dia that su.
+  //   - trayBacklog 0.20 -> 0.10 va tach ra truc trayLoad 0.10: cua so bang chuyen
+  //     gio RONG dan theo do kho nen mot minh trayBacklog se cham nguoc dau.
   difficulty.score = clamp(
     Math.round(
       100 *
-        (0.30 * nm + 0.14 * nd + 0.10 * nx + 0.08 * nc + 0.20 * nw + 0.18 * ns)
+        (0.26 * nm + 0.14 * nd + 0.10 * nx + 0.12 * nc +
+         0.10 * nw + 0.10 * nt + 0.18 * ns)
     ),
     1,
     100
@@ -751,6 +998,16 @@ function finalize(cfg, built, attempt) {
 
     boxes: boxes.map((items, i) => ({ id: `box_${i}`, items: items.slice(), maxSize: cap })),
     trays,
+
+    // Bo cuc khu Thung. columns[c] = danh sach CHI SO Thung trong cot c, phan tu 0
+    // la o duoi cung. `visibleRows` phan tu dau moi cot la vung nguoi choi cham
+    // duoc; phan con lai bi che va khoa. Khi mot Thung duoc giao, no bi go khoi
+    // mang cua cot => cot tut xuong => phan tu thu `visibleRows` lo ra.
+    layout: {
+      columns: columns.map((c) => c.slice()),
+      visibleRows: cfg.visibleRows,
+      hiddenBoxes: Math.max(0, cfg.numBoxes - cfg.columns * cfg.visibleRows),
+    },
     conveyor: { type: cfg.conveyorType, maxActive: cfg.conveyorMaxActive },
 
     // Bang chung solvability — replay duoc bang Solver.simulate()
@@ -774,52 +1031,142 @@ function finalize(cfg, built, attempt) {
  * xong 1 box thi giao ngay neu Tray tuong ung dang nam trong cua so maxActive.
  * Tra ve so box wrapped phai GIU LAI cung luc nhieu nhat (0 = khong bao gio phai cho).
  */
-function simulateDelivery(boxes, solution, trays, cfg) {
+/**
+ * Mo phong mot van dau THAT: chay loi giai tham chieu tren bo cuc cot, giao hang
+ * moi khi co the, va cho cot tut xuong sau moi lan giao.
+ *
+ * Tra ve null neu loi giai VI PHAM tam voi (cham vao Thung dang bi che) — day la
+ * bo loc quan trong nhat cua ca ham: khong co no thi level sinh ra co bang chung
+ * giai duoc tren giay nhung khong choi noi tren may.
+ *
+ * Neu hop le, tra ve { maxWrappedHeld, reveals } de cham diem.
+ */
+function simulateWithLayout(boxes, solution, trays, cfg, columns, policy = 0) {
   const cap = cfg.boxCapacity;
+  const rows = cfg.visibleRows;
   const state = boxes.map((b) => b.slice());
-  const pending = trays.map((t) => ({ ...t }));  // hang doi Tray theo thu tu, chua duoc phuc vu
-  const held = [];                               // box wrapped dang phai giu tren ban
+  const cols = columns.map((c) => c.slice());
+  const pending = trays.map((t) => ({ ...t })); // hang doi Khay chua duoc phuc vu
+  const held = new Set();                       // chi so Thung wrapped dang phai giu
   let maxHeld = 0;
-  const wrappedSet = new Set();
+  let reveals = 0;
 
-  // Doc che do cua TUNG Khay, khong phai che do chung cua man — tu ban 0.5.1 mot man
-  // co the tron ca hai loai Khay.
-  const matches = (tray, box) =>
-    tray.matchMode === 'itemType'
-      ? tray.targetItemId === box.typeId
-      : tray.categoryId === box.categoryId;
+  // Chi so cac Thung dang NAM TRONG TAM VOI (4 o duoi cung cua moi cot).
+  const visible = () => {
+    const v = new Set();
+    for (const c of cols) for (let i = 0; i < Math.min(rows, c.length); i++) v.add(c[i]);
+    return v;
+  };
 
+  const matches = (tray, boxIdx) => {
+    const typeId = state[boxIdx][0];
+    return tray.matchMode === 'itemType'
+      ? tray.targetItemId === typeId
+      : tray.categoryId === getTypeInfo(typeId).categoryId;
+  };
+
+  /**
+   * Thu tu XET cac Thung wrapped khi giao hang. Nguoi choi that co the giao theo
+   * BAT KY thu tu nao, va thu tu ay quyet dinh Khay nao bien mat truoc => quyet
+   * dinh Thung wrapped nao con giao duoc => quyet dinh cot tut xuong luc nao.
+   *
+   * Do do mot bo cuc chi duoc chap nhan khi no dung voi MOI chinh sach duoi day
+   * (finalize chay het luot). Truoc day chi kiem mot chinh sach, va 4/525 man da
+   * lot luoi: loi giai cham vao Thung con dang bi che.
+   */
+  const orderHeld = () => {
+    const a = [...held];
+    if (policy === 1) return a.sort((x, y) => x - y);
+    if (policy === 2) return a.sort((x, y) => y - x);
+    if (policy === 3) return a.sort((x, y) => state[x][0] < state[y][0] ? -1 : 1);
+    return a; // 0 = thu tu wrap
+  };
+
+  /** Giao het nhung gi giao duoc; moi lan giao lam cot tut xuong 1 nac. */
   function tryDeliver() {
     let progress = true;
     while (progress) {
       progress = false;
-      const window = pending.slice(0, cfg.conveyorMaxActive); // maxActive Tray dau hang doi
-      outer: for (let hi = 0; hi < held.length; hi++) {
+      const window = pending.slice(0, cfg.conveyorMaxActive);
+      outer: for (const boxIdx of orderHeld()) {
         for (let wi = 0; wi < window.length; wi++) {
-          if (matches(window[wi], held[hi])) {
-            pending.splice(wi, 1);
-            held.splice(hi, 1);
-            progress = true;
-            break outer;
+          if (!matches(window[wi], boxIdx)) continue;
+          pending.splice(wi, 1);
+          held.delete(boxIdx);
+          state[boxIdx] = [];
+          // Thung roi khoi cot -> cot tut xuong -> lo Thung ke tiep (neu con)
+          for (const c of cols) {
+            const at = c.indexOf(boxIdx);
+            if (at === -1) continue;
+            const wasDeep = c.length > rows;
+            c.splice(at, 1);
+            if (wasDeep) reveals++;
+            break;
           }
+          progress = true;
+          break outer;
         }
       }
     }
   }
 
   for (const mv of solution) {
+    const vis = visible();
+    // BO LOC TAM VOI
+    if (!vis.has(mv.from) || !vis.has(mv.to)) return null;
     const [item] = state[mv.from].splice(mv.index, 1);
     state[mv.to].push(item);
-    if (!wrappedSet.has(mv.to) && isWrapped(state[mv.to], cap)) {
-      wrappedSet.add(mv.to);
-      const typeId = state[mv.to][0];
-      held.push({ boxIdx: mv.to, typeId, categoryId: getTypeInfo(typeId).categoryId });
-      maxHeld = Math.max(maxHeld, held.length);
+    if (isWrapped(state[mv.to], cap)) {
+      held.add(mv.to);
+      maxHeld = Math.max(maxHeld, held.size);
       tryDeliver();
     }
   }
-  // Cuoi van: moi Tray con lai deu khop 1 box wrapped dang giu -> luon giao het duoc
-  return maxHeld;
+  // Cuoi van moi Khay con lai deu khop mot Thung wrapped dang giu -> giao het duoc.
+  return { maxWrappedHeld: maxHeld, reveals };
+}
+
+/**
+ * Xep N Thung vao `columns` cot. Cac o duoi cung cua moi cot la vung HIEN;
+ * phan du day len tren thanh vung AN.
+ *
+ * Hai rang buoc, theo dung thu tu uu tien:
+ *   1. Moi Thung con O TRONG phai nam trong vung hien luc spawn. Ca ban chi co 3 o
+ *      trong (bat bien F = 3N - 3S); giau chung di la nguoi choi khong co nuoc di
+ *      nao ngay tu dau.
+ *   2. Thung bi che nen la Thung ma loi giai dung toi MUON NHAT, de no kip lo ra
+ *      truoc khi can. Day chi la HEURISTIC — ket qua van phai qua
+ *      simulateWithLayout() moi duoc chap nhan.
+ */
+function assignLayout(cfg, boxes, solution, rng) {
+  const N = boxes.length;
+  const cols = cfg.columns;
+  const rows = cfg.visibleRows;
+  const hiddenCount = Math.max(0, N - cols * rows);
+
+  const firstTouch = Array(N).fill(Infinity);
+  solution.forEach((mv, i) => {
+    if (firstTouch[mv.from] === Infinity) firstTouch[mv.from] = i;
+    if (firstTouch[mv.to] === Infinity) firstTouch[mv.to] = i;
+  });
+
+  const hasHole = (i) => boxes[i].length < cfg.boxCapacity;
+  const canHide = range(N).filter((i) => !hasHole(i));
+  if (canHide.length < hiddenCount) return null;
+
+  // Giau nhung Thung duoc dung muon nhat.
+  canHide.sort((a, b) => firstTouch[b] - firstTouch[a]);
+  const hidden = new Set(canHide.slice(0, hiddenCount));
+  const shown = range(N).filter((i) => !hidden.has(i));
+
+  const columns = Array.from({ length: cols }, () => []);
+  // Vung hien: rai deu, tron ngau nhien de bo cuc khong doan truoc duoc.
+  shuffle(rng, shown).forEach((b, i) => columns[i % cols].push(b));
+  // Vung an: Thung dung som nhat dat NONG nhat (lo ra truoc).
+  [...hidden].sort((a, b) => firstTouch[a] - firstTouch[b])
+    .forEach((b, i) => columns[i % cols].push(b));
+
+  return columns;
 }
 
 export const SolvableLevelGenerator = {

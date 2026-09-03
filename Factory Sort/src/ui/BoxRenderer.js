@@ -1,4 +1,4 @@
-import { getItemEmoji } from '../data/ItemCatalog.js';
+import { getItemEmoji, getCategoryConfig, getCategoryByItemId } from '../data/ItemCatalog.js';
 
 export class BoxRenderer {
     constructor(containerId, onSlotTap, onDragStart) {
@@ -7,9 +7,30 @@ export class BoxRenderer {
         this.onDragStart = onDragStart;
     }
 
-    render(boxes, selectedSource = null, validTargetIds = []) {
+    /**
+     * Ve khu Thung theo COT.
+     *
+     * @param {Array<Array<Box>>} columns  columns[c] = Thung DANG HIEN cua cot c,
+     *        phan tu 0 la o duoi cung. Chi truyen vao Thung trong tam voi — Thung
+     *        bi che khong duoc ve, va cung khong duoc gan su kien nao.
+     * @param {Array<number>} hiddenCounts  so Thung con bi che tren dinh moi cot,
+     *        chi de hien mot chip dem. Noi dung cua chung van bi giau hoan toan.
+     *
+     * Van chap nhan mot mang Thung phang (level cu / debug): khi do gom het vao
+     * mot cot duy nhat.
+     */
+    render(columns, selectedSource = null, validTargetIds = [], hiddenCounts = [], visibleRows = 5) {
         this.container.innerHTML = '';
-        
+        if (columns.length && !Array.isArray(columns[0])) columns = [columns];
+
+        columns.forEach((boxes, colIndex) => {
+        const colEl = document.createElement('div');
+        colEl.className = 'box-column';
+        colEl.style.setProperty('--rows', visibleRows);
+
+        const boxStack = document.createElement('div');
+        boxStack.className = 'box-stack';
+
         boxes.forEach(box => {
             const boxEl = document.createElement('div');
             boxEl.className = 'box';
@@ -18,6 +39,7 @@ export class BoxRenderer {
             if (box.isEmpty()) boxEl.classList.add('empty-box');
             if (validTargetIds.includes(box.id)) boxEl.classList.add('valid-target');
             if (box.isWrapped) boxEl.classList.add('wrapped');
+            if (selectedSource && selectedSource.boxId === box.id) boxEl.classList.add('selected');
 
             // 1. Top Face (contains slots)
             const topFace = document.createElement('div');
@@ -60,11 +82,25 @@ export class BoxRenderer {
             const tape = document.createElement('div');
             tape.className = 'tape';
 
+            // 5. Category Logo (shown when box is packed/wrapped)
+            const logoEl = document.createElement('div');
+            logoEl.className = 'box-logo';
+            const catId = box.getCategory() || (box.items.length > 0 ? getCategoryByItemId(box.items[0]) : null);
+            const catConfig = catId ? getCategoryConfig(catId) : null;
+            const itemType = box.getItemType() || (box.items.length > 0 ? box.items[0] : null);
+            const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
+            if (catConfig) {
+                boxEl.style.setProperty('--cat-color', catConfig.color);
+                logoEl.style.setProperty('--cat-color', catConfig.color);
+                logoEl.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
+            }
+
             boxEl.appendChild(topFace);
             boxEl.appendChild(frontFace);
             boxEl.appendChild(flapTop);
             boxEl.appendChild(flapBottom);
             boxEl.appendChild(tape);
+            boxEl.appendChild(logoEl);
 
             // Events for tapping the box itself (like tapping an empty area)
             boxEl.addEventListener('click', (e) => {
@@ -81,27 +117,58 @@ export class BoxRenderer {
                 });
             }
 
-            this.container.appendChild(boxEl);
+            boxStack.appendChild(boxEl);
+        });
+
+        colEl.appendChild(boxStack);
+
+        // Chip dem Thung con bi che. Chi la SO LUONG — khong he lo noi dung, nen
+        // khong dung toi mo hinh do kho (von gia dinh Thung an la bi mat hoan toan).
+        // Them SAU CUNG vi cot dung flex-direction: column-reverse, nen phan tu
+        // cuoi trong DOM moi nam tren cung tren man hinh.
+        const hidden = hiddenCounts[colIndex] || 0;
+        if (hidden > 0) {
+            const chip = document.createElement('div');
+            chip.className = 'column-hidden-count';
+            chip.textContent = `+${hidden}`;
+            chip.title = `Còn ${hidden} Thùng bị che phía trên cột này`;
+            colEl.appendChild(chip);
+        }
+
+        this.container.appendChild(colEl);
         });
     }
 
     animateItemTransfer(sourceBoxId, targetBoxId, onComplete) {
-        // Find DOM elements
-        const sourceEl = this.container.querySelector(`.box[data-box-id="${sourceBoxId}"]`);
-        const targetEl = this.container.querySelector(`.box[data-box-id="${targetBoxId}"]`);
+        const srcSlot = document.querySelector(`.box[data-box-id="${sourceBoxId}"] .slot.selected`);
+        const targetEl = document.querySelector(`.box[data-box-id="${targetBoxId}"]`);
         
-        if (!sourceEl || !targetEl) {
+        if (!srcSlot || !targetEl) {
             onComplete();
             return;
         }
 
-        // We assume the top-most item in source is moving to the next empty slot in target.
-        // For prototype, we'll just do a quick generic animation or call onComplete directly.
-        // Let's do a simple flash for now to keep it robust.
-        targetEl.style.transform = 'scale(1.1)';
+        const from = srcSlot.getBoundingClientRect();
+        const to   = targetEl.getBoundingClientRect();
+
+        const fly = document.createElement('div');
+        fly.className = 'item-animating';
+        fly.textContent = srcSlot.textContent;
+        fly.style.left = `${from.left}px`;
+        fly.style.top  = `${from.top}px`;
+        document.body.appendChild(fly);
+
+        const dx = (to.left + to.width / 2 - 12) - from.left;
+        const dy = (to.top  + to.height / 2 - 12) - from.top;
+
+        requestAnimationFrame(() => {
+            fly.style.transform = `translate(${dx}px, ${dy}px) scale(1.2)`;
+        });
+
         setTimeout(() => {
-            targetEl.style.transform = '';
-            onComplete();
-        }, 150);
+            fly.remove();
+            targetEl.style.transform = 'scale(1.08)';
+            setTimeout(() => { targetEl.style.transform = ''; onComplete(); }, 90);
+        }, 300);
     }
 }

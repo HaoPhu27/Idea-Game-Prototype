@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Factory Sort — Kiểm tra logic</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.55 ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+         margin: 0; padding: 24px; background: #fbfbfa; color: #1c1c1a; }
+  @media (prefers-color-scheme: dark) { body { background: #1a1a18; color: #e8e6e1; } }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 28px 0 8px; }
+  .sub { opacity: .65; margin: 0 0 20px; }
+  button { font: inherit; padding: 8px 18px; border-radius: 7px; cursor: pointer;
+           border: 1px solid #c9c6bd; background: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  @media (prefers-color-scheme: dark) { button { background: #2a2a27; border-color: #45443f; color: inherit; } }
+  .verdict { font-weight: 600; padding: 10px 14px; border-radius: 8px; margin: 10px 0; }
+  .pass { background: #e3f4e6; color: #14532d; }
+  .fail { background: #fde8e6; color: #7f1d1d; }
+  @media (prefers-color-scheme: dark) {
+    .pass { background: #14301c; color: #a7e8bb; }
+    .fail { background: #3a1613; color: #f5b3ac; }
+  }
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+  .scroll { overflow-x: auto; }
+  th, td { padding: 4px 10px; text-align: right; border-bottom: 1px solid #e6e3dc; white-space: nowrap; }
+  @media (prefers-color-scheme: dark) { th, td { border-color: #34332e; } }
+  th:first-child, td:first-child, td.t { text-align: left; }
+  .ramp { opacity: .62; }
+  .sh { font-weight: 600; }
+  pre { background: #f2f0ea; padding: 10px 12px; border-radius: 7px; overflow-x: auto; font-size: 12px; }
+  @media (prefers-color-scheme: dark) { pre { background: #23231f; } }
+  .bar { display: inline-block; height: 9px; border-radius: 3px; background: #8b8577; vertical-align: middle; }
+  .bar.sh { background: #b0523f; }
+</style>
+</head>
+<body>
+<h1>Factory Sort — Kiểm tra logic</h1>
+<p class="sub">Chạy trên <code>bundle.js</code> (bản build hiện tại). Chạy <code>python tools/build_py.py</code> trước nếu vừa sửa <code>src/</code>.</p>
+<button id="run">Chạy kiểm tra</button>
+<div id="out"></div>
+
+<script src="../bundle.js"></script>
+<script>
+/*
+ * Bo kiem tra logic man choi. Ba phan:
+ *   1. LUAT SPAWN  — moi Thung >= 1 vat, khong Thung wrapped san, cua so <= so Khay.
+ *   2. CHOI THAT   — chay loi giai tham chieu qua GameEngine/Conveyor/Tray/Box that.
+ *   3. DUONG CONG  — bang do kho L1..L32, kiem tra hard/super hard xen ke va len deu.
+ *
+ * Khong dung thu vien ngoai; moi ten (configForLevelNumber, generateLevel, GameEngine,
+ * LevelGenerator) den tu bundle.js — bundle la script co dien nen chia chung pham vi.
+ */
+
+const RULE_SEEDS = 30;   // seed moi level cho phan 1
+const PLAY_SEEDS = 15;   // seed moi level cho phan 2
+const CURVE_SEEDS = 20;  // seed moi level cho phan 3
+const LEVELS = Array.from({ length: 35 }, (_, i) => i + 1);
+
+/* --- 1. Luat spawn --- */
+function auditRules() {
+  const bad = [];
+  let checked = 0, minLen = Infinity;
+  const shapes = {};
+  for (const L of LEVELS) for (let s = 0; s < RULE_SEEDS; s++) {
+    const cfg = configForLevelNumber(L, { seed: (L * 7919 + s * 104729) % 2147483647 });
+    let lv;
+    try { lv = generateLevel(cfg); }
+    catch (e) { bad.push(`L${L} seed${s}: sinh man loi — ${e.message}`); continue; }
+    checked++;
+    for (const b of lv.boxes) {
+      minLen = Math.min(minLen, b.items.length);
+      if (b.items.length === 0) bad.push(`L${L} seed${s}: ${b.id} RONG luc spawn`);
+      if (b.items.length === 3 && new Set(b.items).size === 1)
+        bad.push(`L${L} seed${s}: ${b.id} da wrapped san`);
+    }
+    // Bo cuc cot
+    const lay = lv.layout;
+    if (!lay) bad.push(`L${L} seed${s}: thieu layout`);
+    else {
+      const flat = lay.columns.flat();
+      if (flat.length !== lv.boxes.length) bad.push(`L${L} seed${s}: cot chua ${flat.length} Thung, ban co ${lv.boxes.length}`);
+      if (new Set(flat).size !== flat.length) bad.push(`L${L} seed${s}: mot Thung nam o hai cot`);
+      const visIdx = new Set(lay.columns.flatMap(c => c.slice(0, lay.visibleRows)));
+      // Moi Thung con o trong PHAI nam trong tam voi luc spawn
+      lv.boxes.forEach((b, i) => {
+        if (b.items.length < 3 && !visIdx.has(i))
+          bad.push(`L${L} seed${s}: Thung co o trong (${b.id}) bi che luc spawn`);
+      });
+      const deepest = Math.max(...lay.columns.map(c => c.length));
+      if (deepest > lay.visibleRows && lay.hiddenBoxes === 0)
+        bad.push(`L${L} seed${s}: co Thung bi che nhung hiddenBoxes = 0`);
+    }
+    if (lv.conveyor.maxActive > lv.trays.length) bad.push(`L${L} seed${s}: cua so > so Khay`);
+    if (lv.conveyor.maxActive >= lv.trays.length) bad.push(`L${L} seed${s}: khong con Khay nao ngoai cua so`);
+    if (lv.solvable !== true) bad.push(`L${L} seed${s}: khong co bang chung giai duoc`);
+    if (L > 5 && lv.conveyor.maxActive < 3) bad.push(`L${L} seed${s}: cua so ${lv.conveyor.maxActive} < san 3`);
+    const free = lv.boxes.reduce((a, b) => a + (3 - b.items.length), 0);
+    const holeBoxes = lv.boxes.filter(b => b.items.length < 3).length;
+    shapes[`${free} o trong / ${holeBoxes} Thung`] = (shapes[`${free} o trong / ${holeBoxes} Thung`] || 0) + 1;
+  }
+  return { checked, bad, minLen, shapes };
+}
+
+/* --- 2. Choi that qua engine --- */
+function playthrough() {
+  const bad = [];
+  let passed = 0, maxHeld = 0, revealsSeen = 0;
+  for (const L of LEVELS) for (let s = 0; s < PLAY_SEEDS; s++) {
+    const cfg = configForLevelNumber(L, { seed: (L * 31337 + s * 15485863) % 2147483647 });
+    let lv;
+    try { lv = generateLevel(cfg); }
+    catch (e) { bad.push(`L${L} seed${s}: sinh man loi — ${e.message}`); continue; }
+
+    const eng = new GameEngine();
+    eng.startLevel(LevelGenerator.toEngineLevel(lv));
+    if (eng.boxes.some(b => b.items.length === 0)) { bad.push(`L${L} seed${s}: engine thay Thung rong`); continue; }
+
+    let broke = false;
+    for (const mv of lv.referenceSolution) {
+      // Chi so trong loi giai la ID Thung, va ID khong doi khi Thung bi go khoi cot.
+      const from = eng.getBox(mv.from), to = eng.getBox(mv.to);
+      // KIEM TRA TAM VOI: loi giai khong duoc cham vao Thung dang bi che.
+      if (!eng.isAccessible(mv.from) || !eng.isAccessible(mv.to)) {
+        bad.push(`L${L} seed${s}: loi giai cham Thung bi che (${mv.from} -> ${mv.to})`);
+        broke = true; break;
+      }
+      const item = from && from.items[mv.index];
+      if (item == null || !to) { bad.push(`L${L} seed${s}: nuoc di khong hop le`); broke = true; break; }
+      from.items.splice(mv.index, 1);
+      to.items.push(item);
+      to.checkWrapped();
+      // Giao het nhung gi giao duoc, giong nguoi choi keo Thung wrapped sang Khay.
+      for (;;) {
+        const box = eng.boxes.find(b => b.isWrapped && eng.isAccessible(b.id)
+                                        && eng.conveyor.findMatchingTray(b));
+        if (!box) break;
+        eng.conveyor.removeTray(eng.conveyor.findMatchingTray(box).id);
+        // Giao hang = Thung roi khoi ban co VA khoi cot => cot tut xuong.
+        eng.boxes = eng.boxes.filter(b => b.id !== box.id);
+        eng._removeFromColumn(box.id);
+        revealsSeen += 1;
+      }
+      maxHeld = Math.max(maxHeld, eng.boxes.filter(b => b.isWrapped).length);
+    }
+    if (broke) continue;
+    if (eng.conveyor.hasRemainingTrays())
+      bad.push(`L${L} seed${s}: con ${eng.conveyor.allTrays.length} Khay chua giao duoc`);
+    else passed++;
+  }
+  return { passed, bad, maxHeld, revealsSeen };
+}
+
+/* --- 3. Duong cong do kho --- */
+function curve() {
+  const rows = [];
+  for (let L = 1; L <= 32; L++) {
+    let score = 0, par = 0, wrapped = 0, n = 0, cfg = null;
+    for (let s = 0; s < CURVE_SEEDS; s++) {
+      cfg = configForLevelNumber(L, { seed: (L * 100003 + s * 7919) % 2147483647 });
+      let lv; try { lv = generateLevel(cfg); } catch (e) { continue; }
+      n++; score += lv.difficulty.score; par += lv.difficulty.parMoves;
+      wrapped += lv.difficulty.maxWrappedHeld;
+    }
+    const d = Math.max(1, n);
+    rows.push({
+      L, tier: cfg.tier, boxes: cfg.numBoxes, trays: cfg.numSets,
+      hidden: Math.max(0, cfg.numBoxes - cfg.columns * cfg.visibleRows),
+      act: cfg.conveyorMaxActive, pool: `${cfg.numCategories}x${cfg.itemTypesPerCategory}`,
+      free: cfg.freeSlotBoxes, undo: cfg.undoCount,
+      score: +(score / d).toFixed(1), par: +(par / d).toFixed(1), wrapped: +(wrapped / d).toFixed(2),
+    });
+  }
+  return rows;
+}
+
+function verdict(ok, text) {
+  return `<div class="verdict ${ok ? 'pass' : 'fail'}">${ok ? 'DAT' : 'HONG'} — ${text}</div>`;
+}
+
+document.getElementById('run').addEventListener('click', () => {
+  const btn = document.getElementById('run');
+  const out = document.getElementById('out');
+  btn.disabled = true;
+  out.innerHTML = '<p>Đang chạy…</p>';
+
+  setTimeout(() => {
+    const t0 = performance.now();
+    const r1 = auditRules();
+    const r2 = playthrough();
+    const r3 = curve();
+    const ms = Math.round(performance.now() - t0);
+
+    // Kiem tra hinh dang duong cong
+    const curveIssues = [];
+    const ramp = r3.filter(r => r.tier === 'ramp');
+    const hard = r3.filter(r => r.tier === 'hard');
+    const sh = r3.filter(r => r.tier === 'superhard');
+    if (ramp.length !== 10) curveIssues.push(`chang lam quen co ${ramp.length} level, mong doi 10 (L1-L10)`);
+    for (let i = 11; i <= 30; i++) {
+      const want = i % 2 === 0 ? 'superhard' : 'hard';
+      if (r3[i - 1].tier !== want) curveIssues.push(`L${i} la ${r3[i - 1].tier}, mong doi ${want}`);
+    }
+    hard.forEach(r => { if (r.act !== 5) curveIssues.push(`L${r.L} hard co cua so ${r.act}, mong doi 5`); });
+    sh.forEach(r => { if (r.act !== 6 && r.act !== 7) curveIssues.push(`L${r.L} super hard co cua so ${r.act}, mong doi 6 hoac 7`); });
+    const hardRise = hard[hard.length - 1].score - hard[0].score;
+    const shRise = sh[sh.length - 1].score - sh[0].score;
+    if (hardRise < 15) curveIssues.push(`duong hard chi len ${hardRise.toFixed(1)} diem tu L11 den L29`);
+    if (shRise < 15) curveIssues.push(`duong super hard chi len ${shRise.toFixed(1)} diem tu L12 den L30`);
+    sh.forEach(r => {
+      const nb = r3[r.L - 2]; // level hard ngay truoc
+      if (nb && nb.tier === 'hard' && r.score <= nb.score)
+        curveIssues.push(`L${r.L} (super hard, ${r.score}) khong kho hon L${nb.L} (hard, ${nb.score})`);
+    });
+
+    const max = Math.max(...r3.map(r => r.score));
+    const table = `<div class="scroll"><table>
+      <tr><th>Level</th><th class="t">Bậc</th><th>Thùng</th><th>Ẩn</th><th>Khay</th><th>Conveyor</th>
+          <th>Pool</th><th>Ô trống</th><th>Undo</th><th>Par</th><th>Tồn kho</th><th>Điểm</th><th class="t"></th></tr>
+      ${r3.map(r => `<tr class="${r.tier === 'ramp' ? 'ramp' : r.tier === 'superhard' ? 'sh' : ''}">
+        <td>${r.L}</td><td class="t">${r.tier}</td><td>${r.boxes}</td><td>${r.hidden}</td><td>${r.trays}</td>
+        <td>${r.act}</td><td>${r.pool}</td><td>${r.free}</td><td>${r.undo}</td>
+        <td>${r.par}</td><td>${r.wrapped}</td><td>${r.score}</td>
+        <td class="t"><span class="bar ${r.tier === 'superhard' ? 'sh' : ''}" style="width:${(r.score / max * 130).toFixed(0)}px"></span></td>
+      </tr>`).join('')}
+    </table></div>`;
+
+    out.innerHTML = `
+      <h2>1. Luật spawn — ${r1.checked} màn</h2>
+      ${verdict(r1.bad.length === 0 && r1.minLen >= 1,
+        r1.bad.length === 0
+          ? `mọi Thùng đều có ≥1 vật, không Thùng nào wrapped sẵn, luôn còn Khay ngoài cửa sổ, mọi màn có bằng chứng giải được`
+          : `${r1.bad.length} vi phạm`)}
+      ${r1.bad.length ? `<pre>${r1.bad.slice(0, 15).join('\n')}</pre>` : ''}
+      <p>Thùng ít vật nhất trên toàn bộ mẫu: <b>${r1.minLen}</b> vật. Phân bố ô trống:</p>
+      <pre>${Object.entries(r1.shapes).map(([k, v]) => `${k.padEnd(26)} ${v} màn`).join('\n')}</pre>
+
+      <h2>2. Chơi thật qua engine — ${LEVELS.length * PLAY_SEEDS} màn</h2>
+      ${verdict(r2.bad.length === 0,
+        r2.bad.length === 0
+          ? `${r2.passed}/${LEVELS.length * PLAY_SEEDS} màn giao hết Khay qua GameEngine + Conveyor + Tray + Box thật`
+          : `${r2.bad.length} màn không hoàn thành`)}
+      ${r2.bad.length ? `<pre>${r2.bad.slice(0, 15).join('\n')}</pre>` : ''}
+      <p>Tồn kho Thùng wrapped cao nhất gặp phải: <b>${r2.maxHeld}</b>. Số lần cột tụt xuống lộ Thùng mới: <b>${r2.revealsSeen}</b>.</p>
+
+      <h2>3. Đường cong độ khó</h2>
+      ${verdict(curveIssues.length === 0,
+        curveIssues.length === 0
+          ? `hard/super hard xen kẽ đúng từ L11, cửa sổ đúng bậc, cả hai đường đều lên tới L30`
+          : `${curveIssues.length} vấn đề`)}
+      ${curveIssues.length ? `<pre>${curveIssues.join('\n')}</pre>` : ''}
+      ${table}
+      <p class="sub">Chạy hết trong ${ms} ms.</p>`;
+    btn.disabled = false;
+  }, 30);
+});
+</script>
+</body>
+</html>

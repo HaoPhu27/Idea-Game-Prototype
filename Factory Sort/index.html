@@ -5,12 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Factory Sort - Prototype v1</title>
     <link rel="stylesheet" href="style.css">
+
+<script>
+window.addEventListener('error', function(e) {
+    var err = document.createElement('div');
+    err.style = 'position:fixed;top:0;left:0;z-index:9999;background:red;color:white;padding:20px;font-size:20px;';
+    err.textContent = 'ERROR: ' + e.message + ' at ' + e.filename + ':' + e.lineno;
+    document.body.appendChild(err);
+});
+window.addEventListener('unhandledrejection', function(e) {
+    var err = document.createElement('div');
+    err.style = 'position:fixed;top:0;left:0;z-index:9999;background:red;color:white;padding:20px;font-size:20px;';
+    err.textContent = 'PROMISE REJECTION: ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
+    document.body.appendChild(err);
+});
+</script>
 </head>
+
 <body>
     <div id="game-container">
         <header id="game-header">
             <div class="level-info">Level: <span id="level-display">Random</span></div>
             <div class="move-info">Moves: <span id="move-display">0</span></div>
+            <button id="btn-select-level" class="btn">Levels</button>
             <button id="btn-new-game" class="btn">New Game</button>
         </header>
 
@@ -53,6 +70,14 @@
         <div id="overlay-loading" class="overlay hidden">
             <div class="overlay-content transparent loading-bg">
                 <h2>Generating level...</h2>
+            </div>
+        </div>
+
+        <div id="overlay-level-select" class="overlay hidden">
+            <div class="overlay-content level-select-modal">
+                <h2>Select Level</h2>
+                <div id="level-grid" class="level-grid"></div>
+                <button id="btn-close-level-select" class="btn primary" style="margin-top: 15px;">Close</button>
             </div>
         </div>
     </div>

@@ -104,6 +104,21 @@ Tất cả item trong Thùng đều nhìn thấy và truy cập được cùng l
 
 > **Lưu ý:** GDD v0.3 có mô tả 3 phương án (A: Stack, B: Grid mở, C: Pyramid). Code prototype **chỉ implement Phương án B**. Phương án A và C giữ lại làm tham khảo cho phiên bản sau.
 
+### 3.2b Khu Thùng theo cột, có Thùng bị che [CHỐT 9/2026, ĐÃ IMPLEMENT]
+
+Khu Thùng là **3 cột × 4 hàng = 12 ô hiển thị**. Thùng thứ 13 trở đi xếp chồng lên đỉnh cột và **bị che, khoá hoàn toàn**: không nhấc item ra, không thả item vào, không kéo sang Khay. Khi một Thùng được giao cho Khay, nó rời khỏi cột → cả cột tụt xuống → lộ thêm đúng 1 Thùng.
+
+Toàn bộ nội dung, kể cả phần bị che, được chốt ngay lúc spawn (`layout.columns` trong output của bộ sinh màn), nên tính giải được vẫn chứng minh được trước.
+
+Hai ràng buộc bắt buộc, do `assignLayout()` và `simulateWithLayout()` bảo đảm:
+
+1. **Mọi Thùng còn ô trống phải nằm trong tầm với lúc spawn.** Cả bàn chỉ có 3 ô trống (bất biến `F = 3N − 3S`); giấu chúng đi là người chơi không có nước đi nào ngay từ đầu.
+2. **Lời giải tham chiếu không được chạm vào Thùng đang bị che** — và phải đúng với *mọi* thứ tự giao hàng, không chỉ một. Người chơi tự chọn giao Thùng nào trước, thứ tự đó quyết định Khay nào biến mất trước, từ đó quyết định cột tụt xuống lúc nào. Bộ sinh màn chạy thử 4 chính sách giao hàng khác nhau và chỉ nhận bố cục nào đúng với cả 4.
+
+Số Thùng bị che tăng theo độ khó: 0 ở chặng làm quen, 0→4 ở hard, 1→6 ở super hard.
+
+> **Lưu ý:** mục 3.2 ("Grid mở") vẫn đúng ở phạm vi **item trong một Thùng** — cả 3 slot đều nhìn thấy và chạm được. Che khuất xảy ra ở cấp **Thùng**, không phải cấp item.
+
 ### 3.3 Biến thể khác [CHƯA IMPLEMENT — tham khảo]
 
 **Phương án A — Stack tuyến tính (Top-down)**

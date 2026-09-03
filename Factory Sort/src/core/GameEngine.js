@@ -36,6 +36,22 @@ export class GameEngine {
         // (simulateDelivery) khong khop voi tran dau that.
         if (levelConfig.maxActiveTrays > 0) this.conveyor.maxActive = levelConfig.maxActiveTrays;
         this.conveyor.initialize(trayInstances);
+
+        // --- Khu Thung theo COT ---
+        // layout.columns[c] = danh sach ID Thung trong cot c, phan tu 0 la o duoi
+        // cung. Chi `visibleRows` phan tu dau moi cot la CHAM DUOC; phan tren bi che
+        // va khoa cung. Khi mot Thung duoc giao cho Khay, no bi go khoi mang cua cot
+        // => cot tut xuong => Thung ke tiep lo ra.
+        //
+        // Level cu (khong co layout) rot ve mot cot duy nhat chua tat ca va
+        // visibleRows = Infinity, tuc giu nguyen hanh vi luoi phang truoc day.
+        if (levelConfig.layout) {
+            this.columns = levelConfig.layout.columns.map(c => c.slice());
+            this.visibleRows = levelConfig.layout.visibleRows;
+        } else {
+            this.columns = [this.boxes.map(b => b.id)];
+            this.visibleRows = Infinity;
+        }
         this.selectedSource = null; // { boxId, itemIndex }
         this.draggedBoxId = null;
         this.moveCount = 0;
@@ -51,11 +67,48 @@ export class GameEngine {
         return this.boxes.find(b => b.id === id);
     }
 
+    /** ID cac Thung dang o trong tam voi (4 o duoi cung cua moi cot). */
+    getVisibleBoxIds() {
+        const ids = [];
+        for (const col of this.columns) {
+            for (let i = 0; i < Math.min(this.visibleRows, col.length); i++) ids.push(col[i]);
+        }
+        return ids;
+    }
+
+    /** Thung dang hien, theo dung thu tu cot/hang — day la thu UI nen ve. */
+    getVisibleBoxes() {
+        return this.columns.map(col =>
+            col.slice(0, this.visibleRows).map(id => this.getBox(id)).filter(Boolean));
+    }
+
+    /**
+     * Thung nay co cham duoc khong? Thung bi che khoa HOAN TOAN: khong nhac item ra,
+     * khong tha item vao, khong keo sang Khay. Moi loi vao cua nguoi choi deu phai
+     * di qua day, neu khong se co duong tat cham toi Thung an.
+     */
+    isAccessible(boxId) {
+        for (const col of this.columns) {
+            const at = col.indexOf(boxId);
+            if (at !== -1) return at < this.visibleRows;
+        }
+        return false;
+    }
+
+    /** Go Thung khoi cot sau khi giao => cot tut xuong, lo Thung ke tiep. */
+    _removeFromColumn(boxId) {
+        for (const col of this.columns) {
+            const at = col.indexOf(boxId);
+            if (at !== -1) { col.splice(at, 1); return; }
+        }
+    }
+
     // Layer 1: Tap source item
     selectSource(boxId, itemIndex) {
         if (this.gameState !== 'PLAYING') return false;
         
         const box = this.getBox(boxId);
+        if (!this.isAccessible(boxId)) return false;   // Thung bi che
         if (!box || box.isWrapped || box.isEmpty() || itemIndex < 0 || itemIndex >= box.items.length) {
             return false;
         }
@@ -84,6 +137,7 @@ export class GameEngine {
         if (!sourceBox || !targetBox || !targetBox.canAccept()) {
             return false;
         }
+        if (!this.isAccessible(boxId)) return false;   // khong tha vao Thung bi che
 
         // Perform move
         const item = sourceBox.removeItem(this.selectedSource.itemIndex);
@@ -115,8 +169,10 @@ export class GameEngine {
         const sourceBox = this.getBox(sourceBoxId);
         if (!sourceBox || sourceBox.isWrapped || sourceBox.isEmpty()) return [];
         
-        // Any box that can accept
-        return this.boxes.filter(b => b.id !== sourceBoxId && b.canAccept()).map(b => b.id);
+        // Bat ky Thung nao dang trong tam voi va con cho
+        return this.boxes
+            .filter(b => b.id !== sourceBoxId && b.canAccept() && this.isAccessible(b.id))
+            .map(b => b.id);
     }
 
     // Layer 2: Drag wrapped box
@@ -148,8 +204,9 @@ export class GameEngine {
         // Valid drop
         tray.receiveBox(box);
         
-        // Remove box from play area
+        // Remove box from play area + cho cot tut xuong
         this.boxes = this.boxes.filter(b => b.id !== box.id);
+        this._removeFromColumn(box.id);
         
         this.draggedBoxId = null;
         
@@ -175,9 +232,12 @@ export class GameEngine {
         }
 
         // Check Lose
-        // All non-wrapped boxes are full -> no empty slots available
-        const activeBoxes = this.boxes.filter(b => !b.isWrapped && !b.isEmpty());
-        const hasEmptySlots = activeBoxes.length === 0 || this.boxes.some(b => !b.isWrapped && !b.isFull());
+        // Chi tinh tren Thung TRONG TAM VOI. O trong nam trong Thung bi che thi
+        // nguoi choi khong dung duoc, nen dem ca chung vao la game se tuong nguoi
+        // choi con duong di trong khi ho da ket cung.
+        const reachable = this.boxes.filter(b => this.isAccessible(b.id));
+        const activeBoxes = reachable.filter(b => !b.isWrapped && !b.isEmpty());
+        const hasEmptySlots = activeBoxes.length === 0 || reachable.some(b => !b.isWrapped && !b.isFull());
         
         // Edge case: if we have wrapped boxes but no active trays match them, we might be stuck
         // But let's stick to the GDD rule first: Lose when no empty slots.

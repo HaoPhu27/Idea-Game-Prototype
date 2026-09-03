@@ -95,6 +95,7 @@ export class LevelGenerator {
       trays: level.trays,
       conveyorType: level.conveyor.type,
       maxActiveTrays: level.conveyor.maxActive,
+      layout: level.layout,        // bo cuc cot + so hang hien (khu Thung 3x4)
 
       // Bang chung + sieu du lieu, cho HUD / hint / phan tich.
       solvable: level.solvable,
