@@ -1,242 +1,202 @@
 # Thuật toán sinh level đảm bảo giải được — Goods Sort (Tray & Conveyor)
 
-Thay thế cho `LevelGenerator.js` + `Solver.js` hiện tại. Viết theo đúng data model trong GDD v0.4: Thùng 3 ô phẳng, Grid mở, không ràng buộc loại, Tray 1 slot, conveyor oval.
+**v2 (9/2026) — sinh ngược TRỰC TIẾP trên bố cục cột.**
 
 ```
-src/generator/SolvableLevelGenerator.js   sinh level
-src/generator/Solver.js                   mô phỏng luật + IDA* + hint
-tools/selftest.js                         bộ kiểm chứng (node tools/selftest.js)
-tools/demo.js                             in thử 1 level (node tools/demo.js 9)
+src/generator/SolvableLevelGenerator.js   sinh level  (buildDeep + replayReal)
+src/generator/Solver.js                   mô phỏng lớp Thùng + IDA* + hint kiến thiết
+src/generator/GameSim.js                  mô phỏng TOÀN BỘ trận đấu (cột + hàng chờ + Khay)
+tools/selftest.js                         bộ kiểm chứng   (node tools/selftest.js)
+tools/curate50.mjs                        tuyển seed cho 50 màn (node tools/curate50.mjs)
+tools/demo.js                             in thử 1 màn    (node tools/demo.js 25)
 ```
 
 ---
 
-## 1. Nguyên lý: sinh ngược từ trạng thái thắng
+## 0. Vì sao phải viết lại (v1 → v2)
 
-Vấn đề của GDD 8.2 là **hướng của bài toán**, không phải sức mạnh của solver. Sinh trước rồi tìm lời giải là O(b^d) với b rất lớn (Grid mở + không ràng buộc loại ⇒ hàng trăm nước đi hợp lệ mỗi lượt). Nên BFS chết, nên solver bị skip.
+v1 sinh một dãy Thùng "phẳng" rồi **mới** xếp vào cột (`assignLayout`) và lọc lại bằng
+`simulateWithLayout`. Cách đó chỉ sống được khi gần hết Thùng đều nhìn thấy.
 
-Đảo ngược lại:
+Yêu cầu sản phẩm mới: màn **hard có 50–70 Thùng**, **super hard 72–80**, nhưng lúc nào
+cũng chỉ **3 × 4 = 12 Thùng** nhìn thấy được. Với 60 Thùng thì 48 Thùng bị che, và xác
+suất một lời giải sinh ngẫu nhiên không bao giờ chạm vào Thùng bị che là ~0. v1 sẽ quay
+hết `maxAttempts` rồi ném lỗi.
 
-```
-S₀ = trạng thái THẮNG:  S Thùng, mỗi Thùng = 1 bộ 3 item cùng loại  +  E Thùng rỗng
-        │  áp dụng K nước đi NGƯỢC hợp lệ
-        ▼
-S_K = trạng thái xuất phát của level
-
-Lời giải forward = chính dãy đó đảo chiều:  S_K → S_{K−1} → … → S₀
-```
-
-Solvability trở thành **bất biến của cấu trúc**, không còn là kết quả của tìm kiếm. Chi phí sinh: **O(K)**. Đo được: **0.07–0.43 ms/level** (xem mục 5).
-
-### Bất biến an toàn — chỗ dễ sai nhất
-
-Trong game thật, Thùng đủ 3 item cùng loại sẽ **tự động wrapped và khoá cứng**. Nếu lúc scramble ta vô tình tạo ra một Thùng 3-cùng-loại ngoài ý muốn, thì khi replay forward, Thùng đó wrap sớm và chặn mất nước đi kế tiếp — lời giải gãy.
-
-Bất biến bắt buộc:
-
-> Sau **mỗi** nước đi ngược, Thùng duy nhất được phép là 3-cùng-loại là Thùng "pristine" (Thùng gốc chưa hề bị đụng tới).
-
-Cài trong `tryReverse()`. Đây là lý do hàm này từ chối một số nước đi và generator phải retry (trung bình 0.0–0.1 lần retry/level).
-
-### Bẫy thứ hai: index không tái dùng được
-
-`push()` luôn đặt item vào **cuối** mảng, còn `splice()` lấy ra ở **giữa**. Nên sau khi đảo chiều, thứ tự bên trong từng Thùng có thể khác trạng thái gốc — dù nội dung, xét như multiset, thì giống hệt. Vì các item cùng `itemId` hoàn toàn tương đương nhau, `materializeSolution()` giải lại index tại thời điểm chạy bằng `indexOf(itemId)`. (Bug này bị `selftest.js` bắt được, không phải suy đoán.)
-
-### Điều kiện Thua tự động được thoả
-
-Trên đường S_K → S₀, mỗi bước đều tồn tại ít nhất một ô trống — chính ô vừa được tạo ra ở Thùng đích. Nên `hasEmptySlots` luôn true, người chơi không bao giờ bị engine tuyên Thua giữa chừng khi đi theo lời giải tham chiếu.
+v2 làm bố cục thành **một phần của phép sinh**, không phải một bộ lọc sau đó.
 
 ---
 
-## 2. Tham số điều chỉnh độ khó
+## 1. Nguyên lý: sinh ngược, và bố cục nằm trong bất biến
 
-```js
-import { generateLevel } from './src/generator/SolvableLevelGenerator.js';
+Bất biến cốt lõi:
 
-const level = generateLevel({
-  seed: 1234,
-  numBoxes: 8,
-  numEmptyBoxes: 1,
-  numCategories: 3,
-  itemTypesPerCategory: 3,
-  ratio21: 0.4,
-  extraScramble: 0.5,
-  trayOrder: 'shuffled',
-  moveLimitSlack: 1.25,
-});
-```
+> Trạng thái ngược tại bước **τ**  ==  trạng thái xuôi tại thời điểm **(T − τ)**.
 
-### Quy mô bàn chơi
+Vì vậy chỉ cần **mọi nước đi ngược chỉ chạm vào Thùng đang hiện** (index `< visibleRows`
+trong cột của nó) thì khi phát lại xuôi, mọi nước đều hợp lệ. Cả *tính giải được* lẫn
+*tính chơi được* đều là bất biến cấu trúc, không phải kết quả của tìm kiếm.
 
-| Tham số | Mặc định | Tác dụng |
+### Ba phép đi ngược — nghịch đảo đúng ba sự kiện xuôi của `GameEngine`
+
+| | phép ngược | sự kiện xuôi tương ứng |
 |---|---|---|
-| `numBoxes` | 6 | Tổng số Thùng |
-| `numSets` | `numBoxes − numEmptyBoxes` | Số bộ 3 item = **số Tray**. Giảm xuống để bàn thoáng hơn |
-| `numEmptyBoxes` | 1 | Số Thùng rỗng hoàn toàn lúc bắt đầu. Luật cứng ≥ 1 |
-| `numCategories` | 2 | 1–4 |
-| `itemTypesPerCategory` | 2 | 1–3 |
-| `maxSetsPerType` | 3 | Một loại item được chiếm tối đa mấy bộ (⇒ mấy Tray) |
+| **R1** | `un-deliver` — tạo Thùng mới chứa 3 item cùng loại, **chèn** vào cột ở vị trí `p < visibleRows`; thêm 1 Khay vào **đầu** hàng đợi Khay | Thùng gói xong → rời cột → vào hàng chờ → giao cho Khay |
+| **R2** | `un-move` — rút 1 item từ Thùng `from` bỏ sang Thùng `to` (cả hai đều đang hiện) | người chơi kéo 1 item `to → from` |
+| **R3** | `un-vanish` — tạo Thùng mới **chỉ có 1 item** (rút từ một Thùng đang hiện) rồi chèn vào cột | người chơi kéo nốt item cuối đi → Thùng rỗng biến mất → cột tụt xuống |
 
-### Độ khó lõi
+Phép chèn của R1/R3 đẩy các Thùng từ vị trí chèn trở lên **1 nấc** — đó chính là nghịch
+đảo của "cột tụt xuống khi một Thùng rời cột".
 
-| Tham số | Dải | Tác dụng |
-|---|---|---|
-| **`ratio21`** | 0.0–1.0, mặc định **0.60** | Tỉ lệ bộ kiểu "2+1" (2 item chung Thùng, 1 tách ra → 1 nước để gom). Phần còn lại là "1+1+1" (3 Thùng khác nhau → 2 nước). **1.0 = dễ nhất, 0.0 = khó nhất.** Giá trị 0.60 lấy từ phân tích 4501 level (60.3%/39.7%) |
-| `extraScramble` | 0.0–2.0, mặc định 0 | Hệ số nước đi ngược bổ sung. Không làm tăng cận dưới lý thuyết nhưng làm bàn "bẩn" hơn và ép người chơi đi đường vòng |
-| `compactFreeSlots` | `true` | `true` → dồn hết ô trống vào đúng các Thùng rỗng, mọi Thùng có item đều **đầy** (chật, khó). `false` → để lỗ rải rác (thoáng, dễ) |
-
-Vì tổng ô trống F = 3(N − S) là bất biến và luôn là bội của 3, **cách duy nhất để nới không gian xoay xở là giảm `numSets` xuống dưới `numBoxes − numEmptyBoxes`**, không phải chỉnh một tỉ lệ phần trăm.
-
-### Tầng Tray / Conveyor
-
-| Tham số | Mặc định | Tác dụng |
-|---|---|---|
-| `trayMatchMode` | `'category'` | `'category'` = luật hiện tại. `'itemType'` = khớp UI, chặt hơn (xem cross-check 2.1) |
-| `trayOrder` | `'wrapOrder'` | `'wrapOrder'` = thứ tự Tray trùng thứ tự wrap tự nhiên → giao ngay, không phải giữ. `'shuffled'` / `'reverse'` = phải ôm nhiều Thùng wrapped chờ → khó hơn |
-| `conveyorMaxActive` | 4 | Số Tray hiện cùng lúc |
-
-### Áp lực meta — thứ GDD đang thiếu
-
-| Tham số | Mặc định | Tác dụng |
-|---|---|---|
-| `moveLimitSlack` | `null` | `null` = không giới hạn. `1.8` = dễ, `1.10` = rất chặt. `moveLimit = ceil(refMoves × slack)` |
-| `secondsPerMove` | `null` | `timeToPlay = round((refMoves × secondsPerMove + 20) / 5) × 5` |
-| `undoCount` | 3 | |
-
-Neo vào `refMoves` — con số generator **biết chính xác** — chứ không vào hồi quy R²=0.15 của plan.
-
-### Preset & lộ trình theo level
-
-```js
-generateLevelFromPreset('hard', { seed: 42 });
-generateLevel(configForLevelNumber(37));   // thay cho UIManager.startNewLevel()
-```
-
-`configForLevelNumber` tăng dần theo thứ tự: số Thùng → số category → `ratio21` giảm → `extraScramble` tăng → `trayOrder` nghịch → `moveLimit` siết → `trayMatchMode: 'itemType'` từ level 40.
+Hai bất biến an toàn giữ nguyên từ v1: nguồn của R2 không được là Thùng đã gói (trừ Thùng
+"pristine" chưa bị đụng tới), và đích không được thành 3-cùng-loại (sẽ gói sai thời điểm).
 
 ---
 
-## 3. Output
+## 2. Hai hệ quả định lượng
 
-```jsonc
-{
-  "boxes":  [{ "id": "box_0", "items": ["bear","pizza"], "maxSize": 3 }, ...],
-  "trays":  [{ "id": "tray_0", "queueIndex": 0, "categoryId": "food",
-               "targetItemId": "pizza", "emoji": "🍕", "matchMode": "category" }, ...],
-  "conveyor": { "type": "oval", "maxActive": 4 },
+### (1) Số ô trống là một HẰNG SỐ CỤC BỘ, không phụ thuộc kích cỡ bàn
 
-  "referenceSolution": [{ "from": 3, "index": 2, "to": 0, "itemId": "pizza" }, ...],
-  "solvable": true,
-  "solvabilityProof": "reverse-construction + forward replay verified",
+Gọi `S` = số bộ 3 item (= số Khay), `E` = số Thùng "chuyển tiếp" sinh bởi R3.
 
-  "difficulty": {
-    "refMoves": 10,        // độ dài lời giải tham chiếu (cận trên đảm bảo đạt được)
-    "lowerBound": 8,       // Σ(số Thùng chứa loại t − số bộ của t) — cận dưới admissible
-    "optimalMoves": 9,     // IDA* thật, chỉ tính khi level đủ nhỏ
-    "freeSlots": 3,
-    "avgSpread": 2.33,     // 2.0 = toàn 2+1, 3.0 = toàn 1+1+1
-    "mixedBoxRatio": 1,
-    "categoryConfusion": 2,
-    "maxWrappedHeld": 1,   // số Thùng wrapped phải ôm cùng lúc nhiều nhất
-    "components": { "volume": 0.25, "pressure": 0.278, "interleave": 1,
-                    "confusion": 0.667, "trayBacklog": 0.25 },
-    "score": 41            // 1..100
-  },
-  "rules": { "moveLimit": 18, "timeToPlay": null, "undoCount": 3 }
-}
+```
+N = S + E                          tổng số Thùng
+tổng item = 3S,  tổng ô = 3N   ⇒   tổng ô trống = 3(N − S) = 3E
 ```
 
-`score` là tổ hợp có trọng số của 5 thành phần đã chuẩn hoá về [0,1]: `0.38·volume + 0.27·pressure + 0.15·interleave + 0.10·confusion + 0.10·trayBacklog`. **Trọng số là giả định thiết kế** — hiệu chỉnh lại khi có telemetry thật (tỉ lệ fail, số nước đi trung bình của người chơi).
+R2 không tạo cũng không xoá ô trống (bịt ô bên này, mở ô bên kia) nên **3E là bất biến**
+suốt cả quá trình. Và vì R2 chỉ chạm được Thùng đang hiện, số ô trống *dùng được* luôn
+quanh quẩn trong cửa sổ 12 Thùng.
+
+⇒ `carrierBoxes` (E) là cần gạt **độ chật không gian xoay xở**, **độc lập với N**:
+E=1 → 3 ô (ngạt thở) · E=2 → 6 ô (chật) · E=3 → 9 ô (vừa) · E=4 → 12 ô (rộng).
+
+⇒ **Phóng to bàn không làm màn dễ hơn, cũng không làm khó hơn — chỉ làm dài hơn.**
+Đo được: cùng E=2/E=3 trên bàn 80 Thùng, số ô trống *nhìn thấy được* lúc spawn đều ≈ 3.
+
+### (2) `parMoves = refMoves` = số nước đi **tối ưu** (không cần chạy IDA*)
+
+Mỗi bộ `s` được rải ra `d_s ∈ {2,3}` Thùng bằng đúng `d_s − 1` lần R2/R3, và **không item
+nào bị di chuyển hai lần**. Xuôi, mỗi item lạc phải được kéo về ít nhất 1 lần, nên
+`Σ(d_s − 1)` vừa là **chặn dưới** vừa là độ dài lời giải tham chiếu ⇒ nó **chính là** tối ưu.
+
+v1 phải chạy IDA* (và chỉ chạy nổi khi `N ≤ 10`) rồi đoán par từ `lowerBound + 1`. v2 có
+con số chính xác ở **mọi** kích cỡ bàn, nên `moveLimit = ceil(par × slack)` cuối cùng cũng
+đúng nghĩa. TEST 2 kiểm lại điều này bằng solver đầy đủ trên bàn nhỏ: 60/60 khớp.
 
 ---
 
-## 4. Tích hợp vào code hiện tại
+## 3. Độ khó đến từ đâu
 
-Trong `LevelGenerator.js`, bỏ vòng `while (!levelData && attempts < 1)` và lời gọi Solver, thay bằng:
+Màn hard/super hard **không** khó vì dài, mà vì **thông tin bị giấu**:
 
-```js
-import { generateLevel, configForLevelNumber } from './SolvableLevelGenerator.js';
+- 50–70 Thùng (hard) / 72–80 (super hard) trên bàn, nhưng lúc nào cũng chỉ 12 Thùng
+  chạm được; phần còn lại bị che **hoàn toàn** (không kéo item vào/ra, không giao).
+- Vùng nhìn thấy ở dưới đáy dày đặc item lẫn lộn của nhiều bộ khác nhau; thường chỉ
+  **3–4 bộ** gom đủ 3 item ngay trong vùng đó (`difficulty.openingSets`).
+- Item còn thiếu của các bộ khác nằm trong Thùng **bị che phía trên**. Muốn lộ ra thì
+  phải giao/dọn bớt Thùng phía dưới cho cột tụt xuống.
 
-export function generate(currentLevel) {
-  const lvl = generateLevel(configForLevelNumber(currentLevel));
-  return {
-    boxes:      lvl.boxes,
-    trays:      lvl.trays,
-    conveyorType: lvl.conveyor.type,
-    difficulty: lvl.difficulty,   // thay cho { minMoves: 0 }
-    rules:      lvl.rules,
-    _solution:  lvl.referenceSolution,  // giữ lại cho hint / QA
-  };
-}
-```
+Vòng lặp thật của người chơi: *gói được bộ nào trước → giao → cột tụt → lộ tài nguyên
+mới → gói tiếp bộ nào*. Sai thứ tự là kẹt.
 
-Ba thứ dùng được ngay:
+### Hai chính sách chọn vị trí cài đặt điều đó
 
-- **Hệ thống gợi ý**: `solveConstructive(state)` cho lời giải ≤ 4S nước từ **bất kỳ** trạng thái nào người chơi đang ở, chạy O(S). Không cần `_solution`, không freeze UI. Đây cũng là lưới an toàn nếu về sau bạn thêm mechanics phá vỡ đảm bảo (item ẩn, Thùng khoá).
-- **Undo/booster định giá được**: `moveLimit − refMoves` là biên độ sai sót cho phép, biết trước.
-- **QA hồi quy**: `simulate(state, moves)` mô phỏng đúng luật `GameEngine`/`Box`, dùng làm test cho chính engine.
+| tham số | ý nghĩa | đo được (bàn hard 60 Thùng, 25 seed) |
+|---|---|---|
+| `bottomBias` | xác suất Thùng mới được chèn thẳng xuống **đáy** cột (`p = 0`) | **càng thấp càng khó**: 0.20 → 4–5 bộ mở đầu · 0.45 → 5–7 · 0.70 → 6–10 · 0.95 → 6–10 |
+| `buryBias` | độ thiên vị khi chọn Thùng nhận item lạc — trọng số của hàng `at` là `(1 + 3·buryBias)^at` | yếu hơn nhiều: 0.05 → 0.9 chỉ làm số bộ mở đầu nhúc nhích ±1 |
+
+Vì sao `bottomBias` thấp lại khó: Thùng "nhà" được chèn cao thì chỉ vài lần chèn nữa là
+nó chìm vào vùng bị che, trong khi các item lạc của nó (nằm ở cột khác, vị trí thấp) vẫn
+còn hiện ⇒ **người chơi nhìn thấy một đống đồ lạc mà chưa có Thùng nào để gom chúng vào.**
+
+`maxOpeningSets` chốt lại bằng cách loại thẳng những lần xây vượt trần (bộ sinh thử seed
+khác); sinh một màn 80 Thùng tốn ~1–15 ms nên trần 250 lần thử là thoải mái.
+
+### Cửa sổ Khay (`conveyorMaxActive`) — cần gạt mạnh thứ hai
+
+Băng chuyền chỉ mở `maxActive` Khay **đầu tiên** (tiền tố cố định, không xoay được), và
+Thùng gói xong mà chưa có Khay khớp thì **rời cột ngay** và chiếm 1 trong **5 slot hàng
+chờ** — hết slot là **thua**. Đo trên bàn hard 60 Thùng (chính sách `planner`):
+
+| cửa sổ | 2 | 3 | 4 | 5 | 6 |
+|---|---:|---:|---:|---:|---:|
+| tỷ lệ thua | 77% | 77% | 57% | 23% | 20% |
+
+Đây là chỗ v1 sai nặng nhất: `GameSim` cũ **không hề mô hình hoá hàng chờ** (nó giữ Thùng
+gói xong nằm lại trong cột), nên mọi tỷ lệ thua đo được đều chỉ đến từ deadlock và cửa sổ
+1–2 Khay bị coi là "khó vừa" trong khi thực tế nó gần như bất khả thi.
 
 ---
 
-## 5. Kết quả kiểm chứng (`node tools/selftest.js`)
+## 4. Đo độ khó: `GameSim.trapRate` với chính sách `planner`
 
-Toàn bộ số dưới đây là output thật, không phải ước lượng.
+Thước đo sự thật **không phải** `difficulty.score` mà là **tỷ lệ thua của người chơi mô
+phỏng**. `GameSim` mô phỏng đúng luật `GameEngine`: cột bị che, Thùng rỗng biến mất, Thùng
+gói xong rời cột vào hàng chờ 5 slot, giao hàng **tự động** theo `findQueueMatch()`.
 
-### Sinh level + replay lời giải qua mô phỏng đúng luật engine
+Ba chính sách:
 
-| Preset | Thành công | Nước đi TB | Dải | Score TB | Retry TB | Thời gian sinh |
-|---|---|---|---|---|---|---|
-| tutorial | 400/400 | 2.1 | 2–3 | 17 | 0.0 | 0.15 ms |
-| easy | 400/400 | 5.4 | 5–7 | 26 | 0.0 | 0.12 ms |
-| normal | 400/400 | 9.7 | 9–10 | 41 | 0.1 | 0.24 ms |
-| hard | 400/400 | 21.5 | 20–22 | 64 | 0.1 | 0.43 ms |
-| expert | 400/400 | 35.5 | 34–36 | 88 | 0.1 | 0.30 ms |
+| | nhìn thấy gì | dùng để |
+|---|---|---|
+| `greedy` | chỉ nhìn Thùng | mô phỏng người chơi mới |
+| `smart` | Thùng + tránh mọi nước sai hiển nhiên | so sánh lịch sử |
+| `planner` | thêm **cửa sổ Khay** và **số slot hàng chờ còn trống** — hai thứ hiện ngay trên màn hình | **thước đo chính** |
 
-Mỗi level còn được kiểm: không có Thùng wrapped sẵn, không xuất phát ở trạng thái Thua, đủ số Thùng rỗng, mọi loại item có số lượng chia hết 3, số Tray = số bộ, mọi Tray đều được phục vụ.
+`planner` vẫn **không** nhìn được Thùng bị che và **không** tìm kiếm. Ván nào nó vẫn thua
+là ván đòi hỏi *lập kế hoạch thật*.
 
-### Đối chiếu với IDA* (150 level, 6 Thùng)
+---
 
-- 150/150 được IDA* xác nhận **có lời giải**, 0 trường hợp không kết luận được.
-- Lời giải tham chiếu dài hơn tối ưu trung bình **1.31 nước** (24/150 trùng đúng tối ưu). Nên `refMoves` là cận trên chặt — dùng làm neo cho `moveLimit` là hợp lý.
+## 5. Lộ trình 50 màn (đo trên chính seed đã chốt, 40 ván/màn)
 
-### Lộ trình độ khó theo level
+| tier | Lv | Thùng | bị che | E | cửa sổ | Khay đúng loại | par | mở đầu | điểm | thua (`planner`) |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| tutorial | 1–5 | 4–12 | 0 | 2–3 | 5 | 0% | 2–10 | 2–9 | 2–10 | **0%** |
+| onboarding | 6–10 | 14–20 | 2–8 | 3 | 5→4 | 0% | 12–20 | 5–6 | 12–19 | **3%** |
+| acclimation | 11–20 | 22–34 | 10–22 | 3 | 4 | 0→60% | 23–41 | 4–5 | 21–36 | **3–10%** |
+| normal | 21–49 | 34–46 | 22–34 | 2 | 4 | 55–90% | 42–62 | 3–5 | 37–51 | **15–33%** |
+| **hard** | 25/35/45 | **52–68** | **40–56** | 2 | 4 | 100% | 68–94 | 4 | 52–60 | **70%** |
+| **super hard** | 29/39/49 | **72–80** | **60–68** | 3 | 3 | 100% | 97–112 | 2–4 | 63–67 | **93%** |
 
-```
-  lv | box sets cat  r21 | moves free held | score  moveLimit
-   1 |  4    2   1  0.95 |   2.1  6.0  1.0 |    17  -
-   5 |  5    3   2  0.78 |   4.3  6.0  1.0 |    22  8
-   8 |  6    5   3  0.64 |   8.5  3.0  1.0 |    38  15
-  12 |  8    7   4  0.46 |  12.7  3.0  1.4 |    46  23
-  16 |  9    8   4  0.28 |  18.6  3.0  1.6 |    57  29
-  20 | 10    9   4  0.15 |  25.6  3.0  1.9 |    71  38
-  30 | 10    9   4  0.15 |  33.5  3.0  1.7 |    84  43
-  45 | 10    9   4  0.15 |  46.6  3.0  2.9 |    95  49
-  60 | 10    9   4  0.15 |  52.5  3.0  3.0 |    95  55
-```
+Bảng đầy đủ từng màn: `docs/50_level_design_report.md`.
 
-Bàn chơi chạm trần ở level ~20 (10 Thùng, 4 category — giới hạn của GDD 9.1/9.2). Từ đó trở đi độ khó chỉ còn đến từ `extraScramble`, `trayOrder` và `moveLimit`. Nếu muốn đường cong đi tiếp sau level 60, cần mở thêm nội dung: `itemTypesPerCategory: 3`, category thứ 5, hoặc mechanics mới.
+Seed của 50 màn **không** sinh ngẫu nhiên lúc chạy: mỗi màn được quét 40 seed, sàng bằng
+16 ván rồi xác nhận bằng 40 ván, và chốt seed nào rơi đúng dải mục tiêu của tier
+(`tools/curate50.mjs` → `LEVEL_SEEDS` trong `SolvableLevelGenerator.js`). Cần thiết vì
+cùng một khung hard, 16 seed khác nhau cho tỷ lệ thua từ **25% đến 85%**.
 
-### Stress test
+---
 
-| Cấu hình | Kết quả |
+## 6. Điểm độ khó `difficulty.score` (1–100)
+
+Chín trục chuẩn hoá về [0,1] rồi trộn theo trọng số. Nó chỉ để **xếp hạng và hiển thị**;
+ràng buộc là nó phải **đi cùng chiều** với tỷ lệ thua đo được (TEST 3e kiểm điều này).
+
+| trục | trọng số | nội dung |
+|---|---:|---|
+| `hiddenDepth` | 0.22 | số Thùng bị che — đòn bẩy chính của bản thiết kế mới |
+| `windowTightness` | 0.16 | cửa sổ Khay càng hẹp càng phải gói đúng thứ tự (× độ phủ so với tổng số Khay) |
+| `slotPressure` | 0.12 | `3E` ô trống, tính **theo vùng nhìn thấy** chứ không theo cả bàn |
+| `opening` | 0.10 | bao nhiêu bộ giải được ngay trong vùng nhìn thấy |
+| `volume` | 0.10 | độ dài ván đấu — có tính, nhưng nhẹ nhất có thể |
+| `spread` | 0.08 | tỷ lệ bộ 1+1+1 |
+| `confusion` | 0.08 | nhiều loại item trong cùng một nhóm hàng |
+| `interleave` | 0.07 | tỷ lệ Thùng chứa item lẫn lộn |
+| `strictness` | 0.07 | Khay khớp đúng loại + giới hạn nước đi |
+
+---
+
+## 7. Bộ kiểm chứng (`node tools/selftest.js`, ~4 s)
+
+| test | kiểm gì |
 |---|---|
-| 10 Thùng, 4 cat × 3 type, `ratio21 = 0` | 300/300 ✓ |
-| `extraScramble = 2.0` | 300/300 ✓ |
-| 3 Thùng rỗng, `compactFreeSlots = false` | 300/300 ✓ |
-| `trayMatchMode: 'itemType'` + `trayOrder: 'reverse'` | 300/300 ✓ |
-| Chỉ 2 loại item / 8 Thùng | 300/300 ✓ |
-| 1 loại item / 5 Thùng (**bất khả thi**) | Báo lỗi ngay, có hướng sửa ✓ |
-
-Cấu hình bất khả thi được chặn từ đầu bằng điều kiện đếm `3·⌈numSets/poolSize⌉ ≤ 2·numSets` — nếu mọi Thùng có item đều phải đầy thì một loại không được chiếm quá 2 ô trong một Thùng.
-
-### Lời giải kiến thiết (định lý F ≥ 3)
-
-3000 trạng thái ngẫu nhiên, N từ 6 đến 16:
-
-| Cấu hình | Giải được | Nước đi TB | Max nước/bộ (cận lý thuyết 4.00) |
-|---|---|---|---|
-| N=6, S=5 | 500/500 | 8.4 | 2.60 |
-| N=10, S=9 | 500/500 | 19.4 | 2.67 |
-| N=16, S=15 | 500/500 | 35.2 | 2.80 |
-
-Mọi lời giải đều được replay lại qua mô phỏng đúng luật engine. Áp lên chính level preset `expert`: 300/300 ✓.
+| 1 | bất biến trạng thái xuất phát (không Thùng rỗng, không Thùng gói sẵn, **ô trống == 3E**, mọi loại item chia hết 3, số Khay == số bộ, cột chứa đủ `numBoxes`) + replay lời giải |
+| 2 | **par có đúng là tối ưu không** — solver đầy đủ (`GameSim.solveFull`, có cột + hàng chờ + Khay) trên bàn nhỏ |
+| 3 | định tuyến tier · **hợp đồng quy mô** (hard 50–70, super hard 72–96, vùng nhìn thấy luôn 3×4) · thứ tự tỷ lệ thua · điểm đi cùng chiều |
+| 4 | stress cấu hình khắc nghiệt (E=1, bàn 90 Thùng, 1 Khay, 2 cột…) + cấu hình bất khả thi phải báo lỗi sớm |
+| 5 | tái hiện bộ sinh xuôi cũ để cho thấy vì sao nó hỏng (23.5% màn có Thùng gói sẵn) |
+| 6 | lời giải kiến thiết ≤ 4 nước/bộ (dùng làm hint) |
+| 7 | **tích hợp thật**: `LevelGenerator → GameEngine`, đầy đủ hàng chờ 5 slot và `moveLimit`, phải kết thúc `WON` |
+| 8 | `moveLimit ≥ par` ở cả 50 màn, và dư địa giảm dần theo tier (2.20× → 1.23×) |

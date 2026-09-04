@@ -1,5 +1,12 @@
 # Ignore scraped data and reverse engineering tools
 ScrapedData/
+Il2CppDumper-win-v6.7.46/
+dnSpy-net-win64/
+com.fc.goods.sort.matching.puzzle.triplemaster_5.22/
+falcon goods sort/
+src level/
+archive/
+ExtractedLevels/
 
 # Ignore python caches
 __pycache__/

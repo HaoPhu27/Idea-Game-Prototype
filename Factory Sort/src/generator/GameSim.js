@@ -3,22 +3,28 @@
  *
  * TAI SAO FILE NAY TON TAI
  * ------------------------
- * Solver.js chi mo phong lop THUNG (di chuyen item, wrap). Do kho no do duoc
- * (optimal - heuristic) da duoc do thuc nghiem tren 12 bien the cau hinh x 60 seed:
- * excess = 0 o ~97% truong hop, max 1, trung binh 0.00-0.07. Ly do co cau:
- * numSets = numBoxes - 1 ghim so o trong F = 3N - 3S = 3, va F luon la boi cua 3
- * nen khong the thap hon. Voi tron mot Thung do du, tham lam la toi uu.
+ * Solver.js chi mo phong lop THUNG (di chuyen item, wrap). O lop do, tham lam gan nhu
+ * luon toi uu: so o trong bi ghim o 3E va voi mot ban do du, gom bo 3 truoc la du.
  * => KHONG mot tham so nao o lop Thung tao ra duoc do sau suy tinh.
- *    Tang numBoxes chi lam man DAI hon, khong lam KHO hon.
  *
  * Do kho that nam o cho GHEP LOP:
  *   - Bang chuyen chi mo `maxActive` Khay DAU TIEN (cua so tien to co dinh, Conveyor.js).
- *     Thung da goi ma Khay cua no con ngoai cua so thi phai GIU lai.
- *   - Thung dang giu chiem cho trong COT. Cot chi tut xuong khi co Thung duoc GIAO
- *     (_removeFromColumn chi duoc goi tu dropOnTray). => Thung bi che van khoa cung.
+ *   - Thung goi xong ROI KHOI COT NGAY va roi xuong HANG CHO 5 slot
+ *     (GameEngine.moveBoxToQueue). Khay khop thi giao luon, khong thi nam lai.
+ *     HANG CHO DAY LA THUA. Day la luat quan trong nhat cua game va ban truoc cua
+ *     file nay khong he mo hinh no: no giu Thung goi xong NAM LAI TRONG COT, tuc vua
+ *     khoa cot qua muc vua khong bao gio thua vi hang cho.
+ *   - Cot chi tut xuong khi mot Thung roi khoi cot (goi xong hoac het item).
  *   - Nen khi N > columns * visibleRows, THU TU GOI tro thanh bai toan lap lich that:
- *     goi nham thu tu => cot khong bao gio tut => khoa vinh vien => thua.
+ *     goi nham thu tu => hang cho day => thua; hoac cot khong tut => khoa vinh vien.
  * Do la "kho chu khong dai": van tung ay item, nhung phai nhin truoc.
+ *
+ * GIAO HANG LA TU DONG, KHONG PHAI MOT NUOC DI
+ * --------------------------------------------
+ * UIManager goi checkAndAutoFill() sau moi lan goi Thung va sau moi lan Khay roi bang
+ * chuyen; GameEngine.findQueueMatch() duyet hang cho theo thu tu roi lay Khay dang hoat
+ * dong DAU TIEN nhan duoc. Nguoi choi khong chon gi ca. Vi vay o day giao hang khong
+ * phai mot phan tu cua legalMoves() nua — no chay ngay trong applyMove(), y het game.
  *
  * BAT BIEN QUAN TRONG
  * -------------------
@@ -29,6 +35,7 @@
 import { getCategoryByItemId } from '../data/ItemCatalog.js';
 
 export const CAP = 3;
+export const QUEUE_CAP = 5;      // = GameEngine.maxQueueSize
 
 /** Ban do itemId -> categoryId, lay tu ItemCatalog (nguon su that duy nhat). */
 export function buildCatIndex(level) {
@@ -52,7 +59,8 @@ export function stateFromLevel(level) {
     cat: t.categoryId, type: t.targetItemId, mode: t.matchMode || 'category',
   }));
   const maxActive = (level.conveyor && level.conveyor.maxActive) || level.maxActiveTrays || 4;
-  return { boxes, columns, visibleRows, trays, maxActive, moves: 0 };
+  const queueCap = (level.rules && level.rules.queueCapacity) || QUEUE_CAP;
+  return { boxes, columns, visibleRows, trays, maxActive, queue: [], queueCap, moves: 0, dead: false };
 }
 
 export function cloneState(s) {
@@ -62,7 +70,10 @@ export function cloneState(s) {
     visibleRows: s.visibleRows,
     trays: s.trays.slice(),          // moi tray la immutable => chia se duoc
     maxActive: s.maxActive,
+    queue: s.queue.slice(),
+    queueCap: s.queueCap,
     moves: s.moves,
+    dead: s.dead,
   };
 }
 
@@ -76,35 +87,46 @@ export function isAccessible(s, i) {
 }
 
 /** Tray.canAccept: 'itemType' so khop dung loai item, nguoc lai so khop nhom. */
-function trayAccepts(tray, box, catIndex) {
-  if (!box || !box.w) return false;
-  if (tray.mode === 'itemType') return box.items[0] === tray.type;
-  return catIndex.get(box.items[0]) === tray.cat;
+function trayAccepts(tray, items, catIndex) {
+  if (tray.mode === 'itemType') return items[0] === tray.type;
+  return catIndex.get(items[0]) === tray.cat;
+}
+
+function removeFromColumn(s, id) {
+  for (const col of s.columns) {
+    const at = col.indexOf(id);
+    if (at !== -1) { col.splice(at, 1); return; }
+  }
 }
 
 /**
- * Nuoc di hop le.
- *
- * TOI UU AN TOAN: neu co the GIAO thi CHI xet cac nuoc giao.
- * Giao la don dieu tot - no khong bao gio lam mat lua chon:
- *   - do voi cua Thung chi TANG (cot tut xuong),
- *   - cua so Khay chi tien len,
- *   - khong nuoc di item nao huy duoc mot co hoi giao (khong the un-wrap,
- *     khong doi do voi, khong doi cua so Khay).
- * Nen giao va di-chuyen giao hoan; hoan giao khong bao gio co loi.
- * Van con phan nhanh khi mot Thung goi khop NHIEU Khay khac nhau trong cua so.
+ * GameEngine.tryAutoFillTray() chay den khi khong con cap nao khop:
+ * duyet hang cho theo thu tu, lay Khay DANG HOAT DONG dau tien nhan duoc.
  */
-export function legalMoves(s, catIndex) {
-  const out = [];
-  const win = Math.min(s.maxActive, s.trays.length);
-  for (let bi = 0; bi < s.boxes.length; bi++) {
-    const b = s.boxes[bi];
-    if (!b || !b.w || !isAccessible(s, bi)) continue;
-    for (let ti = 0; ti < win; ti++) {
-      if (trayAccepts(s.trays[ti], b, catIndex)) out.push({ k: 'd', b: bi, t: ti });
+function autoFill(s, catIndex) {
+  for (let progress = true; progress; ) {
+    progress = false;
+    const win = Math.min(s.maxActive, s.trays.length);
+    for (let qi = 0; qi < s.queue.length && !progress; qi++) {
+      const items = s.boxes[s.queue[qi]].items;
+      for (let ti = 0; ti < win; ti++) {
+        if (!trayAccepts(s.trays[ti], items, catIndex)) continue;
+        s.trays.splice(ti, 1);
+        s.boxes[s.queue[qi]] = null;
+        s.queue.splice(qi, 1);
+        progress = true;
+        break;
+      }
     }
   }
-  if (out.length) return out;
+}
+
+/**
+ * Nuoc di hop le — CHI la nuoc chuyen item. Giao hang tu dong (xem dau file).
+ */
+export function legalMoves(s) {
+  const out = [];
+  if (s.dead) return out;
 
   const acc = [];
   for (let i = 0; i < s.boxes.length; i++) if (s.boxes[i] && isAccessible(s, i)) acc.push(i);
@@ -131,31 +153,34 @@ export function legalMoves(s, catIndex) {
   return out;
 }
 
-/** Ap dung tai cho. moves chi tang khi di chuyen item (giong GameEngine.selectTarget). */
-export function applyMove(s, mv) {
-  if (mv.k === 'd') {
-    const id = mv.b;
-    s.boxes[id] = null;
-    for (const col of s.columns) {
-      const at = col.indexOf(id);
-      if (at !== -1) { col.splice(at, 1); break; }
-    }
-    s.trays.splice(mv.t, 1);
-  } else {
-    const src = s.boxes[mv.f];
-    src.items.splice(src.items.indexOf(mv.it), 1);
-    const dst = s.boxes[mv.t];
-    dst.items.push(mv.it);
-    if (isWrappedItems(dst.items)) dst.w = true;
-    s.moves++;
+/**
+ * Ap dung tai cho. moves chi tang khi di chuyen item (giong GameEngine.selectTarget).
+ * Ba he qua tu dong duoc mo phong dung thu tu cua GameEngine:
+ *   1. Thung nguon het item -> bien mat -> cot tut xuong.
+ *   2. Thung dich du 3 item cung loai -> goi -> ROI KHOI COT -> vao hang cho.
+ *   3. Hang cho tu dong giao cho Khay dang hoat dong; day qua 5 slot la THUA.
+ */
+export function applyMove(s, mv, catIndex) {
+  const src = s.boxes[mv.f];
+  src.items.splice(src.items.indexOf(mv.it), 1);
+  const dst = s.boxes[mv.t];
+  dst.items.push(mv.it);
+  if (src.items.length === 0) { s.boxes[mv.f] = null; removeFromColumn(s, mv.f); }
+  if (isWrappedItems(dst.items)) {
+    dst.w = true;
+    removeFromColumn(s, mv.t);
+    s.queue.push(mv.t);
   }
+  s.moves++;
+  autoFill(s, catIndex);
+  if (s.queue.length > s.queueCap) s.dead = true;   // GameEngine: 'Hang cho da day'
   return s;
 }
 
 export const isWin = (s) =>
-  s.trays.length === 0 && s.boxes.every(b => b === null || b.items.length === 0);
+  s.trays.length === 0 && s.queue.length === 0 && s.boxes.every(b => b === null || b.items.length === 0);
 
-export const isDead = (s, catIndex) => !isWin(s) && legalMoves(s, catIndex).length === 0;
+export const isDead = (s) => s.dead || (!isWin(s) && legalMoves(s).length === 0);
 
 /** Chan duoi so nuoc di item con lai (chap nhan duoc, giong Solver.heuristic). */
 export function heuristic(s) {
@@ -182,18 +207,23 @@ export function hashState(s) {
       return (b.w ? '*' : '') + b.items.slice().sort().join('.');
     }).join('|')
   ).sort().join('#');
+  const q = s.queue.map(i => s.boxes[i].items[0]).sort().join('.');
   const trays = s.trays.map(t => (t.mode === 'itemType' ? 't:' + t.type : 'c:' + t.cat)).join(',');
-  return cols + '~' + trays + '~' + s.visibleRows + '/' + s.maxActive;
+  return cols + '~' + q + '~' + trays + '~' + s.visibleRows + '/' + s.maxActive;
 }
 
 /**
- * Giai TOAN BO tran dau (Thung + Khay + cot bi che) bang IDA* theo so nuoc di item.
- * Tra ve { solved, moves, nodes, cutoff }. cutoff = true nghia la HET NGAN SACH,
- * chua ket luan duoc - khong duoc coi la "khong giai duoc".
+ * Giai TOAN BO tran dau (Thung + hang cho + Khay + cot bi che) bang IDA* theo so nuoc
+ * di item. Tra ve { solved, moves, nodes, cutoff }. cutoff = true nghia la HET NGAN
+ * SACH, chua ket luan duoc - khong duoc coi la "khong giai duoc".
+ *
+ * CHI DUNG DUOC CHO BAN NHO. Tu ~20 Thung tro len thi khong gian trang thai vuot xa
+ * moi ngan sach hop ly; do do kho cua ban lon phai dung trapRate() (mo phong nguoi
+ * choi) chu khong phai solver.
  */
 export function solveFull(state, catIndex, opt = {}) {
   const maxNodes = opt.maxNodes ?? 200000;
-  const maxDepth = opt.maxDepth ?? 60;
+  const maxDepth = opt.maxDepth ?? 200;
   let nodes = 0, cutoff = false, seen = null;
   const path = [];
 
@@ -201,12 +231,13 @@ export function solveFull(state, catIndex, opt = {}) {
     const f = s.moves + heuristic(s);
     if (f > bound) return f;
     if (isWin(s)) return 'FOUND';
+    if (s.dead) return Infinity;
     if (++nodes > maxNodes) { cutoff = true; return Infinity; }
     if (s.moves > maxDepth) return Infinity;
 
     let min = Infinity;
-    for (const mv of legalMoves(s, catIndex)) {
-      const ns = applyMove(cloneState(s), mv);
+    for (const mv of legalMoves(s)) {
+      const ns = applyMove(cloneState(s), mv, catIndex);
       const key = hashState(ns);
       const prev = seen.get(key);
       if (prev !== undefined && prev <= ns.moves) continue;
@@ -237,15 +268,10 @@ export function solveFull(state, catIndex, opt = {}) {
 export const isWinnable = (s, catIndex, opt) => solveFull(s, catIndex, opt).solved;
 
 /* ------------------------------------------------------------------ *
- * DO KHO THUC NGHIEM: TY LE SA BAY (trap rate)
+ * DO KHO THUC NGHIEM: TY LE THUA CUA NGUOI CHOI MO PHONG
  *
- * Man co bao nhieu nuoc di khong quan trong. Cai quan trong la: nguoi choi
- * choi mot cach HOP LY co bi dan vao the khong the thang khong.
- * Do la dinh nghia "kho chu khong dai".
- *
- * Tinh don dieu: khi mot the co da KHONG THE thang thi moi nuoc di sau do
- * cung khong the thang (nuoc di khong khoi phuc duoc gi). Nho do co the
- * TIM NHI PHAN diem sa bay dau tien => chi ton log2(do dai) lan goi solver.
+ * Man co bao nhieu nuoc di khong quan trong. Cai quan trong la: nguoi choi choi mot
+ * cach HOP LY co bi dan vao the khong the thang khong. Do la "kho chu khong dai".
  * ------------------------------------------------------------------ */
 
 export function mulberry32(a) {
@@ -259,19 +285,17 @@ export function mulberry32(a) {
 
 /**
  * Nguoi choi "hop ly" (greedy): uu tien gom item ve Thung da co san item cung loai,
- * cho Thung nao gan goi nhat truoc. Day la cach da so nguoi choi that su choi.
- * Khong he nhin truoc thu tu Khay hay cot bi che - dung cho ma bay giang ra.
+ * cho Thung nao gan goi nhat truoc. Khong nhin hang doi Khay, khong nhin cot bi che,
+ * khong nghi den hang cho. Day la cach da so nguoi choi moi choi.
  */
 function pickGreedy(s, mvs, rng) {
   let best = null, bestScore = -1e9;
   for (const mv of mvs) {
-    if (mv.k === 'd') return mv;
-    const dst = s.boxes[mv.t];
+    const dst = s.boxes[mv.t], src = s.boxes[mv.f];
     const same = dst.items.filter(x => x === mv.it).length;
-    const src = s.boxes[mv.f];
     let sc = same * 10 + dst.items.length;
     if (same === 0) sc = -5 - dst.items.length;          // do vao Thung la = lam ban them
-    if (src.items.length === 1) sc += 3;                 // don not Thung sap rong
+    if (src.items.length === 1) sc += same === 2 ? 5 : -25;
     sc += rng() * 0.9;
     if (sc > bestScore) { bestScore = sc; best = mv; }
   }
@@ -279,29 +303,82 @@ function pickGreedy(s, mvs, rng) {
 }
 
 /**
- * Nguoi choi "tinh y" (smart): choi dung moi nuoc HIEN NHIEN dung ma bat ky
- * nguoi choi co kinh nghiem nao cung thay:
+ * Nguoi choi "tinh y" (smart): choi dung moi nuoc HIEN NHIEN dung ma bat ky nguoi choi
+ * co kinh nghiem nao cung thay:
  *   - Khong bao gio tao Thung DAY 3 item LAN LOAN (Thung do chet vinh vien).
  *   - Uu tien nuoc lam tron bo 3 (goi ngay).
  *   - Uu tien gom ve dong cung loai lon nhat.
- *   - Uu tien don not Thung chi con 1 item de giai phong o trong.
- * Chinh sach nay KHONG nhin truoc thu tu Khay va KHONG suy luan ve cot bi che.
- * Vi vay: van nao no van thua la van doi hoi LAP KE HOACH THAT - do moi la
- * "kho chu khong dai".
+ *   - Tranh lam bien mat Thung khi khong wrap duoc bo (mat cho chua).
+ * Chinh sach nay KHONG nhin truoc hang doi Khay, KHONG suy luan ve cot bi che va
+ * KHONG dem hang cho. Van nao no van thua la van doi hoi LAP KE HOACH THAT.
  */
 function pickSmart(s, mvs, rng) {
   let best = null, bestScore = -1e9;
   for (const mv of mvs) {
-    if (mv.k === 'd') return mv;
     const dst = s.boxes[mv.t], src = s.boxes[mv.f];
     const same = dst.items.filter(x => x === mv.it).length;
     const after = dst.items.length + 1;
     let sc;
-    if (same === 2) sc = 100;                       // tron bo => goi ngay
-    else if (after === CAP && same < 2) sc = -1000;  // se thanh Thung day lan loan
+    if (same === 2) sc = 100;                        // tron bo => goi ngay
+    else if (after === CAP && same < 2) sc = -1000;   // se thanh Thung day lan loan
     else if (same === 1) sc = 40 - dst.items.length;
     else sc = -20 - dst.items.length * 5;            // do vao Thung la
-    if (src.items.length === 1) sc += 6;             // don not => them o trong
+    if (src.items.length === 1) {
+      // Luat: Thung rong bien mat => mat cho chua.
+      const others = s.boxes.filter((b, i) => b && i !== mv.f && i !== mv.t && !b.w);
+      const freeOther = others.reduce((n, b) => n + (CAP - b.items.length), 0);
+      if (same === 2) sc += others.length > 0 && freeOther === 0 ? -10000 : 15;
+      else sc += freeOther + (CAP - after) === 0 ? -10000 : -40;
+    }
+    sc += rng() * 0.5;
+    if (sc > bestScore) { bestScore = sc; best = mv; }
+  }
+  return best;
+}
+
+/**
+ * Nguoi choi "co ke hoach" (planner): nhu smart, CONG THEM hai thu ma mot nguoi choi
+ * cham chi that su nhin duoc tren man hinh — cua so Khay dang chay va so slot con
+ * trong cua hang cho. No van KHONG nhin duoc Thung bi che va KHONG tim kiem.
+ *
+ * Day la thuoc do do kho dung cho cac tier lon: `smart` thua gan 100% moi man co
+ * hang cho (vi no goi bua roi lam day hang cho), nen khong con phan biet duoc tier.
+ */
+function pickPlanner(s, mvs, rng, catIndex) {
+  const win = s.trays.slice(0, Math.min(s.maxActive, s.trays.length));
+  const room = s.queueCap - s.queue.length;
+
+  // Loai item nao dang co Khay cho san trong cua so? Day la thu duy nhat nguoi choi
+  // that su NHIN THAY tren bang chuyen, va la cau hoi dau tien ho tu dat ra:
+  // "cai Khay dang toi can gi, minh gom duoc no khong?".
+  const wanted = new Set();
+  for (const t of win) {
+    if (t.mode === 'itemType') wanted.add(t.type);
+    else for (const b of s.boxes) if (b && catIndex.get(b.items[0]) === t.cat) wanted.add(b.items[0]);
+  }
+
+  let best = null, bestScore = -1e9;
+  for (const mv of mvs) {
+    const dst = s.boxes[mv.t], src = s.boxes[mv.f];
+    const same = dst.items.filter(x => x === mv.it).length;
+    const after = dst.items.length + 1;
+    const want = wanted.has(mv.it);
+    let sc;
+    if (same === 2) {
+      // Nuoc nay se GOI Thung. Tot khi co Khay nhan duoc ngay; neu khong, Thung se
+      // chiem mot slot hang cho — van dang lam (no giai phong mot o trong cot, lam
+      // cot tut xuong) nhung cang it slot con lai thi cang phai tiec.
+      const deliverable = win.some(t => trayAccepts(t, [mv.it, mv.it, mv.it], catIndex));
+      sc = deliverable ? 160 : (room <= 1 ? -800 : 70 - (s.queueCap - room) * 18);
+    } else if (after === CAP && same < 2) sc = -1000;   // Thung day lan loan = chet
+    else if (same === 1) sc = (want ? 70 : 35) - dst.items.length;
+    else sc = (want ? -8 : -20) - dst.items.length * 5;
+    if (src.items.length === 1) {
+      const others = s.boxes.filter((b, i) => b && i !== mv.f && i !== mv.t && !b.w);
+      const freeOther = others.reduce((n, b) => n + (CAP - b.items.length), 0);
+      if (same === 2) sc += others.length > 0 && freeOther === 0 ? -10000 : 15;
+      else sc += freeOther + (CAP - after) === 0 ? -10000 : -40;
+    }
     sc += rng() * 0.5;
     if (sc > bestScore) { bestScore = sc; best = mv; }
   }
@@ -310,7 +387,7 @@ function pickSmart(s, mvs, rng) {
 
 const pickRandom = (s, mvs, rng) => mvs[Math.floor(rng() * mvs.length)];
 
-const POLICIES = { greedy: pickGreedy, smart: pickSmart, random: pickRandom };
+const POLICIES = { greedy: pickGreedy, smart: pickSmart, planner: pickPlanner, random: pickRandom };
 
 /** Choi mot van tu dau den cuoi. Tra ve chuoi the co da di qua. */
 export function playout(state, catIndex, policyName, rng, maxSteps = 400) {
@@ -319,73 +396,52 @@ export function playout(state, catIndex, policyName, rng, maxSteps = 400) {
   const trail = [cloneState(s)];
   for (let i = 0; i < maxSteps; i++) {
     if (isWin(s)) return { trail, won: true, dead: false };
-    const mvs = legalMoves(s, catIndex);
+    if (s.dead) return { trail, won: false, dead: true };
+    const mvs = legalMoves(s);
     if (!mvs.length) return { trail, won: false, dead: true };
-    s = applyMove(s, pick(s, mvs, rng));
+    s = applyMove(s, pick(s, mvs, rng, catIndex), catIndex);
     trail.push(cloneState(s));
   }
   return { trail, won: isWin(s), dead: false };
 }
 
 /**
- * Do ty le sa bay tren nhieu van. Tra ve:
- *   rate      - ty le van roi vao the KHONG THE thang (0..1)
- *   depth     - trung binh so nuoc di truoc khi sa bay (cang lon cang "am tham")
- *   frac      - trung binh vi tri sa bay theo % do dai van
- *   undecided - so van solver het ngan sach, khong ket luan duoc
- */
-/**
  * Do TY LE THUA cua nguoi choi mo phong tren nhieu van.
- *
- * KHONG dung solver de do tung buoc. Ly do: chung minh mot the co KHONG THE
- * thang bat IDA* phai vet can toan bo khong gian - dat gap hang nghin lan mot
- * van choi. Ma cung khong can: mot van ket thuc o the co KHONG CON NUOC DI nao
- * la da thua chac chan, khong phai hoi solver.
  *
  * Ba ket cuc:
  *   won   - thang.
- *   dead  - het nuoc di => THUA chac chan (day chinh la "sa bay").
- *   loop  - cham tran maxSteps => chinh sach dang di vong. Chi luc nay moi hoi
- *           solver MOT lan o the co cuoi: neu con thang duoc (hoac solver het
- *           ngan sach) thi day la loi cua chinh sach chu khong phai cua man
- *           choi => BO trial. Neu khong thang duoc thi van tinh la sa bay.
+ *   dead  - het nuoc di HOAC hang cho tran => THUA chac chan.
+ *   loop  - cham tran maxSteps => chinh sach dang di vong. Voi ban nho ta hoi solver
+ *           mot lan o the co cuoi (neu con thang duoc thi day la loi cua chinh sach,
+ *           BO trial); voi ban lon solver khong kham noi nen tinh la khong ket luan.
  *
  * Tra ve:
  *   rate  - ty le van thua tren so van ket luan duoc (0..1)  <= DO KHO CHINH
  *   depth - trung binh so nuoc di item truoc khi ket thuc van thua
- *   frac  - vi tri sa bay trung binh theo % do dai van (chi khi opt.deep)
  */
 export function trapRate(state, catIndex, opt = {}) {
   const trials = opt.trials ?? 40;
-  const policy = opt.policy ?? "greedy";
-  const solverOpt = { maxNodes: opt.maxNodes ?? 40000, maxDepth: opt.maxDepth ?? 60 };
+  const policy = opt.policy ?? 'planner';
+  const useSolver = opt.useSolver ?? (state.boxes.length <= 14);
+  const solverOpt = { maxNodes: opt.maxNodes ?? 40000, maxDepth: opt.maxDepth ?? 200 };
   const rng = mulberry32(opt.seed ?? 12345);
+  const maxSteps = opt.maxSteps ?? Math.max(300, state.boxes.length * 8);
 
-  let lost = 0, decided = 0, discarded = 0, depthSum = 0, fracSum = 0, fracN = 0;
+  let lost = 0, decided = 0, discarded = 0, depthSum = 0;
   for (let i = 0; i < trials; i++) {
-    const { trail, won, dead } = playout(state, catIndex, policy, rng, opt.maxSteps ?? 300);
+    const { trail, won, dead } = playout(state, catIndex, policy, rng, maxSteps);
     if (won) { decided++; continue; }
     if (!dead) {
+      if (!useSolver) { discarded++; continue; }
       const r = solveFull(trail[trail.length - 1], catIndex, solverOpt);
       if (r.cutoff || r.solved) { discarded++; continue; }
     }
     decided++; lost++;
     depthSum += trail[trail.length - 1].moves;
-    if (opt.deep) {
-      let lo = 0, hi = trail.length - 1, bail = false;
-      while (lo < hi) {
-        const mid = (lo + hi) >> 1;
-        const r = solveFull(trail[mid], catIndex, solverOpt);
-        if (r.cutoff) { bail = true; break; }
-        if (r.solved) lo = mid + 1; else hi = mid;
-      }
-      if (!bail && trail.length > 1) { fracSum += lo / (trail.length - 1); fracN++; }
-    }
   }
   return {
     rate: decided ? lost / decided : 0,
     depth: lost ? depthSum / lost : 0,
-    frac: fracN ? fracSum / fracN : 0,
     lost, decided, discarded,
   };
 }

@@ -1,8 +1,10 @@
 import { GameEngine } from '../core/GameEngine.js';
 import { LevelGenerator } from '../generator/LevelGenerator.js';
+import { configForLevelNumber } from '../generator/SolvableLevelGenerator.js';
 import { BoxRenderer } from './BoxRenderer.js';
 import { TrayRenderer } from './TrayRenderer.js';
 import { ConveyorRenderer } from './ConveyorRenderer.js';
+import { QueueRenderer } from './QueueRenderer.js';
 import { getCategoryConfig, getItemEmoji } from '../data/ItemCatalog.js';
 
 class UIManager {
@@ -17,6 +19,7 @@ class UIManager {
         );
         this.trayRenderer = new TrayRenderer('trays-container');
         this.conveyorRenderer = new ConveyorRenderer('conveyor-belt');
+        this.queueRenderer = new QueueRenderer();
         
         // DOM Elements
         this.levelDisplay = document.getElementById('level-display');
@@ -104,13 +107,8 @@ class UIManager {
             if (state === 'WON') {
                 this.overlayWin.classList.remove('hidden');
             } else if (state === 'LOST') {
-                // Hai ly do thua khac han nhau, va nguoi choi phai biet minh
-                // hong o dau thi moi hoc duoc gi tu van thua.
                 if (this.loseReason) {
-                    const e = this.engine;
-                    this.loseReason.textContent = (e.moveLimit && e.moveCount >= e.moveLimit)
-                        ? `Out of moves — the limit is ${e.moveLimit}.`
-                        : 'No more empty slots to move items.';
+                    this.loseReason.textContent = this.engine.loseReason || 'No more empty slots to move items.';
                 }
                 this.overlayLose.classList.remove('hidden');
             } else {
@@ -123,18 +121,27 @@ class UIManager {
             this.moveDisplay.textContent = count;
             this.renderMoveLimit();
         };
+
+        this.engine.onQueueUpdated = (queue) => {
+            this.queueRenderer.render(queue);
+        };
         
         this.engine.onBoxUpdated = (box, isRemoved = false) => {
             this.updateRender();
         };
         
-        this.engine.onTrayDelivered = (trayId) => {
+        this.engine.onTrayDelivered = (trayId, box) => {
             this.trayRenderer.animateTrayExit(trayId, () => {
                 // Khay chua box da vao trong cua OUT -> hoan tat exit tren engine va cho phep khay moi di ra tu cua IN
                 this.engine.completeTrayExit(trayId);
                 this.conveyorRenderer.animateShift();
                 this.trayRenderer.animateShift();
                 this.updateRender();
+
+                // Kiem tra tiep xem cac thung con lai trong hang cho co khop voi khay moi khong
+                setTimeout(() => {
+                    this.checkAndAutoFill();
+                }, 280);
             });
             if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
         };
@@ -170,17 +177,16 @@ class UIManager {
             btn.className = 'level-btn';
             btn.textContent = i;
             
-            // Apply difficulty classes based on SolvableLevelGenerator logic
-            const isRamp = i <= 10;
-            const isSuperHard = !isRamp && i % 2 === 0;
-            
-            if (isRamp) {
-                btn.classList.add('level-easy');
-            } else if (isSuperHard) {
-                btn.classList.add('level-super-hard');
-            } else {
-                btn.classList.add('level-hard');
-            }
+            // Mau cua nut phai noi dung tier that. Truoc day UI tu bia ra
+            // ("chan = super hard") va no khong lien quan gi den do kho ma bo sinh
+            // man thuc su tao ra: level 22, 24, 26... deu duoc to mau super hard
+            // trong khi chung la level thuong. configForLevelNumber la nguon su that
+            // duy nhat cho cau hoi "level N thuoc tier nao".
+            const tier = configForLevelNumber(i).tier;
+            btn.classList.add(
+                tier === 'hard' ? 'level-hard' :
+                tier === 'superhard' ? 'level-super-hard' :
+                tier === 'normal' ? 'level-normal' : 'level-easy');
             
             if (i === this.currentLevel) {
                 btn.classList.add('active-level');
@@ -210,6 +216,7 @@ class UIManager {
         // "level 7 kho the nao". Nay UI chi noi minh dang o level nao.
         const levelData = LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
         
+        this.queueRenderer.render([]);
         this.trayRenderer.reset();
         this.engine.startLevel(levelData);
         this.levelDisplay.textContent = this.currentLevel;
@@ -226,6 +233,7 @@ class UIManager {
         this._renderQueued = true;
         requestAnimationFrame(() => {
             this._renderQueued = false;
+            if (this._animating) return;
             this._renderNow();
         });
     }
@@ -268,6 +276,7 @@ class UIManager {
             }
         }
         
+        this.queueRenderer.render(this.engine.getQueue());
         this.trayRenderer.render(this.engine.conveyor.getAllActiveTrays(), highlightTray, rejectTray);
     }
     
@@ -321,40 +330,72 @@ class UIManager {
         } else {
             // Select target
             const sourceId = this.engine.selectedSource.boxId;
+            const sourceBoxBefore = this.engine.getBox(sourceId);
+            const willEmpty = sourceBoxBefore && sourceBoxBefore.items.length === 1;
+
             if (this.engine.selectTarget(boxId)) {
                 this._animating = true;
-                // Animate then update
                 const targetBox = this.engine.getBox(boxId);
                 this.boxRenderer.animateItemTransfer(sourceId, boxId, () => {
-                    if (targetBox.isWrapped) {
-                        // Apply wrapped class to existing DOM to trigger transition
-                        const domBox = document.querySelector(`.box[data-box-id="${boxId}"]`);
-                        if (domBox) {
-                            const catConfig = getCategoryConfig(targetBox.getCategory());
-                            const itemType = targetBox.getItemType() || (targetBox.items.length > 0 ? targetBox.items[0] : null);
-                            const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
-                            if (catConfig) {
-                                domBox.style.setProperty('--cat-color', catConfig.color);
-                                let logo = domBox.querySelector('.box-logo');
-                                if (!logo) {
-                                    logo = document.createElement('div');
-                                    logo.className = 'box-logo';
-                                    domBox.appendChild(logo);
+                    const finishTransfer = () => {
+                        if (targetBox.isWrapped) {
+                            // Apply wrapped class to existing DOM to trigger transition
+                            const domBox = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                            if (domBox) {
+                                const catConfig = getCategoryConfig(targetBox.getCategory());
+                                const itemType = targetBox.getItemType() || (targetBox.items.length > 0 ? targetBox.items[0] : null);
+                                const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
+                                if (catConfig) {
+                                    domBox.style.setProperty('--cat-color', catConfig.color);
+                                    let logo = domBox.querySelector('.box-logo');
+                                    if (!logo) {
+                                        logo = document.createElement('div');
+                                        logo.className = 'box-logo';
+                                        domBox.appendChild(logo);
+                                    }
+                                    logo.style.setProperty('--cat-color', catConfig.color);
+                                    logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
                                 }
-                                logo.style.setProperty('--cat-color', catConfig.color);
-                                logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
+                                domBox.classList.add('wrapped');
                             }
-                            domBox.classList.add('wrapped');
-                        }
-                        
-                        // Wait for flap animation (0.5s) + tape (0.3s) = 0.8s
-                        setTimeout(() => {
-                            this.updateRender();
+                            
+                            // Doi flap gop lai va dan bang keo (0.5s) -> sau do bay xuong hang cho
+                            setTimeout(() => {
+                                const currentQueue = this.engine.getQueue();
+                                const nextSlotIdx = currentQueue.length;
+                                const domBoxCurrent = document.querySelector(`.box[data-box-id="${boxId}"]`);
+
+                                this.queueRenderer.animateBoxToQueue(targetBox, nextSlotIdx, domBoxCurrent, () => {
+                                    this.engine.moveBoxToQueue(targetBox);
+                                    this._animating = false;
+                                    this.updateRender();
+
+                                    // Sau khi vao hang cho, kiem tra ngay xem co khay tren bang chuyen nhan duoc khong
+                                    setTimeout(() => {
+                                        this.checkAndAutoFill();
+                                    }, 180);
+                                });
+                            }, 550);
+                        } else {
                             this._animating = false;
-                        }, 800);
+                            this.updateRender();
+                        }
+                    };
+
+                    if (willEmpty) {
+                        // Thung nguon da rong -> hieu ung bien mat nhe nhang truoc khi cot tut xuong
+                        const srcDom = document.querySelector(`.box[data-box-id="${sourceId}"]`);
+                        if (srcDom) {
+                            srcDom.classList.add('disappearing');
+                            if (navigator.vibrate) navigator.vibrate(20);
+                            setTimeout(() => {
+                                finishTransfer();
+                            }, 200);
+                        } else {
+                            finishTransfer();
+                        }
                     } else {
-                        this.updateRender();
-                        this._animating = false;
+                        finishTransfer();
                     }
                 });
             } else {
@@ -491,6 +532,32 @@ class UIManager {
         const h = this.dragState.ghostH || 70;
         this.dragGhost.style.left = `${x - w / 2}px`;
         this.dragGhost.style.top = `${y - h / 2 - this.GHOST_LIFT}px`;
+    }
+
+    /**
+     * Kiem tra xem co hop nao trong hang cho khop voi khay tren conveyor khong, neu co thi tu dong fill
+     */
+    checkAndAutoFill() {
+        if (this.engine.gameState !== 'PLAYING') return;
+        if (this._animating) return;
+
+        const match = this.engine.findQueueMatch();
+        if (!match) return;
+
+        const { box, tray } = match;
+        const trayEl = document.querySelector(`.tray[data-tray-id="${tray.id}"]`);
+        const slotEl = document.querySelector(`.queue-slot[data-box-id="${box.id}"]`);
+
+        if (!trayEl || !slotEl) {
+            this.engine.deliverQueueBox(box.id, tray.id);
+            return;
+        }
+
+        this._animating = true;
+        this.queueRenderer.animateBoxToTray(box, slotEl, trayEl, () => {
+            this._animating = false;
+            this.engine.deliverQueueBox(box.id, tray.id);
+        });
     }
 }
 

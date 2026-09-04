@@ -38,26 +38,31 @@
 </head>
 <body>
 <h1>Factory Sort — Kiểm tra logic</h1>
-<p class="sub">Chạy trên <code>bundle.js</code> (bản build hiện tại). Chạy <code>python tools/build_py.py</code> trước nếu vừa sửa <code>src/</code>.</p>
+<p class="sub">Chạy trên <code>bundle.js</code> (bản build hiện tại). Chạy <code>node tools/build.mjs</code> trước nếu vừa sửa <code>src/</code>.</p>
 <button id="run">Chạy kiểm tra</button>
 <div id="out"></div>
 
 <script src="../bundle.js"></script>
 <script>
 /*
- * Bo kiem tra logic man choi. Ba phan:
- *   1. LUAT SPAWN  — moi Thung >= 1 vat, khong Thung wrapped san, cua so <= so Khay.
- *   2. CHOI THAT   — chay loi giai tham chieu qua GameEngine/Conveyor/Tray/Box that.
- *   3. DUONG CONG  — bang do kho L1..L32, kiem tra hard/super hard xen ke va len deu.
+ * Bo kiem tra logic man choi CHAY TRONG TRINH DUYET, tren dung ban bundle.js ma ban
+ * standalone dung. Node selftest da phu het phan thuat toan; gia tri rieng cua trang
+ * nay la chung minh bundle chay duoc trong moi truong that.
+ *
+ * Ba phan:
+ *   1. LUAT SPAWN  — moi Thung >= 1 vat, khong Thung wrapped san, tong o trong == 3E,
+ *                    bo cuc cot toan ven.
+ *   2. CHOI THAT   — chay loi giai tham chieu qua DUNG API ma UI goi (selectSource /
+ *                    selectTarget), voi day du hang cho 5 slot va gioi han nuoc di.
+ *   3. DUONG CONG  — bang do kho L1..L50: so Thung bi che, cua so Khay, par, diem.
  *
  * Khong dung thu vien ngoai; moi ten (configForLevelNumber, generateLevel, GameEngine,
  * LevelGenerator) den tu bundle.js — bundle la script co dien nen chia chung pham vi.
  */
 
-const RULE_SEEDS = 30;   // seed moi level cho phan 1
-const PLAY_SEEDS = 15;   // seed moi level cho phan 2
-const CURVE_SEEDS = 20;  // seed moi level cho phan 3
-const LEVELS = Array.from({ length: 35 }, (_, i) => i + 1);
+const RULE_SEEDS = 10;   // seed moi level cho phan 1
+const PLAY_SEEDS = 4;    // seed moi level cho phan 2
+const LEVELS = [1, 3, 5, 8, 10, 13, 16, 20, 21, 25, 27, 29, 33, 35, 39, 45, 49, 50];
 
 /* --- 1. Luat spawn --- */
 function auditRules() {
@@ -70,36 +75,41 @@ function auditRules() {
     try { lv = generateLevel(cfg); }
     catch (e) { bad.push(`L${L} seed${s}: sinh man loi — ${e.message}`); continue; }
     checked++;
+
     for (const b of lv.boxes) {
       minLen = Math.min(minLen, b.items.length);
       if (b.items.length === 0) bad.push(`L${L} seed${s}: ${b.id} RONG luc spawn`);
       if (b.items.length === 3 && new Set(b.items).size === 1)
         bad.push(`L${L} seed${s}: ${b.id} da wrapped san`);
     }
-    // Bo cuc cot
-    const lay = lv.layout;
-    if (!lay) bad.push(`L${L} seed${s}: thieu layout`);
-    else {
-      const flat = lay.columns.flat();
-      if (flat.length !== lv.boxes.length) bad.push(`L${L} seed${s}: cot chua ${flat.length} Thung, ban co ${lv.boxes.length}`);
-      if (new Set(flat).size !== flat.length) bad.push(`L${L} seed${s}: mot Thung nam o hai cot`);
-      const visIdx = new Set(lay.columns.flatMap(c => c.slice(0, lay.visibleRows)));
-      // Moi Thung con o trong PHAI nam trong tam voi luc spawn
-      lv.boxes.forEach((b, i) => {
-        if (b.items.length < 3 && !visIdx.has(i))
-          bad.push(`L${L} seed${s}: Thung co o trong (${b.id}) bi che luc spawn`);
-      });
-      const deepest = Math.max(...lay.columns.map(c => c.length));
-      if (deepest > lay.visibleRows && lay.hiddenBoxes === 0)
-        bad.push(`L${L} seed${s}: co Thung bi che nhung hiddenBoxes = 0`);
-    }
-    if (lv.conveyor.maxActive > lv.trays.length) bad.push(`L${L} seed${s}: cua so > so Khay`);
-    if (lv.conveyor.maxActive >= lv.trays.length) bad.push(`L${L} seed${s}: khong con Khay nao ngoai cua so`);
-    if (lv.solvable !== true) bad.push(`L${L} seed${s}: khong co bang chung giai duoc`);
-    if (L > 5 && lv.conveyor.maxActive < 3) bad.push(`L${L} seed${s}: cua so ${lv.conveyor.maxActive} < san 3`);
+
+    // HE QUA (1): tong o trong = 3 * carrierBoxes, bat ke ban to co nao.
     const free = lv.boxes.reduce((a, b) => a + (3 - b.items.length), 0);
-    const holeBoxes = lv.boxes.filter(b => b.items.length < 3).length;
-    shapes[`${free} o trong / ${holeBoxes} Thung`] = (shapes[`${free} o trong / ${holeBoxes} Thung`] || 0) + 1;
+    if (free !== 3 * lv.config.carrierBoxes)
+      bad.push(`L${L} seed${s}: ${free} o trong, phai la ${3 * lv.config.carrierBoxes}`);
+
+    // Bo cuc cot phai toan ven.
+    const lay = lv.layout;
+    if (!lay) { bad.push(`L${L} seed${s}: thieu layout`); continue; }
+    const flat = lay.columns.flat();
+    if (flat.length !== lv.boxes.length)
+      bad.push(`L${L} seed${s}: cot chua ${flat.length} Thung, ban co ${lv.boxes.length}`);
+    if (new Set(flat).size !== flat.length)
+      bad.push(`L${L} seed${s}: mot Thung nam o hai cot`);
+    if (lay.hiddenBoxes !== Math.max(0, lv.config.numBoxes - lay.columns.length * lay.visibleRows))
+      bad.push(`L${L} seed${s}: hiddenBoxes khong khop bo cuc`);
+
+    // O trong phai co it nhat mot o nam trong tam voi, neu khong nguoi choi ket ngay.
+    const visIdx = new Set(lay.columns.flatMap(c => c.slice(0, lay.visibleRows)));
+    const visFree = [...visIdx].reduce((a, i) => a + (3 - lv.boxes[i].items.length), 0);
+    if (visFree === 0) bad.push(`L${L} seed${s}: khong o trong nao trong tam voi luc spawn`);
+
+    if (lv.conveyor.maxActive > lv.trays.length)
+      bad.push(`L${L} seed${s}: cua so > so Khay`);
+    if (lv.solvable !== true) bad.push(`L${L} seed${s}: khong co bang chung giai duoc`);
+
+    const key = `${lay.hiddenBoxes} Thung bi che / ${visFree} o trong hien`;
+    shapes[key] = (shapes[key] || 0) + 1;
   }
   return { checked, bad, minLen, shapes };
 }
@@ -107,70 +117,49 @@ function auditRules() {
 /* --- 2. Choi that qua engine --- */
 function playthrough() {
   const bad = [];
-  let passed = 0, maxHeld = 0, revealsSeen = 0;
+  let passed = 0, total = 0, maxQueue = 0;
   for (const L of LEVELS) for (let s = 0; s < PLAY_SEEDS; s++) {
     const cfg = configForLevelNumber(L, { seed: (L * 31337 + s * 15485863) % 2147483647 });
     let lv;
     try { lv = generateLevel(cfg); }
     catch (e) { bad.push(`L${L} seed${s}: sinh man loi — ${e.message}`); continue; }
+    total++;
 
     const eng = new GameEngine();
     eng.startLevel(LevelGenerator.toEngineLevel(lv));
     if (eng.boxes.some(b => b.items.length === 0)) { bad.push(`L${L} seed${s}: engine thay Thung rong`); continue; }
 
-    let broke = false;
+    // Dung DUNG hai API ma UI goi. Khong noi long hang cho, khong tat moveLimit:
+    // par la so toi uu that su nen loi giai tham chieu phai vua khit moi rang buoc.
+    let broke = null;
     for (const mv of lv.referenceSolution) {
-      // Chi so trong loi giai la ID Thung, va ID khong doi khi Thung bi go khoi cot.
-      const from = eng.getBox(mv.from), to = eng.getBox(mv.to);
-      // KIEM TRA TAM VOI: loi giai khong duoc cham vao Thung dang bi che.
-      if (!eng.isAccessible(mv.from) || !eng.isAccessible(mv.to)) {
-        bad.push(`L${L} seed${s}: loi giai cham Thung bi che (${mv.from} -> ${mv.to})`);
-        broke = true; break;
-      }
-      const item = from && from.items[mv.index];
-      if (item == null || !to) { bad.push(`L${L} seed${s}: nuoc di khong hop le`); broke = true; break; }
-      from.items.splice(mv.index, 1);
-      to.items.push(item);
-      to.checkWrapped();
-      // Giao het nhung gi giao duoc, giong nguoi choi keo Thung wrapped sang Khay.
-      for (;;) {
-        const box = eng.boxes.find(b => b.isWrapped && eng.isAccessible(b.id)
-                                        && eng.conveyor.findMatchingTray(b));
-        if (!box) break;
-        eng.conveyor.removeTray(eng.conveyor.findMatchingTray(box).id);
-        // Giao hang = Thung roi khoi ban co VA khoi cot => cot tut xuong.
-        eng.boxes = eng.boxes.filter(b => b.id !== box.id);
-        eng._removeFromColumn(box.id);
-        revealsSeen += 1;
-      }
-      maxHeld = Math.max(maxHeld, eng.boxes.filter(b => b.isWrapped).length);
+      if (!eng.selectSource(mv.from, mv.index)) { broke = `engine tu choi nhac item o Thung ${mv.from}`; break; }
+      if (!eng.selectTarget(mv.to)) { broke = `engine tu choi tha item vao Thung ${mv.to}`; break; }
+      maxQueue = Math.max(maxQueue, eng.queue.length);
+      if (eng.gameState === 'LOST') { broke = `THUA giua chung — ${eng.loseReason}`; break; }
     }
-    if (broke) continue;
-    if (eng.conveyor.hasRemainingTrays())
-      bad.push(`L${L} seed${s}: con ${eng.conveyor.allTrays.length} Khay chua giao duoc`);
+    if (broke) { bad.push(`L${L} seed${s}: ${broke}`); continue; }
+    if (eng.gameState !== 'WON')
+      bad.push(`L${L} seed${s}: ket thuc o ${eng.gameState}, con ${eng.conveyor.allTrays.length} Khay`);
+    else if (eng.moveCount > (lv.rules.moveLimit ?? Infinity))
+      bad.push(`L${L} seed${s}: ton ${eng.moveCount} nuoc > gioi han ${lv.rules.moveLimit}`);
     else passed++;
   }
-  return { passed, bad, maxHeld, revealsSeen };
+  return { passed, total, bad, maxQueue };
 }
 
-/* --- 3. Duong cong do kho --- */
+/* --- 3. Duong cong do kho (dung seed chinh thuc cua tung man) --- */
 function curve() {
   const rows = [];
-  for (let L = 1; L <= 32; L++) {
-    let score = 0, par = 0, wrapped = 0, n = 0, cfg = null;
-    for (let s = 0; s < CURVE_SEEDS; s++) {
-      cfg = configForLevelNumber(L, { seed: (L * 100003 + s * 7919) % 2147483647 });
-      let lv; try { lv = generateLevel(cfg); } catch (e) { continue; }
-      n++; score += lv.difficulty.score; par += lv.difficulty.parMoves;
-      wrapped += lv.difficulty.maxWrappedHeld;
-    }
-    const d = Math.max(1, n);
+  for (let L = 1; L <= 50; L++) {
+    const cfg = configForLevelNumber(L);
+    let lv; try { lv = generateLevel(cfg); } catch (e) { continue; }
+    const d = lv.difficulty;
     rows.push({
-      L, tier: cfg.tier, boxes: cfg.numBoxes, trays: cfg.numSets,
-      hidden: Math.max(0, cfg.numBoxes - cfg.columns * cfg.visibleRows),
+      L, tier: cfg.tier, boxes: cfg.numBoxes, hidden: d.hiddenBoxes, trays: cfg.numSets,
       act: cfg.conveyorMaxActive, pool: `${cfg.numCategories}x${cfg.itemTypesPerCategory}`,
-      free: cfg.freeSlotBoxes, undo: cfg.undoCount,
-      score: +(score / d).toFixed(1), par: +(par / d).toFixed(1), wrapped: +(wrapped / d).toFixed(2),
+      E: cfg.carrierBoxes, open: d.openingSets, par: d.parMoves,
+      lim: lv.rules.moveLimit ?? '—', score: d.score,
     });
   }
   return rows;
@@ -193,36 +182,34 @@ document.getElementById('run').addEventListener('click', () => {
     const r3 = curve();
     const ms = Math.round(performance.now() - t0);
 
-    // Kiem tra hinh dang duong cong
-    const curveIssues = [];
-    const ramp = r3.filter(r => r.tier === 'ramp');
-    const hard = r3.filter(r => r.tier === 'hard');
-    const sh = r3.filter(r => r.tier === 'superhard');
-    if (ramp.length !== 10) curveIssues.push(`chang lam quen co ${ramp.length} level, mong doi 10 (L1-L10)`);
-    for (let i = 11; i <= 30; i++) {
-      const want = i % 2 === 0 ? 'superhard' : 'hard';
-      if (r3[i - 1].tier !== want) curveIssues.push(`L${i} la ${r3[i - 1].tier}, mong doi ${want}`);
+    // Hinh dang duong cong: hop dong voi nguoi choi, khong phai chi tiet noi bo.
+    const issues = [];
+    if (r3.length !== 50) issues.push(`chi sinh duoc ${r3.length}/50 man`);
+    for (const r of r3) {
+      const want = r.L <= 5 ? 'tutorial' : r.L <= 10 ? 'onboarding' : r.L <= 20 ? 'acclimation'
+                 : r.L % 10 === 9 ? 'superhard' : r.L % 10 === 5 ? 'hard' : 'normal';
+      if (r.tier !== want) issues.push(`L${r.L} la ${r.tier}, mong doi ${want}`);
+      if (r.tier === 'hard' && (r.boxes < 50 || r.boxes > 70))
+        issues.push(`L${r.L} (hard) co ${r.boxes} Thung, hop dong la 50-70`);
+      if (r.tier === 'superhard' && (r.boxes < 72 || r.boxes > 96))
+        issues.push(`L${r.L} (superhard) co ${r.boxes} Thung, hop dong la 72-96`);
+      if (r.lim !== '—' && r.lim < r.par) issues.push(`L${r.L}: gioi han ${r.lim} < par ${r.par}`);
     }
-    hard.forEach(r => { if (r.act !== 5) curveIssues.push(`L${r.L} hard co cua so ${r.act}, mong doi 5`); });
-    sh.forEach(r => { if (r.act !== 6 && r.act !== 7) curveIssues.push(`L${r.L} super hard co cua so ${r.act}, mong doi 6 hoac 7`); });
-    const hardRise = hard[hard.length - 1].score - hard[0].score;
-    const shRise = sh[sh.length - 1].score - sh[0].score;
-    if (hardRise < 15) curveIssues.push(`duong hard chi len ${hardRise.toFixed(1)} diem tu L11 den L29`);
-    if (shRise < 15) curveIssues.push(`duong super hard chi len ${shRise.toFixed(1)} diem tu L12 den L30`);
-    sh.forEach(r => {
-      const nb = r3[r.L - 2]; // level hard ngay truoc
-      if (nb && nb.tier === 'hard' && r.score <= nb.score)
-        curveIssues.push(`L${r.L} (super hard, ${r.score}) khong kho hon L${nb.L} (hard, ${nb.score})`);
-    });
+    const lo = (t) => Math.min(...r3.filter(r => r.tier === t).map(r => r.score));
+    const hi = (t) => Math.max(...r3.filter(r => r.tier === t).map(r => r.score));
+    for (const [a, b] of [['tutorial', 'onboarding'], ['onboarding', 'acclimation'],
+                          ['acclimation', 'normal'], ['normal', 'hard'], ['hard', 'superhard']]) {
+      if (lo(b) <= hi(a)) issues.push(`diem: tier '${b}' (tu ${lo(b)}) khong cao hon '${a}' (den ${hi(a)})`);
+    }
 
     const max = Math.max(...r3.map(r => r.score));
     const table = `<div class="scroll"><table>
-      <tr><th>Level</th><th class="t">Bậc</th><th>Thùng</th><th>Ẩn</th><th>Khay</th><th>Conveyor</th>
-          <th>Pool</th><th>Ô trống</th><th>Undo</th><th>Par</th><th>Tồn kho</th><th>Điểm</th><th class="t"></th></tr>
-      ${r3.map(r => `<tr class="${r.tier === 'ramp' ? 'ramp' : r.tier === 'superhard' ? 'sh' : ''}">
+      <tr><th>Level</th><th class="t">Bậc</th><th>Thùng</th><th>Bị che</th><th>Khay</th><th>Cửa sổ</th>
+          <th>Pool</th><th>E</th><th>Mở đầu</th><th>Par</th><th>Giới hạn</th><th>Điểm</th><th class="t"></th></tr>
+      ${r3.map(r => `<tr class="${r.tier === 'tutorial' || r.tier === 'onboarding' ? 'ramp' : r.tier === 'superhard' ? 'sh' : ''}">
         <td>${r.L}</td><td class="t">${r.tier}</td><td>${r.boxes}</td><td>${r.hidden}</td><td>${r.trays}</td>
-        <td>${r.act}</td><td>${r.pool}</td><td>${r.free}</td><td>${r.undo}</td>
-        <td>${r.par}</td><td>${r.wrapped}</td><td>${r.score}</td>
+        <td>${r.act}</td><td>${r.pool}</td><td>${r.E}</td><td>${r.open}</td>
+        <td>${r.par}</td><td>${r.lim}</td><td>${r.score}</td>
         <td class="t"><span class="bar ${r.tier === 'superhard' ? 'sh' : ''}" style="width:${(r.score / max * 130).toFixed(0)}px"></span></td>
       </tr>`).join('')}
     </table></div>`;
@@ -231,26 +218,26 @@ document.getElementById('run').addEventListener('click', () => {
       <h2>1. Luật spawn — ${r1.checked} màn</h2>
       ${verdict(r1.bad.length === 0 && r1.minLen >= 1,
         r1.bad.length === 0
-          ? `mọi Thùng đều có ≥1 vật, không Thùng nào wrapped sẵn, luôn còn Khay ngoài cửa sổ, mọi màn có bằng chứng giải được`
+          ? `mọi Thùng đều có ≥1 vật, không Thùng nào wrapped sẵn, tổng ô trống đúng bằng 3E, bố cục cột toàn vẹn`
           : `${r1.bad.length} vi phạm`)}
       ${r1.bad.length ? `<pre>${r1.bad.slice(0, 15).join('\n')}</pre>` : ''}
-      <p>Thùng ít vật nhất trên toàn bộ mẫu: <b>${r1.minLen}</b> vật. Phân bố ô trống:</p>
-      <pre>${Object.entries(r1.shapes).map(([k, v]) => `${k.padEnd(26)} ${v} màn`).join('\n')}</pre>
+      <p>Thùng ít vật nhất trên toàn bộ mẫu: <b>${r1.minLen}</b> vật. Hình dạng bàn gặp phải:</p>
+      <pre>${Object.entries(r1.shapes).sort().map(([k, v]) => `${k.padEnd(38)} ${v} màn`).join('\n')}</pre>
 
-      <h2>2. Chơi thật qua engine — ${LEVELS.length * PLAY_SEEDS} màn</h2>
+      <h2>2. Chơi thật qua engine — ${r2.total} màn</h2>
       ${verdict(r2.bad.length === 0,
         r2.bad.length === 0
-          ? `${r2.passed}/${LEVELS.length * PLAY_SEEDS} màn giao hết Khay qua GameEngine + Conveyor + Tray + Box thật`
+          ? `${r2.passed}/${r2.total} màn thắng qua GameEngine thật, với đủ hàng chờ 5 slot và giới hạn nước đi`
           : `${r2.bad.length} màn không hoàn thành`)}
       ${r2.bad.length ? `<pre>${r2.bad.slice(0, 15).join('\n')}</pre>` : ''}
-      <p>Tồn kho Thùng wrapped cao nhất gặp phải: <b>${r2.maxHeld}</b>. Số lần cột tụt xuống lộ Thùng mới: <b>${r2.revealsSeen}</b>.</p>
+      <p>Hàng chờ sâu nhất gặp phải khi chạy lời giải tối ưu: <b>${r2.maxQueue}</b>/5.</p>
 
-      <h2>3. Đường cong độ khó</h2>
-      ${verdict(curveIssues.length === 0,
-        curveIssues.length === 0
-          ? `hard/super hard xen kẽ đúng từ L11, cửa sổ đúng bậc, cả hai đường đều lên tới L30`
-          : `${curveIssues.length} vấn đề`)}
-      ${curveIssues.length ? `<pre>${curveIssues.join('\n')}</pre>` : ''}
+      <h2>3. Đường cong độ khó — 50 màn chính thức</h2>
+      ${verdict(issues.length === 0,
+        issues.length === 0
+          ? `định tuyến tier đúng, hard 50-70 Thùng / super hard 72-96, giới hạn nước đi ≥ par, điểm tăng dần theo tier`
+          : `${issues.length} vấn đề`)}
+      ${issues.length ? `<pre>${issues.join('\n')}</pre>` : ''}
       ${table}
       <p class="sub">Chạy hết trong ${ms} ms.</p>`;
     btn.disabled = false;

@@ -200,16 +200,20 @@ html, body {
 
 /* Boxes Area */
 #boxes-area {
-    flex: 65;
-    padding: 12px;
+    flex: 52;
+    padding: 6px 12px 6px 12px;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-end;
+    min-height: 0;
 }
 
 /* Khu Thung: 3 COT doc. Moi cot chi hien `visibleRows` Thung duoi cung; phan tren
    bi che va KHONG duoc dua vao DOM (xem BoxRenderer.render). */
 #boxes-grid {
+    /* BoxRenderer._fitBoxHeight ghi --box-h len chinh phan tu nay; .box-column va .box
+       ke thua xuong. Dat mac dinh o day de CSS van dung khi JS chua kip chay. */
+    --box-h: 75px;
     display: flex;
     align-items: flex-end;
     gap: clamp(6px, 2vw, 20px);
@@ -225,7 +229,10 @@ html, body {
     flex-direction: column-reverse;
     gap: clamp(6px, 2vw, 20px);
     min-width: 0;
-    --box-h: 75px;
+    /* BoxRenderer ghi de --box-h theo chieu cao thuc te con lai cua khu Thung.
+       Bat buoc: tu khi man hard/super hard luon hien du 4 hang, chieu cao co dinh
+       75px lam ca luoi cao 4*75 + 3*gap ~ 400px trong mot khung chi ~330px, va hang
+       tren cung bi cat mat — nguoi choi khong nhin thay Thung ma game noi la dang hien. */
     --stack-gap: clamp(6px, 2vw, 20px);
 }
 
@@ -255,8 +262,9 @@ html, body {
 /* 3D Box (Horizontal) */
 .box {
     width: 100%;
-    /* aspect-ratio removed */
-    height: 75px;
+    /* Cac mat 3D ben trong deu tinh theo % chieu cao cua chinh .box nen thu nho
+       --box-h la du; khong can dong vao .top-face / .front-face / .flap. */
+    height: var(--box-h, 75px);
     position: relative;
     cursor: pointer;
     transition: transform 0.2s ease, filter 0.2s ease;
@@ -268,6 +276,13 @@ html, body {
 
 .box.empty-box {
     opacity: 0.6;
+}
+
+.box.disappearing {
+    transform: scale(0.6) !important;
+    opacity: 0 !important;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-out !important;
+    pointer-events: none;
 }
 
 .box.selected {
@@ -447,7 +462,9 @@ html, body {
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: clamp(18px, 7vw, 24px);
+    /* Theo ca be ngang lan chieu cao Thung: o man nhieu hang, Thung thap hon nen
+       emoji phai nho lai, neu khong no tran ra ngoai o. */
+    font-size: min(clamp(18px, 7vw, 24px), calc(var(--box-h, 75px) * 0.33));
     position: relative;
     z-index: 5;
     border-radius: 6px;
@@ -481,18 +498,201 @@ html, body {
     pointer-events: none;
 }
 
+/* Staging Roller Deck (Centered Inside Conveyor Loop - Sleek Smooth Style) */
+#queue-area {
+    position: absolute;
+    bottom: calc(var(--belt-bottom) + var(--belt-h) * 0.5);
+    left: 50%;
+    transform: translate(-50%, 50%);
+    width: min(calc(100% - 130px), 320px);
+    max-width: 320px;
+    padding: 5px 8px 6px 8px;
+    background: linear-gradient(180deg, #1c2736 0%, #121a24 100%);
+    border: 1.5px solid #2d3d52;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+/* Hidden decorative bolts for a cleaner, smoother surface */
+#queue-area::before,
+#queue-area::after {
+    display: none;
+}
+
+#queue-area.warning {
+    border-color: #f59e0b;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+#queue-area.danger {
+    border-color: #ef4444;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    animation: queuePulse 0.9s infinite alternate;
+}
+
+@keyframes queuePulse {
+    from {
+        border-color: #dc2626;
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+    to {
+        border-color: #f87171;
+        box-shadow: 0 0 20px rgba(239, 68, 68, 0.85), inset 0 0 8px rgba(239, 68, 68, 0.3);
+    }
+}
+
+.queue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 2px;
+    height: 14px;
+    position: relative;
+}
+
+/* Sleek minimalist accent line */
+.queue-hazard-strip {
+    flex: 1;
+    max-width: 50px;
+    height: 2.5px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.6), transparent);
+    opacity: 0.7;
+}
+
+/* Industrial digital LED counter */
+.queue-counter {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(15, 23, 42, 0.7);
+    padding: 1px 7px;
+    border-radius: 8px;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    line-height: 1.2;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.queue-counter.warning {
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.4);
+}
+
+.queue-counter.danger {
+    color: #f87171;
+    border-color: rgba(248, 113, 113, 0.5);
+    animation: counterBlink 0.6s infinite alternate;
+}
+
+@keyframes counterBlink {
+    0% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.queue-slots {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+
+/* Smooth recessed slot */
+.queue-slot {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 40px;
+    border-radius: 7px;
+    background: #0d1520;
+    border: 1.5px solid #202d3e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+    overflow: hidden;
+}
+
+.queue-slot::before {
+    display: none;
+}
+
+.queue-slot.occupied {
+    border-color: rgba(56, 189, 248, 0.45);
+    background: #111b26;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 6px rgba(56, 189, 248, 0.2);
+}
+
+/* Wrapped Box inside Queue Slot */
+.queue-box {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    position: relative;
+    background: var(--cat-color, #f59e0b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+    cursor: default;
+    overflow: hidden;
+    animation: queueBoxPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes queueBoxPop {
+    0% { transform: scale(0.6); opacity: 0.3; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.queue-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 25%;
+    right: 25%;
+    background: rgba(217, 119, 6, 0.88); /* Tape visual */
+    border-left: 1px solid rgba(255,255,255,0.25);
+    border-right: 1px solid rgba(255,255,255,0.25);
+    z-index: 1;
+}
+
+.queue-box .queue-box-icon {
+    font-size: 18px;
+    z-index: 2;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+}
+
+/* Flying Box Animation */
+.flying-queue-box {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.35s ease;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
 /* Tray Area */
 #tray-area {
-    flex: 35;
+    flex: 50;
     position: relative;
     overflow: visible;
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    --belt-inset: 45px;
-    --belt-h: 160px;
-    --belt-bottom: 30px;
-    --belt-band: 30px;
+    --belt-inset: 12px;
+    --belt-h: 242px;
+    --belt-bottom: 12px;
+    --belt-radius: 28px;
 }
 
+/* Conveyor Belt Machine (Rounded Rectangle Chassis) */
 #conveyor-belt {
     position: absolute;
     bottom: var(--belt-bottom);
@@ -500,39 +700,52 @@ html, body {
     transform: translateX(-50%);
     width: calc(100% - var(--belt-inset) * 2);
     height: var(--belt-h);
-    border: var(--belt-band) solid #1e293b;
-    border-radius: 50%;
-    background: transparent;
+    border-radius: var(--belt-radius, 28px);
+    background: linear-gradient(180deg, #182330 0%, #101722 50%, #0a0f18 100%);
+    border: 3px solid #334458;
+    border-top: 3px solid #4e6582;
+    border-bottom: 3px solid #1a2533;
     z-index: 1;
-    box-shadow: inset 0 0 15px #000, 0 10px 20px rgba(0,0,0,0.5), 0 0 0 2px #334155;
+    box-shadow: 
+        inset 0 0 28px rgba(0, 0, 0, 0.8),
+        0 10px 28px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(0, 0, 0, 0.6);
 }
 
+/* Recessed Roller Track Guide */
 #conveyor-belt::after {
     content: '';
     position: absolute;
-    inset: calc(var(--belt-band) * -1);
-    border-radius: 50%;
-    border: var(--belt-band) dashed rgba(255,255,255,.05);
+    inset: 10px;
+    border-radius: calc(var(--belt-radius, 28px) - 10px);
+    border: 2px dashed rgba(56, 189, 248, 0.18);
+    background: radial-gradient(ellipse at center, rgba(16, 24, 35, 0.6) 0%, rgba(9, 14, 21, 0.85) 100%);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
     pointer-events: none;
 }
 
 .port-in, .port-out {
     position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
+    top: -12px;
     background: #0f172a;
     color: #38bdf8;
-    padding: 6px 12px;
+    padding: 3px 10px;
     border-radius: 6px;
-    font-weight: bold;
-    font-size: 14px;
-    border: 2px solid #334155;
-    z-index: 2;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    border: 1.5px solid #3b82f6;
+    z-index: 10;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6), 0 0 8px rgba(56, 189, 248, 0.35);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+    white-space: nowrap;
 }
 
-.port-in { right: -18px; }
-.port-out { left: -18px; }
+.port-out { left: 16px; }
+.port-in { right: 16px; }
 
 #trays-container {
     position: absolute;
@@ -540,42 +753,42 @@ html, body {
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 2;
+    pointer-events: none;
 }
 
-/* Individual Tray */
+/* Individual Tray (Sleek card designed to fit completely INSIDE conveyor) */
 .tray {
     --hl: 1;
-    width: 80px;
-    height: 100px;
-    background: linear-gradient(180deg, #334155, #1e293b);
-    border-radius: 8px 8px 0 0;
-    border: 3.5px solid #475569;
-    border-bottom: none;
+    width: 68px;
+    height: 72px;
+    background: linear-gradient(180deg, #2c3848, #182230);
+    border-radius: 9px;
+    border: 2.5px solid #475569;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
     position: relative;
     transition: border-color 0.2s, box-shadow 0.2s;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15);
     will-change: transform;
+    pointer-events: auto;
 }
 
 .tray::before {
     content: '';
     position: absolute;
-    inset: -14px -10px -20px -10px;
+    inset: -10px -8px -10px -8px;
     border-radius: 12px;
 }
 
-/* Sleek colored top cap without text */
+/* Sleek colored top cap */
 .tray-cap {
     width: 100%;
-    height: 10px;
-    border-radius: 4px 4px 0 0;
+    height: 8px;
+    border-radius: 6px 6px 0 0;
     background-color: var(--cat-color, #475569);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.5);
     border-bottom: 1.5px solid rgba(0, 0, 0, 0.4);
     flex-shrink: 0;
 }
@@ -586,17 +799,17 @@ html, body {
 
 /* Prominent category illustration emblem */
 .tray-illustration {
-    margin-top: 10px;
-    width: 50px;
-    height: 50px;
+    margin-top: 4px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.15), rgba(15, 23, 42, 0.9));
-    border: 2.5px solid var(--cat-color, #64748b);
-    box-shadow: 0 0 14px var(--cat-color, rgba(255, 255, 255, 0.25)), inset 0 2px 4px rgba(0, 0, 0, 0.6);
+    background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.18), rgba(15, 23, 42, 0.95));
+    border: 2px solid var(--cat-color, #64748b);
+    box-shadow: 0 0 10px var(--cat-color, rgba(255, 255, 255, 0.2)), inset 0 2px 4px rgba(0, 0, 0, 0.6);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 26px;
+    font-size: 22px;
     line-height: 1;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
     transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -695,11 +908,19 @@ html, body {
 
 @media (max-height: 700px) {
   #game-header { 
-    height: 52px; 
-    margin: 8px; 
-    margin-top: calc(8px + env(safe-area-inset-top, 0px));
+    height: 48px; 
+    margin: 6px; 
+    margin-top: calc(6px + env(safe-area-inset-top, 0px));
   }
-  #boxes-area  { padding: 8px; }
+  #boxes-area  { padding: 4px; }
+  #tray-area {
+    --belt-h: 215px;
+    --belt-radius: 24px;
+    --belt-bottom: 8px;
+    --belt-inset: 10px;
+  }
+  .queue-slot { height: 34px; }
+  .queue-box .queue-box-icon { font-size: 16px; }
 }
 
 
@@ -747,6 +968,11 @@ html, body {
 .level-btn.level-easy {
     background: #22c55e; /* Green */
     box-shadow: 0 4px 0 #16a34a;
+}
+
+.level-btn.level-normal {
+    background: #3b82f6; /* Blue */
+    box-shadow: 0 4px 0 #2563eb;
 }
 
 .level-btn.level-hard {

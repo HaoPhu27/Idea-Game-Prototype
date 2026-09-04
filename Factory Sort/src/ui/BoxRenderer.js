@@ -5,6 +5,15 @@ export class BoxRenderer {
         this.container = document.getElementById(containerId);
         this.onSlotTap = onSlotTap;
         this.onDragStart = onDragStart;
+
+        // Chieu cao kha dung doi khi xoay man hinh, khi thanh dia chi cua trinh duyet
+        // di dong an/hien, va ngay sau khi lop phu "dang tai" tat. Bam theo no thay vi
+        // chi do mot lan luc render.
+        this._fitRows = null;
+        this._fitChip = false;
+        if (typeof ResizeObserver !== 'undefined' && this.container && this.container.parentElement) {
+            new ResizeObserver(() => this._fitBoxHeight()).observe(this.container.parentElement);
+        }
     }
 
     /**
@@ -22,6 +31,8 @@ export class BoxRenderer {
     render(columns, selectedSource = null, validTargetIds = [], hiddenCounts = [], visibleRows = 5) {
         this.container.innerHTML = '';
         if (columns.length && !Array.isArray(columns[0])) columns = [columns];
+
+        this._fitBoxHeight(visibleRows, hiddenCounts.some(n => n > 0));
 
         columns.forEach((boxes, colIndex) => {
         const colEl = document.createElement('div');
@@ -137,6 +148,42 @@ export class BoxRenderer {
 
         this.container.appendChild(colEl);
         });
+    }
+
+    /**
+     * Chieu cao mot Thung phai vua khit so hang DANG HIEN, khong duoc co dinh.
+     *
+     * Truoc day .box cao cung 75px va .box-stack cao `rows*75 + (rows-1)*gap`. Voi
+     * visibleRows = 4 (moi tier tu 9/2026 deu hien 3x4) thi cot cao ~400px trong mot
+     * khu Thung chi cao ~330px: HANG TREN CUNG BI CAT, nguoi choi khong nhin thay
+     * Thung ma engine noi la dang hien va khong cham vao no duoc.
+     *
+     * O day ta do chieu cao thuc con lai roi ha --box-h xuong cho vua. San duoi 44px
+     * la kich thuoc vung cham toi thieu; duoi muc do thi tha de trong scroll con hon
+     * la lam Thung khong bam duoc.
+     */
+    _fitBoxHeight(visibleRows, hasHiddenChip) {
+        if (Number.isFinite(visibleRows)) this._fitRows = visibleRows;
+        if (hasHiddenChip !== undefined) this._fitChip = hasHiddenChip;
+        const rows = this._fitRows;
+        const area = this.container.parentElement;
+        if (!area || !Number.isFinite(rows)) return;
+
+        // Trong luc lop phu "dang tai" con hien, khu Thung bi ep xuong con vai pixel.
+        // Do o thoi diem do roi ghi lai se khoa Thung o san 44px cho ca van dau, du
+        // sau do co thua cho. Bo qua nhung phep do vo nghia va cho ResizeObserver goi lai.
+        const avail = area.clientHeight;
+        if (avail < 120) return;
+
+        const cs = getComputedStyle(this.container);
+        const gap = parseFloat(cs.columnGap || cs.gap) || 10;
+        // Chip "+N" nam trong .box-column, va cot ay CO gap giua chip va chong Thung
+        // (cung bang `gap`) — quen phan gap do la ly do phep tinh dau tien van tran
+        // ra khoi khu Thung 14px.
+        const chip = this._fitChip ? 20 + gap : 0;
+        const room = avail - chip - (rows - 1) * gap - 2;   // 2px de danh cho drop-shadow
+        const h = Math.max(44, Math.min(75, Math.floor(room / rows)));
+        this.container.style.setProperty('--box-h', `${h}px`);
     }
 
     animateItemTransfer(sourceBoxId, targetBoxId, onComplete) {

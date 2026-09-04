@@ -34,6 +34,7 @@ const JS_FILES = [
   'src/ui/BoxRenderer.js',
   'src/ui/TrayRenderer.js',
   'src/ui/ConveyorRenderer.js',
+  'src/ui/QueueRenderer.js',
   'src/ui/UIManager.js',
 ];
 

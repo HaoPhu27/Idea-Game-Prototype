@@ -55,8 +55,12 @@ export class LevelGenerator {
     }
 
     // --- Duong tuong thich nguoc cho loi goi cu ---
+    // `numEmptyBoxes` khong con ton tai: luat hien hanh la KHONG Thung rong luc spawn,
+    // va so o trong duoc quyet dinh boi `carrierBoxes` (tong o trong = 3 * carrierBoxes,
+    // xem he qua (1) trong SolvableLevelGenerator.js). Loi goi cu nao con truyen no thi
+    // duoc quy doi thanh so Thung chuyen tiep tuong duong.
     const {
-      numBoxes = 6,
+      numBoxes = 12,
       numEmptyBoxes = 1,
       numCategories = 2,
       itemTypesPerCat = 2,
@@ -64,8 +68,8 @@ export class LevelGenerator {
     } = config;
     return configForLevelNumber(1, {
       numBoxes,
-      numEmptyBoxes,
-      numSets: numBoxes - numEmptyBoxes,
+      carrierBoxes: Math.max(1, Math.min(numEmptyBoxes || 1, numBoxes - 1)),
+      numSets: null,
       numCategories,
       itemTypesPerCategory: itemTypesPerCat,
       seed: (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0,
@@ -74,14 +78,16 @@ export class LevelGenerator {
   }
 
   /**
-   * Ha dan so bo hang cho toi khi cau hinh kha thi.
-   * So o trong toi thieu la 3 (dinh ly solvability: F = 3N - 3S >= 3),
-   * nen numSets khong duoc vuot qua numBoxes - 1.
+   * Noi long dan cho toi khi cau hinh kha thi: moi buoc doi mot bo lay them mot Thung
+   * chuyen tiep, tuc them 3 o trong. Cang nhieu o trong thi pha xay nguoc cang de tim
+   * duoc cho dat item lac — day la chieu noi long dung, khong phai giam numBoxes
+   * (giam numBoxes se pha vo hop dong quy mo cua tier).
    */
   static generateWithRelaxedConfig(cfg) {
-    for (let sets = Math.min(cfg.numSets, cfg.numBoxes - 1); sets >= 1; sets--) {
+    const N = cfg.numBoxes;
+    for (let carriers = Math.max(1, cfg.carrierBoxes || 1); carriers <= N - 1; carriers++) {
       try {
-        return generateLevel({ ...cfg, numSets: sets });
+        return generateLevel({ ...cfg, carrierBoxes: carriers, numSets: null, maxOpeningSets: null });
       } catch (_) { /* thu tiep */ }
     }
     throw new Error(`[LevelGenerator] khong sinh duoc man choi tu config: ${JSON.stringify(cfg)}`);

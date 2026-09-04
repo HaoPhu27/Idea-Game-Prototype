@@ -32,17 +32,33 @@ window.addEventListener('unhandledrejection', function(e) {
         </header>
 
         <main id="play-area">
-            <!-- Box area occupies top ~65% -->
+            <!-- Box area occupies top -->
             <section id="boxes-area">
                 <div id="boxes-grid"></div>
             </section>
             
-            <!-- Tray area occupies bottom ~35% -->
+            <!-- Tray area occupies bottom (conveyor belt with nested queue deck) -->
             <section id="tray-area">
                 <div id="conveyor-belt">
                     <div class="port-in">IN ⬇</div>
-                    <div class="port-out">⬇ OUT</div>
+                    <div class="port-out">⬅ OUT</div>
                 </div>
+
+                <!-- Waiting queue area (5 slots) nestled INSIDE conveyor -->
+                <section id="queue-area">
+                    <div class="queue-header">
+                        <div class="queue-hazard-strip"></div>
+                        <span id="queue-counter" class="queue-counter">0/5</span>
+                    </div>
+                    <div id="queue-slots" class="queue-slots">
+                        <div class="queue-slot" data-slot="0"></div>
+                        <div class="queue-slot" data-slot="1"></div>
+                        <div class="queue-slot" data-slot="2"></div>
+                        <div class="queue-slot" data-slot="3"></div>
+                        <div class="queue-slot" data-slot="4"></div>
+                    </div>
+                </section>
+
                 <div id="trays-container"></div>
             </section>
         </main>
