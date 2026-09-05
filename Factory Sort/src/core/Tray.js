@@ -21,10 +21,9 @@ export class Tray {
 
     canAccept(box) {
         if (!box || !box.isWrapped || this.slot !== null) return false;
-        if (this.matchMode === 'itemType') {
-            return box.getItemType() === this.targetItemId;
-        }
-        return box.getCategory() === this.categoryId;
+        // Luon so sanh theo LOAI ITEM cu the (targetItemId) — khong dung category.
+        // Tray hien emoji nao thi CHI nhan box cung emoji do.
+        return box.getItemType() === this.targetItemId;
     }
 
     receiveBox(box) {

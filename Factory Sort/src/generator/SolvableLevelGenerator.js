@@ -393,8 +393,8 @@ export function configForLevelNumber(level, overrides = {}) {
       numCategories: L <= 2 ? 1 : 2,
       itemTypesPerCategory: 2,
       ratio21: lerp(1.0, 0.88, t),
-      trayMatchMode: 'category',
-      strictTrayRatio: 0,
+      trayMatchMode: 'itemType',
+      strictTrayRatio: 1.0,
       conveyorMaxActive: 5,
       buryBias: 0.2, bottomBias: 0.7,
       moveLimitSlack: L <= 2 ? null : lerp(2.2, 1.9, t),
@@ -411,8 +411,8 @@ export function configForLevelNumber(level, overrides = {}) {
       numCategories: Math.round(lerp(2, 3, t)),
       itemTypesPerCategory: 2,
       ratio21: lerp(0.88, 0.80, t),
-      trayMatchMode: 'category',
-      strictTrayRatio: 0,
+      trayMatchMode: 'itemType',
+      strictTrayRatio: 1.0,
       conveyorMaxActive: L <= 8 ? 5 : 4,
       buryBias: 0.2, bottomBias: lerp(0.65, 0.58, t),
       moveLimitSlack: lerp(1.9, 1.7, t),
@@ -420,18 +420,17 @@ export function configForLevelNumber(level, overrides = {}) {
       undoCount: 4,
     };
   } else if (tier === 'acclimation') {
-    // Phan bi che thanh phan chinh cua ban. Tu L16 Khay doi dung LOAI item.
+    // Phan bi che thanh phan chinh cua ban.
     const t = (L - 11) / 9;
-    const strict = L >= 16;
     c = {
       numBoxes: Math.round(lerp(22, 34, t)),
       carrierBoxes: 3,
       maxOpeningSets: 5,
-      numCategories: strict ? 4 : 3,
-      itemTypesPerCategory: strict ? 3 : 2,
+      numCategories: L >= 16 ? 4 : 3,
+      itemTypesPerCategory: L >= 16 ? 3 : 2,
       ratio21: lerp(0.80, 0.68, t),
-      trayMatchMode: strict ? 'itemType' : 'category',
-      strictTrayRatio: strict ? lerp(0.4, 0.6, (L - 16) / 4) : 0,
+      trayMatchMode: 'itemType',
+      strictTrayRatio: 1.0,
       conveyorMaxActive: 4,
       buryBias: 0.2, bottomBias: lerp(0.55, 0.45, t),
       moveLimitSlack: lerp(1.7, 1.5, t),
@@ -865,10 +864,8 @@ function replayReal(cfg, boxesInit, colsInit, trays, solution, catOf) {
   }
 
   const accepts = (tray, boxIdx) => {
-    const typeId = state[boxIdx][0];
-    return tray.matchMode === 'itemType'
-      ? tray.targetItemId === typeId
-      : tray.categoryId === catOf(typeId);
+    // Luon so sanh theo loai item cu the — khop voi Tray.canAccept() da sua.
+    return tray.targetItemId === state[boxIdx][0];
   };
 
   function autoDeliver() {
@@ -930,18 +927,8 @@ function finalize(cfg, built, attempt) {
     trayTypes.push(...shuffle(rngT, setType.slice(i, i + block)));
   }
 
-  // Che do khop cua Khay phai dong nhat TRONG TUNG NHOM HANG. Tron hai che do trong
-  // cung mot nhom co the ket cung: Khay che do 'category' nuot mat Thung ma Khay che do
-  // 'itemType' dang doi, va Thung con lai khong con Khay nao nhan.
-  const wantStrict =
-    cfg.strictTrayRatio == null
-      ? (cfg.trayMatchMode === 'itemType' ? 1 : 0)
-      : clamp(cfg.strictTrayRatio, 0, 1);
-  const trayCats = [...new Set(trayTypes.map((t) => getTypeInfo(t).categoryId))];
-  const strictCats = new Set(
-    shuffle(makeRng(cfg.seed + 7919), trayCats.slice())
-      .slice(0, Math.round(wantStrict * trayCats.length))
-  );
+  // Tat ca Khay deu khop theo LOAI ITEM cu the (targetItemId). Tray hien emoji nao
+  // thi CHI nhan box cung emoji do — khong con che do 'category' gay nham lan.
   const trays = trayTypes.map((typeId, i) => {
     const info = getTypeInfo(typeId);
     return {
@@ -951,7 +938,7 @@ function finalize(cfg, built, attempt) {
       targetItemId: typeId,
       emoji: info.emoji,
       color: info.color,
-      matchMode: strictCats.has(info.categoryId) ? 'itemType' : 'category',
+      matchMode: 'itemType',
     };
   });
   const strictRatio = trays.length

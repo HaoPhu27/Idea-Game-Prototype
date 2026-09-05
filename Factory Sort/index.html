@@ -27,6 +27,7 @@ window.addEventListener('unhandledrejection', function(e) {
         <header id="game-header">
             <div class="level-info">Level: <span id="level-display">Random</span></div>
             <div class="move-info">Moves: <span id="move-display">0</span><span id="move-limit"></span></div>
+            <button id="btn-help" class="btn btn-icon" title="Hướng dẫn cách chơi">❓</button>
             <button id="btn-select-level" class="btn">Levels</button>
             <button id="btn-new-game" class="btn">New Game</button>
         </header>
@@ -92,8 +93,120 @@ window.addEventListener('unhandledrejection', function(e) {
         <div id="overlay-level-select" class="overlay hidden">
             <div class="overlay-content level-select-modal">
                 <h2>Select Level</h2>
+                <div class="level-legend">
+                    <div class="legend-item"><span class="legend-dot tutorial"></span> Hướng dẫn (1-5)</div>
+                    <div class="legend-item"><span class="legend-dot acclimation"></span> Làm quen (6-20)</div>
+                    <div class="legend-item"><span class="legend-dot normal"></span> Thường</div>
+                    <div class="legend-item"><span class="legend-dot hard"></span> Khó (25, 35, 45)</div>
+                    <div class="legend-item"><span class="legend-dot super-hard"></span> Siêu khó (29, 39, 49)</div>
+                </div>
                 <div id="level-grid" class="level-grid"></div>
-                <button id="btn-close-level-select" class="btn primary" style="margin-top: 15px;">Close</button>
+                <button id="btn-close-level-select" class="btn primary" style="margin-top: 10px;">Close</button>
+            </div>
+        </div>
+
+        <!-- Tutorial Overlay -->
+        <div id="tutorial-overlay" class="tutorial-overlay hidden">
+            <svg id="tutorial-spotlight-svg" class="tutorial-spotlight-svg">
+                <defs>
+                    <mask id="tutorial-mask">
+                        <rect width="100%" height="100%" fill="white" />
+                        <rect id="spotlight-cutout" x="0" y="0" width="0" height="0" rx="14" ry="14" fill="black" />
+                    </mask>
+                </defs>
+                <rect width="100%" height="100%" fill="rgba(10, 15, 30, 0.76)" mask="url(#tutorial-mask)" />
+            </svg>
+
+            <!-- Pulsing highlight ring around target -->
+            <div id="tutorial-target-highlight" class="tutorial-target-highlight hidden"></div>
+
+            <!-- Hand Pointer -->
+            <div id="tutorial-hand" class="tutorial-hand hidden">
+                <div class="hand-icon">👆</div>
+                <div class="hand-label">Chạm vào đây!</div>
+            </div>
+
+            <!-- Floating Tutorial Banner -->
+            <div id="tutorial-banner" class="tutorial-banner">
+                <div class="tutorial-banner-content">
+                    <div id="tutorial-badge" class="tutorial-badge">
+                        <span class="tutorial-badge-dot"></span> BƯỚC 1 / 3 • LẤY MÓN ĐỒ
+                    </div>
+                    <div id="tutorial-text" class="tutorial-text">
+                        Chạm vào chú <b>Chim cánh cụt 🐧</b> để lấy ra khỏi thùng.
+                    </div>
+                </div>
+                <button id="btn-skip-tutorial" class="tutorial-skip-btn" title="Bỏ qua hướng dẫn">Bỏ qua ✕</button>
+            </div>
+        </div>
+
+        <!-- Tutorial Win Modal (3 Golden Rules) -->
+        <div id="overlay-tutorial-win" class="overlay hidden">
+            <div class="overlay-content tutorial-win-modal">
+                <div class="win-star-badge">🎉 HOÀN THÀNH HƯỚNG DẪN!</div>
+                <h2>BẠN ĐÃ HIỂU CÁCH CHƠI</h2>
+                <div class="rules-summary">
+                    <div class="rule-card">
+                        <div class="rule-icon">📦</div>
+                        <div class="rule-text">
+                            <strong>1. Gom 3 món cùng loại</strong>
+                            <p>Chạm lấy món đồ và thả vào thùng có ô trống để gom đủ 3 món cùng loại.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🎁</div>
+                        <div class="rule-text">
+                            <strong>2. Tự động đóng gói & Hàng chờ</strong>
+                            <p>Thùng đủ 3 món sẽ tự dán kín và bay xuống Hàng Chờ (tối đa 5 chỗ). Thùng rỗng tự biến mất!</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🚚</div>
+                        <div class="rule-text">
+                            <strong>3. Băng chuyền xuất hàng</strong>
+                            <p>Khay chạy ngang qua sẽ tự động nhận thùng hàng tương ứng. Hết hàng là Thắng!</p>
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-tutorial-next" class="btn primary btn-large">Bắt đầu Level 2 ➔</button>
+            </div>
+        </div>
+
+        <!-- Help Modal (Quick Rules Guide) -->
+        <div id="overlay-help" class="overlay hidden">
+            <div class="overlay-content help-modal">
+                <h2>CÁCH CHƠI FACTORY SORT</h2>
+                <div class="rules-summary">
+                    <div class="rule-card">
+                        <div class="rule-icon">👆</div>
+                        <div class="rule-text">
+                            <strong>Di chuyển món đồ</strong>
+                            <p>Chạm vào món đồ trong thùng để nhấc lên, sau đó chạm thùng đích có chỗ trống để thả vào.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">📦</div>
+                        <div class="rule-text">
+                            <strong>Đóng gói & Hàng chờ</strong>
+                            <p>Gom đủ 3 món cùng loại vào 1 thùng -> Thùng tự đóng gói và rơi xuống Hàng Chờ (tối đa 5 ô).</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">✨</div>
+                        <div class="rule-text">
+                            <strong>Thùng rỗng biến mất</strong>
+                            <p>Khi lấy hết món đồ trong thùng, thùng rỗng sẽ biến mất để các thùng trên cao tụt xuống.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🚚</div>
+                        <div class="rule-text">
+                            <strong>Giao hàng lên Băng chuyền</strong>
+                            <p>Khay hàng chạy ngang qua thùng khớp loại sẽ tự nhận hàng (hoặc kéo thả trực tiếp).</p>
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-close-help" class="btn primary" style="margin-top: 15px;">Đã hiểu</button>
             </div>
         </div>
     </div>

@@ -35,6 +35,7 @@ const JS_FILES = [
   'src/ui/TrayRenderer.js',
   'src/ui/ConveyorRenderer.js',
   'src/ui/QueueRenderer.js',
+  'src/ui/TutorialManager.js',
   'src/ui/UIManager.js',
 ];
 
@@ -130,6 +131,17 @@ if (/url\(\s*['"]?assets\//.test(standalone)) {
 
 fs.writeFileSync(path.join(ROOT, 'FactorySort_Standalone.html'), standalone);
 
+// Build Ban Inverted Standalone theo y tuong Jun iKame
+const invertedHtmlPath = path.join(ROOT, 'index_inverted.html');
+if (fs.existsSync(invertedHtmlPath)) {
+  const htmlInverted = fs.readFileSync(invertedHtmlPath, 'utf8');
+  const scriptTag = htmlInverted.includes(SCRIPT) ? SCRIPT : '<script src="bundle.js"></script>';
+  const standaloneInverted = htmlInverted
+    .replace(LINK, `<style>\n${cssInlined}\n</style>`)
+    .replace(scriptTag, `<script>\n${bundle}\n</script>`);
+  fs.writeFileSync(path.join(ROOT, 'FactorySort_Inverted_Standalone.html'), standaloneInverted);
+}
+
 const VERIFY_SRC = path.join(ROOT, 'tools', 'verify.html');
 if (fs.existsSync(VERIFY_SRC)) {
   const verify = fs.readFileSync(VERIFY_SRC, 'utf8');
@@ -140,4 +152,4 @@ if (fs.existsSync(VERIFY_SRC)) {
   }
 }
 
-console.log(`Da build: bundle.js (${bundle.split('\n').length} dong) + FactorySort_Standalone.html + verify_build.html`);
+console.log(`Da build: bundle.js (${bundle.split('\n').length} dong) + FactorySort_Standalone.html + FactorySort_Inverted_Standalone.html + verify_build.html`);

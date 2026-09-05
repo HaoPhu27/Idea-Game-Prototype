@@ -14,6 +14,7 @@ export class TrayRenderer {
         this.highlightedTrayId = null;
         this.rejectTrayId = null;
         this.animate = this.animate.bind(this);
+        this.onTick = null;
         
         this.geom = this.readBeltGeometry();
         this._ro = new ResizeObserver(() => { this.geom = this.readBeltGeometry(); });
@@ -372,6 +373,7 @@ export class TrayRenderer {
         }
 
         this.updatePositions(now);
+        if (this.onTick) this.onTick(now);
         if (this.trayElements.length === 0) { this.running = false; return; }
         requestAnimationFrame(this.animate);
     }

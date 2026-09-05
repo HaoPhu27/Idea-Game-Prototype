@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Factory Sort - Đảo Layout (Theo Ý Jun iKame)</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- CSS điều chỉnh layout đảo ngược: Băng Chuyền & Order ở Trên - Thùng Hàng ở Dưới -->
+    <style>
+        /* Banner thông báo chế độ đảo layout */
+        #inverted-mode-banner {
+            background: linear-gradient(90deg, #1e3a8a, #0369a1);
+            color: #f8fafc;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 12px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 999;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            letter-spacing: 0.3px;
+        }
+
+        #inverted-mode-banner .mode-tag {
+            background: #f59e0b;
+            color: #000;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        #inverted-mode-banner a {
+            color: #38bdf8;
+            text-decoration: none;
+            font-weight: 700;
+            border-bottom: 1px dashed #38bdf8;
+        }
+
+        /* Tinh chỉnh thứ tự hiển thị trong Play Area */
+        #play-area {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 1. HEADER GỌN GÀNG */
+        #game-header {
+            margin: 8px 12px 4px 12px !important;
+            margin-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+            height: 52px !important;
+        }
+
+        /* 2. VÙNG BĂNG CHUYỀN & ORDER (ĐẨY SÁT LÊN TRÊN TIÊU ĐỀ) */
+        #tray-area {
+            flex: 0 0 230px !important;
+            order: 1;
+            position: relative;
+            padding: 0 !important;
+            margin-top: 2px !important;
+            --belt-inset: 12px;
+            --belt-h: 215px !important;
+            --belt-bottom: 6px !important;
+            --belt-radius: 26px;
+            height: 230px !important;
+            min-height: 230px !important;
+            max-height: 230px !important;
+        }
+
+        /* 3. VÙNG THÙNG HÀNG HOÁ (CĂN LỀ TRÊN, ĐẨY LÊN TRÊN GẦN BĂNG CHUYỀN) */
+        #boxes-area {
+            flex: 1 1 auto !important;
+            order: 2;
+            padding: 10px 12px calc(14px + env(safe-area-inset-bottom, 0px)) 12px !important;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start !important; /* Căn lề trên */
+            min-height: 0;
+        }
+
+        #boxes-grid {
+            align-items: flex-start !important; /* Đẩy các cột thùng hàng sát lên trên */
+        }
+
+        /* Thêm viền phân cách nhẹ nhàng giữa 2 khu vực */
+        #boxes-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 20px;
+            right: 20px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.25), transparent);
+            pointer-events: none;
+        }
+
+        /* 4. ĐIỀU CHỈNH BANNER HƯỚNG DẪN: ĐƯA XUỐNG ĐÁY MÀN HÌNH ĐỂ KHÔNG CHE BĂNG CHUYỀN */
+        .tutorial-banner {
+            top: auto !important;
+            bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+            pointer-events: auto !important;
+            z-index: 550 !important;
+            animation: slide-up-fade 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        @keyframes slide-up-fade {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .tutorial-skip-btn {
+            pointer-events: auto !important;
+            cursor: pointer !important;
+            touch-action: manipulation !important;
+            z-index: 560 !important;
+        }
+
+        /* Nút chuyển đổi nhanh giữa 2 phiên bản */
+        .btn-toggle-layout {
+            background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+            font-size: 13px !important;
+            padding: 6px 10px !important;
+        }
+    </style>
+
+<script>
+window.addEventListener('error', function(e) {
+    var err = document.createElement('div');
+    err.style = 'position:fixed;top:0;left:0;z-index:9999;background:red;color:white;padding:20px;font-size:20px;';
+    err.textContent = 'ERROR: ' + e.message + ' at ' + e.filename + ':' + e.lineno;
+    document.body.appendChild(err);
+});
+window.addEventListener('unhandledrejection', function(e) {
+    var err = document.createElement('div');
+    err.style = 'position:fixed;top:0;left:0;z-index:9999;background:red;color:white;padding:20px;font-size:20px;';
+    err.textContent = 'PROMISE REJECTION: ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
+    document.body.appendChild(err);
+});
+</script>
+</head>
+
+<body>
+    <!-- Banner ghi rõ bản thử nghiệm theo ý tưởng Jun -->
+    <div id="inverted-mode-banner">
+        <div style="display:flex; align-items:center; gap:6px;">
+            <span class="mode-tag">Ý tưởng Jun iKame</span>
+            <span>Băng Chuyền & Order Ở Trên • Thùng Hàng Ở Dưới</span>
+        </div>
+        <div>
+            <a href="index.html" title="Chuyển về bản gốc để so sánh">Xem Bản Gốc ➔</a>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <header id="game-header">
+            <div class="level-info">Level: <span id="level-display">Random</span></div>
+            <div class="move-info">Moves: <span id="move-display">0</span><span id="move-limit"></span></div>
+            <button id="btn-help" class="btn btn-icon" title="Hướng dẫn cách chơi">❓</button>
+            <button id="btn-select-level" class="btn">Levels</button>
+            <button id="btn-new-game" class="btn">New Game</button>
+        </header>
+
+        <main id="play-area">
+            <!-- 1. BĂNG CHUYỀN & KHAY ORDER ĐƯỢC ĐƯA LÊN PHÍA TRÊN -->
+            <section id="tray-area">
+                <div id="conveyor-belt">
+                    <div class="port-in">IN ⬇</div>
+                    <div class="port-out">⬅ OUT</div>
+                </div>
+
+                <!-- Waiting queue area (5 slots) nestled INSIDE conveyor -->
+                <section id="queue-area">
+                    <div class="queue-header">
+                        <div class="queue-hazard-strip"></div>
+                        <span id="queue-counter" class="queue-counter">0/5</span>
+                    </div>
+                    <div id="queue-slots" class="queue-slots">
+                        <div class="queue-slot" data-slot="0"></div>
+                        <div class="queue-slot" data-slot="1"></div>
+                        <div class="queue-slot" data-slot="2"></div>
+                        <div class="queue-slot" data-slot="3"></div>
+                        <div class="queue-slot" data-slot="4"></div>
+                    </div>
+                </section>
+
+                <div id="trays-container"></div>
+            </section>
+
+            <!-- 2. KHU VỰC THÙNG HÀNG HOÁ ĐƯỢC CHUYỂN XUỐNG DƯỚI (THUẬN TAY NGƯỜI CHƠI) -->
+            <section id="boxes-area">
+                <div id="boxes-grid"></div>
+            </section>
+        </main>
+        
+        <!-- Ghost element for dragging wrapped boxes -->
+        <div id="drag-ghost" style="display: none;"></div>
+
+        <!-- Overlays -->
+        <div id="overlay-win" class="overlay hidden">
+            <div class="overlay-content">
+                <h2>Level Complete!</h2>
+                <p>All items delivered successfully.</p>
+                <button id="btn-next-level" class="btn primary">Next Level</button>
+            </div>
+        </div>
+        
+        <div id="overlay-lose" class="overlay hidden">
+            <div class="overlay-content">
+                <h2>Out of Space!</h2>
+                <p id="lose-reason">No more empty slots to move items.</p>
+                <button id="btn-retry" class="btn primary">Try Again</button>
+            </div>
+        </div>
+        
+        <div id="overlay-loading" class="overlay hidden">
+            <div class="overlay-content transparent loading-bg">
+                <h2>Generating level...</h2>
+            </div>
+        </div>
+
+        <div id="overlay-level-select" class="overlay hidden">
+            <div class="overlay-content level-select-modal">
+                <h2>Select Level</h2>
+                <div class="level-legend">
+                    <div class="legend-item"><span class="legend-dot tutorial"></span> Hướng dẫn (1-5)</div>
+                    <div class="legend-item"><span class="legend-dot acclimation"></span> Làm quen (6-20)</div>
+                    <div class="legend-item"><span class="legend-dot normal"></span> Thường</div>
+                    <div class="legend-item"><span class="legend-dot hard"></span> Khó (25, 35, 45)</div>
+                    <div class="legend-item"><span class="legend-dot super-hard"></span> Siêu khó (29, 39, 49)</div>
+                </div>
+                <div id="level-grid" class="level-grid"></div>
+                <button id="btn-close-level-select" class="btn primary" style="margin-top: 10px;">Close</button>
+            </div>
+        </div>
+
+        <!-- Tutorial Overlay -->
+        <div id="tutorial-overlay" class="tutorial-overlay hidden">
+            <svg id="tutorial-spotlight-svg" class="tutorial-spotlight-svg">
+                <defs>
+                    <mask id="tutorial-mask">
+                        <rect width="100%" height="100%" fill="white" />
+                        <rect id="spotlight-cutout" x="0" y="0" width="0" height="0" rx="14" ry="14" fill="black" />
+                    </mask>
+                </defs>
+                <rect width="100%" height="100%" fill="rgba(10, 15, 30, 0.76)" mask="url(#tutorial-mask)" />
+            </svg>
+
+            <!-- Pulsing highlight ring around target -->
+            <div id="tutorial-target-highlight" class="tutorial-target-highlight hidden"></div>
+
+            <!-- Hand Pointer -->
+            <div id="tutorial-hand" class="tutorial-hand hidden">
+                <div class="hand-icon">👆</div>
+                <div class="hand-label">Chạm vào đây!</div>
+            </div>
+
+            <!-- Floating Tutorial Banner -->
+            <div id="tutorial-banner" class="tutorial-banner">
+                <div class="tutorial-banner-content">
+                    <div id="tutorial-badge" class="tutorial-badge">
+                        <span class="tutorial-badge-dot"></span> BƯỚC 1 / 3 • LẤY MÓN ĐỒ
+                    </div>
+                    <div id="tutorial-text" class="tutorial-text">
+                        Chạm vào chú <b>Chim cánh cụt 🐧</b> để lấy ra khỏi thùng.
+                    </div>
+                </div>
+                <button id="btn-skip-tutorial" class="tutorial-skip-btn" title="Bỏ qua hướng dẫn">Bỏ qua ✕</button>
+            </div>
+        </div>
+
+        <!-- Tutorial Win Modal (3 Golden Rules) -->
+        <div id="overlay-tutorial-win" class="overlay hidden">
+            <div class="overlay-content tutorial-win-modal">
+                <div class="win-star-badge">🎉 HOÀN THÀNH HƯỚNG DẪN!</div>
+                <h2>BẠN ĐÃ HIỂU CÁCH CHƠI</h2>
+                <div class="rules-summary">
+                    <div class="rule-card">
+                        <div class="rule-icon">📦</div>
+                        <div class="rule-text">
+                            <strong>1. Gom 3 món cùng loại</strong>
+                            <p>Chạm lấy món đồ và thả vào thùng có ô trống để gom đủ 3 món cùng loại.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🎁</div>
+                        <div class="rule-text">
+                            <strong>2. Tự động đóng gói & Hàng chờ</strong>
+                            <p>Thùng đủ 3 món sẽ tự dán kín và bay lên Hàng Chờ (tối đa 5 chỗ). Thùng rỗng tự biến mất!</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🚚</div>
+                        <div class="rule-text">
+                            <strong>3. Băng chuyền xuất hàng</strong>
+                            <p>Khay chạy ngang qua sẽ tự động nhận thùng hàng tương ứng. Hết hàng là Thắng!</p>
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-tutorial-next" class="btn primary btn-large">Bắt đầu Level 2 ➔</button>
+            </div>
+        </div>
+
+        <!-- Help Modal (Quick Rules Guide) -->
+        <div id="overlay-help" class="overlay hidden">
+            <div class="overlay-content help-modal">
+                <h2>CÁCH CHƠI FACTORY SORT</h2>
+                <div class="rules-summary">
+                    <div class="rule-card">
+                        <div class="rule-icon">👆</div>
+                        <div class="rule-text">
+                            <strong>Di chuyển món đồ</strong>
+                            <p>Chạm vào món đồ trong thùng để nhấc lên, sau đó chạm thùng đích có chỗ trống để thả vào.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">📦</div>
+                        <div class="rule-text">
+                            <strong>Đóng gói & Hàng chờ</strong>
+                            <p>Gom đủ 3 món cùng loại vào 1 thùng -> Thùng tự đóng gói và bay lên Hàng Chờ (tối đa 5 ô).</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">✨</div>
+                        <div class="rule-text">
+                            <strong>Thùng rỗng biến mất</strong>
+                            <p>Khi lấy hết món đồ trong thùng, thùng rỗng sẽ biến mất để các thùng trên cao tụt xuống.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🚚</div>
+                        <div class="rule-text">
+                            <strong>Giao hàng lên Băng chuyền</strong>
+                            <p>Khay hàng chạy ngang qua thùng khớp loại sẽ tự nhận hàng (hoặc kéo thả trực tiếp).</p>
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-close-help" class="btn primary" style="margin-top: 15px;">Đã hiểu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts: dung bundle.js de chay duoc truc tiep tren moi trinh duyet ma khong bi chan CORS file:/// -->
+    <script src="bundle.js"></script>
+</body>
+</html>

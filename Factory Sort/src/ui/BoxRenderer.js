@@ -60,6 +60,7 @@ export class BoxRenderer {
             for (let i = 0; i < 3; i++) {
                 const slotEl = document.createElement('div');
                 slotEl.className = 'slot';
+                slotEl.dataset.slotIndex = i;
                 
                 if (i < box.items.length) {
                     slotEl.textContent = getItemEmoji(box.items[i]);

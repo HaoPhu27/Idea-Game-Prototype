@@ -106,7 +106,7 @@ export class QueueRenderer {
     }
 
     /**
-     * Bay hop tu slot hang cho vao tray tren conveyor
+     * Bay hop tu slot hang cho vao tray tren conveyor (theo thoi gian thuc khi khay di qua)
      */
     animateBoxToTray(box, fromSlotEl, trayEl, onComplete) {
         if (!fromSlotEl || !trayEl) {
@@ -115,7 +115,6 @@ export class QueueRenderer {
         }
 
         const fromRect = fromSlotEl.getBoundingClientRect();
-        const toRect = trayEl.getBoundingClientRect();
 
         const catConfig = getCategoryConfig(box.getCategory());
         const catColor = catConfig ? catConfig.color : '#f59e0b';
@@ -124,6 +123,7 @@ export class QueueRenderer {
 
         const ghost = document.createElement('div');
         ghost.className = 'flying-queue-box queue-box';
+        ghost.style.transition = 'none';
         ghost.style.setProperty('--cat-color', catColor);
         ghost.style.width = `${fromRect.width}px`;
         ghost.style.height = `${fromRect.height}px`;
@@ -137,17 +137,46 @@ export class QueueRenderer {
         const innerBox = fromSlotEl.querySelector('.queue-box');
         if (innerBox) innerBox.style.opacity = '0';
 
-        const dx = toRect.left + toRect.width / 2 - (fromRect.left + fromRect.width / 2);
-        const dy = toRect.top + toRect.height / 2 - (fromRect.top + fromRect.height / 2);
+        const DURATION = 220; // ms
+        const startTime = performance.now();
+        const fromCenterX = fromRect.left + fromRect.width / 2;
+        const fromCenterY = fromRect.top + fromRect.height / 2;
 
-        requestAnimationFrame(() => {
-            ghost.style.transform = `translate(${dx}px, ${dy}px) scale(0.6)`;
-            ghost.style.opacity = '0.4';
-        });
+        const updateFlight = (now) => {
+            const p = Math.min(1, (now - startTime) / DURATION);
+            // Roi theo gia toc trong luc: bat dau cham, tang toc khi roi vao khay
+            const ease = p * p;
 
-        setTimeout(() => {
-            ghost.remove();
-            if (onComplete) onComplete();
-        }, 360);
+            const trayRect = trayEl.getBoundingClientRect();
+            const targetX = trayRect.left + trayRect.width / 2;
+            const targetY = trayRect.top + trayRect.height / 2;
+
+            const curX = fromCenterX + (targetX - fromCenterX) * ease;
+            const curY = fromCenterY + (targetY - fromCenterY) * ease;
+            const curScale = 1 - 0.35 * ease;
+
+            ghost.style.left = `${curX - fromRect.width / 2}px`;
+            ghost.style.top = `${curY - fromRect.height / 2}px`;
+            ghost.style.transform = `scale(${curScale.toFixed(3)})`;
+            ghost.style.opacity = `${(1 - 0.15 * ease).toFixed(2)}`;
+
+            if (p < 1) {
+                requestAnimationFrame(updateFlight);
+            } else {
+                ghost.remove();
+                if (navigator.vibrate) navigator.vibrate(25);
+                // Hieu ung nay nhe khi khay nhan hop
+                try {
+                    trayEl.animate([
+                        { transform: `${trayEl.style.transform} scale(1.10)` },
+                        { transform: trayEl.style.transform }
+                    ], { duration: 150, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
+                } catch (e) {}
+
+                if (onComplete) onComplete();
+            }
+        };
+
+        requestAnimationFrame(updateFlight);
     }
 }

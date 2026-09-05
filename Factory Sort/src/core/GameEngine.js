@@ -81,13 +81,7 @@ export class GameEngine {
         this.selectedSource = null; // { boxId, itemIndex }
         this.draggedBoxId = null;
         this.moveCount = 0;
-        // Gioi han nuoc di la RANG BUOC THAT, khong phai trang tri: bo sinh man
-        // tinh no tu par (moveLimit = ceil(par * slack)) va do kho cua man da
-        // duoc cham diem VOI gia dinh no co hieu luc. Truoc day gia tri nay
-        // duoc sinh ra roi bi bo qua, nen man "kho" that ra khong the thua.
-        // LUU Y: moveCount chi dem nuoc CHUYEN MON, khong dem luot giao Khay
-        // — dung dung nghia par cua bo giai.
-        this.moveLimit = (levelConfig.rules && levelConfig.rules.moveLimit) || null;
+        this.moveLimit = null; // Khong gioi han so nuoc di
         this.setGameState('PLAYING');
     }
     
@@ -116,28 +110,31 @@ export class GameEngine {
         this.boxes = this.boxes.filter(b => b.id !== box.id);
         this._removeFromColumn(box.id);
 
-        // Kiem tra neu co khay tren bang chuyen nhan duoc ngay thi giao luon
-        const activeTrays = this.conveyor.getAllActiveTrays();
-        const matchTray = activeTrays.find(t => t.canAccept(box));
-        if (matchTray) {
-            matchTray.receiveBox(box);
-            if (this.onTrayDelivered) {
-                this.onTrayDelivered(matchTray.id, box);
-            } else {
+        if (!this.onTrayDelivered) {
+            // Che do headless / test khong co UI callback: giao luon neu co khay khop
+            const activeTrays = this.conveyor.getAllActiveTrays();
+            const matchTray = activeTrays.find(t => t.canAccept(box));
+            if (matchTray) {
+                matchTray.receiveBox(box);
                 this.conveyor.removeTray(matchTray.id);
                 if (this.onTrayExited) this.onTrayExited(matchTray.id);
                 while (this.tryAutoFillTray()) {}
+                if (this.onBoxUpdated) this.onBoxUpdated(box, true);
+                this.checkConditions();
+                return true;
             }
-            if (this.onBoxUpdated) this.onBoxUpdated(box, true);
-            this.checkConditions();
-            return true;
         }
 
-        // Neu khong co khay nhan ngay -> phai vao hang cho
+        // Che do UI: Hop phai vao hang cho truoc, cho Khay di ngang qua moi duoc giao
         if (this.queue.length >= this.maxQueueSize) {
-            this.loseReason = 'Hàng chờ đã đầy (5/5 slots)!';
-            this.setGameState('LOST');
-            return false;
+            const activeTrays = this.conveyor.getAllActiveTrays();
+            const queueCanClear = this.queue.some(b => activeTrays.some(t => t.canAccept(b))) ||
+                                  activeTrays.some(t => t.canAccept(box));
+            if (!queueCanClear) {
+                this.loseReason = 'Hàng chờ đã đầy (5/5 slots)!';
+                this.setGameState('LOST');
+                return false;
+            }
         }
 
         if (!this.queue.some(b => b.id === box.id)) {
@@ -294,10 +291,12 @@ export class GameEngine {
                 // Che do headless / test khong co UI callback: dua ngay xuong queue va tu dong fill khay neu co
                 this.moveBoxToQueue(targetBox);
                 while (this.tryAutoFillTray()) {}
+                this.checkConditions();
             }
+        } else {
+            this.checkConditions();
         }
 
-        this.checkConditions();
         return true;
     }
 
@@ -386,35 +385,53 @@ export class GameEngine {
             return;
         }
 
-        // Het nuoc di. Chi ket thuc khi nguoi choi THUC SU khong con gi lam duoc:
-        if (this.moveLimit && this.moveCount >= this.moveLimit) {
-            const canStillDeliver = this.queue.some(b => this.conveyor.findMatchingTray(b)) ||
-                this.boxes.some(b => b && b.isWrapped && this.isAccessible(b.id) && this.conveyor.findMatchingTray(b));
-            if (!canStillDeliver) {
-                this.loseReason = `Out of moves — the limit is ${this.moveLimit}.`;
-                this.setGameState('LOST');
-                return;
-            }
+
+        // 2. Kiem tra tran hang cho
+        if (this.queue.length > this.maxQueueSize) {
+            this.loseReason = 'Hàng chờ đã đầy (5/5 slots)!';
+            this.setGameState('LOST');
+            return;
         }
 
-        // Check Lose: Khong con o trong de hoan doi do vat o thung, HOAC hang cho day ma ban co ket cung
-        const reachable = this.boxes.filter(b => this.isAccessible(b.id));
-        const activeBoxes = reachable.filter(b => !b.isWrapped && !b.isEmpty());
-        const hasEmptySlots = activeBoxes.length === 0 || reachable.some(b => !b.isWrapped && !b.isFull());
-        const canDeliver = this.queue.some(b => this.conveyor.findMatchingTray(b)) ||
-            reachable.some(b => b.isWrapped && this.conveyor.findMatchingTray(b));
+        // 3. Kiem tra kha nang giao hang tu hang cho vao khay dang hoat dong
+        const activeTrays = this.conveyor.getAllActiveTrays();
+        const queueCanDeliver = this.queue.some(b => activeTrays.some(t => t.canAccept(b)));
 
-        if (!canDeliver) {
-            if (!hasEmptySlots) {
-                this.loseReason = 'Không còn ô trống để hoán đổi đồ vật.';
-                this.setGameState('LOST');
-                return;
+        // 4. Kiem tra cac thung da goi tren ban: co the giao cho khay HOAC chuyen xuong hang cho neu hang cho con cho
+        const reachable = this.boxes.filter(b => this.isAccessible(b.id));
+        const reachableWrapped = reachable.filter(b => b.isWrapped);
+        const wrappedCanLeaveBoard = reachableWrapped.some(b => 
+            activeTrays.some(t => t.canAccept(b)) || this.queue.length < this.maxQueueSize
+        );
+
+        // Neu van co thung co the roi ban (giao khay / xuong hang cho) hoac hang cho dang giai phong: game chua the thua
+        if (queueCanDeliver || wrappedCanLeaveBoard) {
+            return;
+        }
+
+        // 5. Kiem tra con nuoc di chuyen hop le nao tren ban co khong
+        const unwrappedReachable = reachable.filter(b => !b.isWrapped);
+        let canMoveOnBoard = false;
+        for (const src of unwrappedReachable) {
+            if (src.isEmpty()) continue;
+            for (const dst of unwrappedReachable) {
+                if (dst.id !== src.id && !dst.isFull()) {
+                    canMoveOnBoard = true;
+                    break;
+                }
             }
-            if (this.queue.length > this.maxQueueSize) {
+            if (canMoveOnBoard) break;
+        }
+
+        // 6. Chi khi khong con nuoc di, khong giao duoc khay, va khong dua duoc thung xuong hang cho: moi xem la thua
+        if (!canMoveOnBoard) {
+            if (this.queue.length >= this.maxQueueSize) {
                 this.loseReason = 'Hàng chờ đã đầy (5/5 slots)!';
-                this.setGameState('LOST');
-                return;
+            } else {
+                this.loseReason = 'Không còn ô trống để hoán đổi đồ vật.';
             }
+            this.setGameState('LOST');
+            return;
         }
     }
 }
