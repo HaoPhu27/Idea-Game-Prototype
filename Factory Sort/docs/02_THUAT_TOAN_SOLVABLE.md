@@ -151,14 +151,19 @@ là ván đòi hỏi *lập kế hoạch thật*.
 
 ## 5. Lộ trình 50 màn (đo trên chính seed đã chốt, 40 ván/màn)
 
-| tier | Lv | Thùng | bị che | E | cửa sổ | Khay đúng loại | par | mở đầu | điểm | thua (`planner`) |
+| tier | Lv | Thùng | bị che | E | cửa sổ | pool item | par | mở đầu | điểm | thua (`planner`) |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| tutorial | 1–5 | 4–12 | 0 | 2–3 | 5 | 0% | 2–10 | 2–9 | 2–10 | **0%** |
-| onboarding | 6–10 | 14–20 | 2–8 | 3 | 5→4 | 0% | 12–20 | 5–6 | 12–19 | **3%** |
-| acclimation | 11–20 | 22–34 | 10–22 | 3 | 4 | 0→60% | 23–41 | 4–5 | 21–36 | **3–10%** |
-| normal | 21–49 | 34–46 | 22–34 | 2 | 4 | 55–90% | 42–62 | 3–5 | 37–51 | **15–33%** |
-| **hard** | 25/35/45 | **52–68** | **40–56** | 2 | 4 | 100% | 68–94 | 4 | 52–60 | **70%** |
-| **super hard** | 29/39/49 | **72–80** | **60–68** | 3 | 3 | 100% | 97–112 | 2–4 | 63–67 | **93%** |
+| tutorial | 1–5 | 4–12 | 0 | 2–3 | 5 | 1–2 × 2 | 2–10 | 2–9 | 6–15 | **0%** |
+| onboarding | 6–10 | 14–20 | 2–8 | 3 | 5→4 | 2–3 × 2 | 12–20 | 5–6 | 16–24 | **0–10%** |
+| acclimation | 11–20 | 22–34 | 10–22 | 3 | 4 | 3×2 → 4×3 | 23–41 | 4–5 | 25–38 | **0–23%** |
+| normal | 21–49 | 34–46 | 22–34 | 2 | 4 | 4 × 3 | 42–62 | 3–5 | 39–51 | **13–57%** |
+| **hard** | 25/35/45 | **52–68** | **40–56** | 2 | 4 | 5 × 3 | 68–94 | 4 | 52–60 | **70%** |
+| **super hard** | 29/39/49 | **72–80** | **60–68** | 3 | 3 | 6 × 3 | 97–112 | 2–4 | 63–67 | **93%** |
+
+Từ 9/2026 **mọi Khay ở mọi tier đều khớp đúng loại item** (`Tray.canAccept` chỉ so
+`targetItemId`), nên "Khay đúng loại" không còn là biến số của lộ trình. Thay đổi đó làm
+ba tier đầu khó hơn dải mục tiêu mà `LEVEL_SEEDS` được tuyển cho — cần chạy lại
+`tools/curate50.mjs` để hiệu chỉnh, xem `level_generation_analysis.md` §1.
 
 Bảng đầy đủ từng màn: `docs/50_level_design_report.md`.
 
