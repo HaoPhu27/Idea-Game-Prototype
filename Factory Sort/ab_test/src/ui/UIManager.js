@@ -6,11 +6,17 @@ import { TrayRenderer } from './TrayRenderer.js';
 import { ConveyorRenderer } from './ConveyorRenderer.js';
 import { QueueRenderer } from './QueueRenderer.js';
 import { TutorialManager } from './TutorialManager.js';
+import { AudioManager } from './AudioManager.js';
+import { VFXManager } from './VFXManager.js';
 import { getCategoryConfig, getItemEmoji } from '../data/ItemCatalog.js';
 
 class UIManager {
     constructor() {
         this.engine = new GameEngine();
+        
+        // Audio & Visual Effects
+        this.audio = new AudioManager();
+        this.vfx = new VFXManager();
         
         // Renderers
         this.boxRenderer = new BoxRenderer(
@@ -31,6 +37,11 @@ class UIManager {
         this.btnSelectLevel = document.getElementById('btn-select-level');
         this.btnNextLevel = document.getElementById('btn-next-level');
         this.btnRetry = document.getElementById('btn-retry');
+        this.btnSound = document.getElementById('btn-sound');
+        this.soundIconOn = document.getElementById('sound-icon-on');
+        this.soundIconOff = document.getElementById('sound-icon-off');
+        this.btnWinReplay = document.getElementById('btn-win-replay');
+        this.btnLoseLevels = document.getElementById('btn-lose-levels');
         
         this.overlayWin = document.getElementById('overlay-win');
         this.overlayLose = document.getElementById('overlay-lose');
@@ -41,10 +52,18 @@ class UIManager {
         this.levelGrid = document.getElementById('level-grid');
         this.btnCloseLevelSelect = document.getElementById('btn-close-level-select');
         
+        this.winStarsEl = document.getElementById('win-stars');
+        this.winStatMoves = document.getElementById('win-stat-moves');
+        this.winStatTime = document.getElementById('win-stat-time');
+        this.winStatEff = document.getElementById('win-stat-eff');
+        
         this.dragGhost = document.getElementById('drag-ghost');
         
         // State
         this.currentLevel = 1;
+        this.levelStartTime = performance.now();
+        this.comboStreak = 0;
+        this.lastDeliveryTime = 0;
         this.dragState = {
             isDragging: false,
             boxId: null,
@@ -60,34 +79,81 @@ class UIManager {
         this.bindEvents();
         this.bindEngineCallbacks();
         this.renderLevelMenu();
+        this.updateSoundUI();
         
         // Start
         this.startNewLevel();
     }
     
+    updateSoundUI() {
+        if (!this.soundIconOn || !this.soundIconOff) return;
+        if (this.audio.on) {
+            this.soundIconOn.classList.remove('hidden');
+            this.soundIconOff.classList.add('hidden');
+        } else {
+            this.soundIconOn.classList.add('hidden');
+            this.soundIconOff.classList.remove('hidden');
+        }
+    }
+
     bindEvents() {
         this.btnNewGame.addEventListener('click', () => {
+            this.audio.tap();
             this.currentLevel = 1;
             this.startNewLevel();
         });
         
         this.btnSelectLevel.addEventListener('click', () => {
+            this.audio.tap();
             this.renderLevelMenu(); // Re-render to update active level class
             this.overlayLevelSelect.classList.remove('hidden');
         });
 
         this.btnCloseLevelSelect.addEventListener('click', () => {
+            this.audio.tap();
             this.overlayLevelSelect.classList.add('hidden');
         });
         
         this.btnNextLevel.addEventListener('click', () => {
+            this.audio.tap();
             this.currentLevel++;
             this.startNewLevel();
         });
         
         this.btnRetry.addEventListener('click', () => {
-            this.startNewLevel(true); // pass flag to retry same? for now just generate new
+            this.audio.tap();
+            this.startNewLevel(true);
         });
+
+        if (this.btnSound) {
+            this.btnSound.addEventListener('click', () => {
+                this.audio.toggle();
+                this.updateSoundUI();
+            });
+        }
+
+        if (this.btnWinReplay) {
+            this.btnWinReplay.addEventListener('click', () => {
+                this.audio.tap();
+                this.startNewLevel(true);
+            });
+        }
+
+        if (this.btnLoseLevels) {
+            this.btnLoseLevels.addEventListener('click', () => {
+                this.audio.tap();
+                this.overlayLose.classList.add('hidden');
+                this.renderLevelMenu();
+                this.overlayLevelSelect.classList.remove('hidden');
+            });
+        }
+
+        // Global unlock on first user gesture for Web Audio API
+        const unlockAudio = () => {
+            this.audio.ensure();
+            document.removeEventListener('pointerdown', unlockAudio);
+        };
+        document.addEventListener('pointerdown', unlockAudio);
 
         // Global pointer events for dragging
         document.addEventListener('pointermove', this.handleDragMove.bind(this));
@@ -101,17 +167,52 @@ class UIManager {
         this.moveLimitDisplay.classList.remove('low');
     }
 
+    showWinCelebration() {
+        const elapsedSec = Math.max(1, Math.floor((performance.now() - this.levelStartTime) / 1000));
+        const mins = Math.floor(elapsedSec / 60).toString().padStart(2, '0');
+        const secs = (elapsedSec % 60).toString().padStart(2, '0');
+
+        if (this.winStatMoves) this.winStatMoves.textContent = this.engine.moveCount;
+        if (this.winStatTime) this.winStatTime.textContent = `${mins}:${secs}`;
+        if (this.winStatEff) this.winStatEff.textContent = '100%';
+
+        // Tính sao dựa trên độ tối ưu nước đi (1, 2, hoặc 3 sao)
+        const cfg = configForLevelNumber(this.currentLevel);
+        const par = cfg.par || Math.max(4, Math.floor((cfg.numBoxes || 6) * 1.5));
+        let stars = 3;
+        if (this.engine.moveCount > par * 1.5) stars = 2;
+        if (this.engine.moveCount > par * 2.3) stars = 1;
+
+        if (this.winStarsEl) {
+            const starSpans = this.winStarsEl.querySelectorAll('.star');
+            starSpans.forEach((s, idx) => {
+                s.classList.remove('on');
+                if (idx < stars) {
+                    setTimeout(() => {
+                        s.classList.add('on');
+                        this.audio.star(idx);
+                    }, 280 + idx * 220);
+                }
+            });
+        }
+
+        this.audio.win();
+        this.vfx.confetti(this.overlayWin);
+        this.overlayWin.classList.remove('hidden');
+    }
+
     bindEngineCallbacks() {
         this.engine.onGameStateChanged = (state) => {
             if (state === 'WON') {
                 if (this.currentLevel === 1) {
                     this.tutorialManager.onGameStateWon();
                 } else {
-                    this.overlayWin.classList.remove('hidden');
+                    this.showWinCelebration();
                 }
             } else if (state === 'LOST') {
+                this.audio.lose();
                 if (this.loseReason) {
-                    this.loseReason.textContent = this.engine.loseReason || 'No more empty slots to move items.';
+                    this.loseReason.textContent = this.engine.loseReason || 'Hàng chờ đã đầy 5/5 thùng, không còn chỗ điều phối.';
                 }
                 this.overlayLose.classList.remove('hidden');
             } else {
@@ -123,10 +224,12 @@ class UIManager {
         this.engine.onMoveCountUpdated = (count) => {
             this.moveDisplay.textContent = count;
             this.renderMoveLimit();
+            this.vfx.bump('stat-moves');
         };
 
         this.engine.onQueueUpdated = (queue) => {
             this.queueRenderer.render(queue);
+            this.vfx.bump('queue-counter');
         };
         
         this.engine.onBoxUpdated = (box, isRemoved = false) => {
@@ -164,6 +267,9 @@ class UIManager {
                 logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
             }
             el.classList.add('wrapped');
+            this.audio.wrap();
+            this.vfx.burst(el, catConfig ? catConfig.color : '#f59e0b', 16);
+            this.vfx.praise(el, 'ĐÓNG GÓI! 📦', 1);
             if (navigator.vibrate) navigator.vibrate(35);
         };
     }
@@ -221,13 +327,14 @@ class UIManager {
         this.overlayLose.classList.add('hidden');
         this.overlayLoading.classList.remove('hidden');
         
+        this.levelStartTime = performance.now();
+        this.comboStreak = 0;
+        this.lastDeliveryTime = 0;
+        
         // Yield to browser to show loading
         await new Promise(r => setTimeout(r, 50));
         
         // Duong cong do kho nam TRON VEN trong configForLevelNumber() cua bo sinh man.
-        // Truoc day UI tu tinh mot bo tham so rieng (numBoxes/numCategories/...) khac
-        // han duong cong cua bo sinh => co ba nguon su that cho cung mot khai niem
-        // "level 7 kho the nao". Nay UI chi noi minh dang o level nao.
         const levelData = LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
         
         this.queueRenderer.render([]);
@@ -260,8 +367,6 @@ class UIManager {
 
     _renderNow() {
         const validTargets = this.engine.selectedSource ? this.engine.getValidTargets(this.engine.selectedSource.boxId) : [];
-        // Chi ve Thung TRONG TAM VOI, theo dung cot. Thung bi che khong vao DOM —
-        // khong co phan tu nao de cham nham, va cung khong ton chi phi render.
         const hiddenCounts = this.engine.columns.map(
             col => Math.max(0, col.length - this.engine.visibleRows));
             
@@ -360,6 +465,7 @@ class UIManager {
             // Select source - must tap an actual item
             if (itemIndex !== null) {
                 if (this.engine.selectSource(boxId, itemIndex)) {
+                    this.audio.tap();
                     if (navigator.vibrate) navigator.vibrate(12);
                     this.updateRender();
                 }
@@ -371,6 +477,7 @@ class UIManager {
             const willEmpty = sourceBoxBefore && sourceBoxBefore.items.length === 1;
 
             if (this.engine.selectTarget(boxId)) {
+                this.audio.swap();
                 this._animating = true;
                 const targetBox = this.engine.getBox(boxId);
                 this.boxRenderer.animateItemTransfer(sourceId, boxId, () => {
@@ -419,6 +526,7 @@ class UIManager {
                         // Thung nguon da rong -> hieu ung bien mat nhe nhang truoc khi cot tut xuong
                         const srcDom = document.querySelector(`.box[data-box-id="${sourceId}"]`);
                         if (srcDom) {
+                            this.vfx.praise(srcDom, 'DỌN GỌN! 🧹', 1);
                             srcDom.classList.add('disappearing');
                             if (navigator.vibrate) navigator.vibrate(20);
                             setTimeout(() => {
@@ -433,10 +541,13 @@ class UIManager {
                 });
             } else {
                 // Invalid or deselected
+                this.audio.reject();
                 this.engine.deselectSource();
                 // If they tapped a new source item, immediately select it
                 if (itemIndex !== null && sourceId !== boxId) {
-                    this.engine.selectSource(boxId, itemIndex);
+                    if (this.engine.selectSource(boxId, itemIndex)) {
+                        this.audio.tap();
+                    }
                 }
                 
                 const el = document.querySelector(`.box[data-box-id="${boxId}"]`);
@@ -560,11 +671,18 @@ class UIManager {
                         this.dragGhost.style.width = '';
                         this.dragGhost.style.height = '';
                         this.engine.dropOnTray(trayId);
+
+                        const catConfig = getCategoryConfig(box.getCategory());
+                        const color = catConfig ? catConfig.color : '#38bdf8';
+                        this.audio.combo(1);
+                        this.vfx.burst(trayEl, color, 14);
+                        this.vfx.praise(trayEl, 'XUẤT XƯỞNG! 🚚', 1);
                     }, 300);
                     return;
                 }
             } else {
                 console.log("Invalid tray");
+                this.audio.reject();
             }
         }
         
@@ -651,6 +769,23 @@ class UIManager {
             slotEl.classList.remove('dispatching');
             this.engine.deliverQueueBox(box.id, tray.id);
             this._animating = false;
+
+            const now = performance.now();
+            if (this.lastDeliveryTime && (now - this.lastDeliveryTime < 3400)) {
+                this.comboStreak++;
+            } else {
+                this.comboStreak = 1;
+            }
+            this.lastDeliveryTime = now;
+
+            const catConfig = getCategoryConfig(box.getCategory());
+            const color = catConfig ? catConfig.color : '#38bdf8';
+            this.audio.combo(this.comboStreak);
+            this.vfx.burst(trayEl, color, 14);
+            const slogan = this.comboStreak >= 2 ? `COMBO X${this.comboStreak}! ⚡` : 'XUẤT XƯỞNG! 🚚';
+            this.vfx.praise(trayEl, slogan, this.comboStreak);
+            this.vfx.bump('queue-counter');
+
             this.updateRender();
         });
     }

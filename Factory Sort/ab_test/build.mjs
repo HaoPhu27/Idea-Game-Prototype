@@ -21,6 +21,8 @@ const JS_FILES = [
   'src/generator/Solver.js',
   'src/generator/SolvableLevelGenerator.js',
   'src/generator/LevelGenerator.js',
+  'src/ui/AudioManager.js',
+  'src/ui/VFXManager.js',
   'src/ui/BoxRenderer.js',
   'src/ui/TrayRenderer.js',
   'src/ui/ConveyorRenderer.js',

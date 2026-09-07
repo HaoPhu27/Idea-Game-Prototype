@@ -2468,6 +2468,341 @@ class LevelGenerator {
 }
 
 
+// --- src/ui/AudioManager.js ---
+/**
+ * AudioManager.js
+ * Hệ thống âm thanh tổng hợp 100% bằng Web Audio API thuần (Zero external files).
+ * Mô phỏng âm thanh cơ khí nhà máy, băng chuyền, đóng gói và chuông xuất xưởng.
+ */
+
+class AudioManager {
+    constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.sfxGain = null;
+        this.on = this._loadPref();
+        this._initialized = false;
+    }
+
+    _loadPref() {
+        try {
+            const saved = localStorage.getItem('fs_sound');
+            return saved === null ? true : saved === 'true';
+        } catch (_) {
+            return true;
+        }
+    }
+
+    _savePref(val) {
+        try {
+            localStorage.setItem('fs_sound', val ? 'true' : 'false');
+        } catch (_) {}
+    }
+
+    ensure() {
+        if (!this.ctx) {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                this.ctx = new AudioCtx();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.85;
+                this.masterGain.connect(this.ctx.destination);
+
+                this.sfxGain = this.ctx.createGain();
+                this.sfxGain.gain.value = this.on ? 1 : 0;
+                this.sfxGain.connect(this.masterGain);
+                this._initialized = true;
+            } catch (e) {
+                console.warn('AudioContext not supported or blocked:', e);
+                return;
+            }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+        }
+    }
+
+    setSound(val) {
+        this.on = !!val;
+        this._savePref(this.on);
+        this.ensure();
+        if (this.sfxGain && this.ctx) {
+            this.sfxGain.gain.setTargetAtTime(this.on ? 1 : 0, this.ctx.currentTime, 0.04);
+        }
+    }
+
+    toggle() {
+        this.setSound(!this.on);
+        return this.on;
+    }
+
+    /**
+     * Phát 1 xung âm với tần số, thời lượng, dạng sóng và trượt tần số tuỳ biến
+     */
+    blip(freq, duration, type = 'sine', gain = 0.08, delay = 0, slideTo = null) {
+        if (!this.on) return;
+        this.ensure();
+        if (!this.ctx || !this.sfxGain) return;
+
+        const t = this.ctx.currentTime + (delay || 0);
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t);
+        if (slideTo) {
+            osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + duration);
+        }
+
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(gain, t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+
+        osc.connect(g).connect(this.sfxGain);
+        osc.start(t);
+        osc.stop(t + duration + 0.03);
+    }
+
+    /** Chạm vào món đồ trong thùng (Click cơ khí nhẹ) */
+    tap() {
+        this.blip(520, 0.05, 'triangle', 0.06);
+        this.blip(1040, 0.03, 'sine', 0.03);
+    }
+
+    /** Đặt món đồ vào thùng đích thành công (Servo cơ khí trượt) */
+    swap() {
+        this.blip(380, 0.08, 'triangle', 0.07, 0, 560);
+        this.blip(820, 0.06, 'sine', 0.03, 0.02);
+    }
+
+    /** Thùng đủ 3 món -> Đóng gói & dán băng keo (Tiếng pop áp suất khí nén) */
+    wrap() {
+        this.blip(450, 0.12, 'sawtooth', 0.05, 0, 220);
+        this.blip(720, 0.16, 'triangle', 0.09, 0.04, 1150);
+        this.blip(1440, 0.18, 'sine', 0.04, 0.08);
+    }
+
+    /** Thao tác sai hoặc ô không thể thả (Buzzer cảnh báo xưởng) */
+    reject() {
+        this.blip(180, 0.16, 'sawtooth', 0.07, 0, 110);
+        this.blip(130, 0.22, 'triangle', 0.08, 0.04);
+    }
+
+    /** Khay trên băng chuyền nhận thùng hàng (Tiếng chốt khóa & chuông xuất xưởng) */
+    deliver() {
+        this.blip(660, 0.12, 'triangle', 0.08);
+        this.blip(1320, 0.22, 'sine', 0.07, 0.04);
+    }
+
+    /**
+     * Dãy chuông combo khi xuất hàng liên tiếp
+     * Càng nhiều combo, nốt nhạc càng cao và trong trẻo
+     */
+    combo(step = 1) {
+        const k = Math.min(Math.max(1, step), 6);
+        const freqs = [1046.5, 1318.5, 1568.0, 1760.0, 2093.0, 2349.3];
+        const f = freqs[k - 1] || 1568.0;
+
+        this.blip(f * 0.5, 0.22, 'triangle', 0.08);
+        this.blip(f, 0.32, 'sine', 0.08, 0.03);
+        this.blip(f * 1.5, 0.26, 'sine', 0.04, 0.08);
+    }
+
+    /** Sao thưởng chiến thắng (Chime kim loại rực rỡ) */
+    star(idx = 0) {
+        const f = [784, 988, 1319][idx] || 1319;
+        this.blip(f, 0.26, 'sine', 0.09, idx * 0.12);
+        this.blip(f * 1.5, 0.24, 'triangle', 0.04, idx * 0.12 + 0.04);
+    }
+
+    /** Thắng toàn màn - Khúc hoan ca xuất xưởng 5 nốt + hồi còi ngân vang */
+    win() {
+        const chord = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+        chord.forEach((f, i) => {
+            this.blip(f, 0.32, 'triangle', 0.07, i * 0.09);
+            this.blip(f * 2, 0.38, 'sine', 0.04, i * 0.09 + 0.03);
+        });
+        this.blip(2093, 0.6, 'sine', 0.06, 0.5);
+        this.blip(2637, 0.7, 'sine', 0.04, 0.6);
+    }
+
+    /** Thua - Dây chuyền quá tải tắt máy (Hợp âm hạ dần) */
+    lose() {
+        [370, 311, 247].forEach((f, i) => {
+            this.blip(f, 0.38, 'sawtooth', 0.06, i * 0.18, f * 0.85);
+        });
+    }
+}
+
+
+// --- src/ui/VFXManager.js ---
+/**
+ * VFXManager.js
+ * Hệ thống hiệu ứng hình ảnh động (Juicy visual effects) học hỏi từ Hexameow:
+ * - Floating praise text (Chữ nổi khen thưởng + Combo ladder)
+ * - Shockwave ring & Spark bursts (Vòng năng lượng & tia sáng cơ khí)
+ * - HUD Bump animations (Nảy số chỉ số mượt mà)
+ * - Confetti mừng thắng lợi ca làm việc
+ */
+
+class VFXManager {
+    constructor() {
+        this.container = document.getElementById('play-area') || document.body;
+        this.gameContainer = document.getElementById('game-container') || document.body;
+    }
+
+    /**
+     * Bảng bậc thang Combo (Combo Ladder)
+     * Thang bậc càng cao -> Font càng lớn, màu càng rực và phát sáng neon
+     */
+    static get COMBO_TIERS() {
+        return [
+            { at: 1, scale: 1.00, color: '#38bdf8', glow: '8px',  tag: '' },
+            { at: 2, scale: 1.15, color: '#f59e0b', glow: '12px', tag: '⚡' },
+            { at: 3, scale: 1.32, color: '#10b981', glow: '16px', tag: '🔥' },
+            { at: 4, scale: 1.52, color: '#f97316', glow: '22px', tag: '🚀' },
+            { at: 5, scale: 1.76, color: '#ec4899', glow: '28px', tag: '👑' },
+        ];
+    }
+
+    getTier(combo) {
+        const tiers = VFXManager.COMBO_TIERS;
+        let t = tiers[0];
+        for (const item of tiers) {
+            if (combo >= item.at) t = item;
+        }
+        return t;
+    }
+
+    /**
+     * Hiển thị chữ khen thưởng bay lên tại tọa độ của một DOM element hoặc Rect
+     * @param {HTMLElement|DOMRect} target
+     * @param {string} text Nội dung hiển thị (vd: "ĐÓNG GÓI! 📦", "XUẤT XƯỞNG! 🚚")
+     * @param {number} combo Số chuỗi combo
+     */
+    praise(target, text, combo = 1) {
+        if (!target) return;
+        const rect = target.getBoundingClientRect ? target.getBoundingClientRect() : target;
+        const parentRect = this.gameContainer.getBoundingClientRect();
+
+        const n = Math.max(1, combo || 1);
+        const tier = this.getTier(n);
+
+        const el = document.createElement('div');
+        el.className = `factory-praise praise-t${Math.min(n, 5)}`;
+        el.textContent = tier.tag ? `${text} ${tier.tag}` : text;
+
+        el.style.setProperty('--pz', tier.scale);
+        el.style.setProperty('--pc', tier.color);
+        el.style.setProperty('--pg', tier.glow);
+
+        const cx = (rect.left - parentRect.left) + rect.width / 2;
+        const cy = (rect.top - parentRect.top) + rect.height / 2;
+
+        el.style.left = `${cx}px`;
+        el.style.top = `${cy}px`;
+
+        this.gameContainer.appendChild(el);
+        setTimeout(() => el.remove(), 1100);
+    }
+
+    /**
+     * Vòng xung kích sóng lan tỏa (Shockwave ring) + tia sáng (Sparks)
+     * @param {HTMLElement|DOMRect} target
+     * @param {string} color Mã màu viền và tia sáng
+     * @param {number} count Số lượng tia sáng
+     */
+    burst(target, color = '#38bdf8', count = 12) {
+        if (!target) return;
+        const rect = target.getBoundingClientRect ? target.getBoundingClientRect() : target;
+        const parentRect = this.gameContainer.getBoundingClientRect();
+
+        const cx = (rect.left - parentRect.left) + rect.width / 2;
+        const cy = (rect.top - parentRect.top) + rect.height / 2;
+        const radius = Math.max(26, Math.min(rect.width, rect.height) * 0.45);
+
+        // 1. Shockwave Ring
+        const ring = document.createElement('div');
+        ring.className = 'vfx-ring';
+        ring.style.left = `${cx}px`;
+        ring.style.top = `${cy}px`;
+        ring.style.borderColor = color;
+        this.gameContainer.appendChild(ring);
+        setTimeout(() => ring.remove(), 650);
+
+        // 2. Radial Sparks
+        const N = count || 12;
+        for (let k = 0; k < N; k++) {
+            const angle = (Math.PI * 2 * k) / N + (Math.random() * 0.4 - 0.2);
+            const dist = radius * (1.2 + Math.random() * 0.9);
+            const dx = (Math.cos(angle) * dist).toFixed(1);
+            const dy = (Math.sin(angle) * dist).toFixed(1);
+            const size = (4 + Math.random() * 4).toFixed(1);
+
+            const spark = document.createElement('div');
+            spark.className = 'vfx-spark';
+            spark.style.left = `${cx}px`;
+            spark.style.top = `${cy}px`;
+            spark.style.width = `${size}px`;
+            spark.style.height = `${size}px`;
+            spark.style.backgroundColor = color;
+            spark.style.setProperty('--dx', `${dx}px`);
+            spark.style.setProperty('--dy', `${dy}px`);
+            spark.style.animationDelay = `${(Math.random() * 0.05).toFixed(2)}s`;
+
+            this.gameContainer.appendChild(spark);
+            setTimeout(() => spark.remove(), 750);
+        }
+    }
+
+    /**
+     * Hiệu ứng nảy đàn hồi (Bump) cho các chỉ số HUD
+     * @param {HTMLElement|string} elOrId
+     */
+    bump(elOrId) {
+        const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+        if (!el) return;
+        el.classList.remove('bump');
+        void el.offsetWidth; // Force reflow
+        el.classList.add('bump');
+        setTimeout(() => el.classList.remove('bump'), 260);
+    }
+
+    /**
+     * Mưa giấy màu / pháo hoa ăn mừng khi hoàn thành ca làm việc (Win Screen)
+     */
+    confetti(container = null) {
+        const parent = container || this.gameContainer || document.body;
+        const colors = ['#f59e0b', '#38bdf8', '#10b981', '#ec4899', '#f97316', '#a855f7'];
+        const COUNT = 36;
+
+        for (let i = 0; i < COUNT; i++) {
+            const conf = document.createElement('div');
+            conf.className = 'vfx-confetti';
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const left = Math.random() * 100;
+            const delay = Math.random() * 0.6;
+            const duration = 1.4 + Math.random() * 1.0;
+            const sizeW = 6 + Math.random() * 6;
+            const sizeH = 10 + Math.random() * 8;
+
+            conf.style.left = `${left}%`;
+            conf.style.top = '-20px';
+            conf.style.width = `${sizeW}px`;
+            conf.style.height = `${sizeH}px`;
+            conf.style.backgroundColor = color;
+            conf.style.animationDuration = `${duration}s`;
+            conf.style.animationDelay = `${delay}s`;
+            conf.style.transform = `rotate(${Math.random() * 360}deg)`;
+
+            parent.appendChild(conf);
+            setTimeout(() => conf.remove(), (duration + delay) * 1000 + 100);
+        }
+    }
+}
+
+
 // --- src/ui/BoxRenderer.js ---
 
 class BoxRenderer {
@@ -3904,6 +4239,10 @@ class UIManager {
     constructor() {
         this.engine = new GameEngine();
         
+        // Audio & Visual Effects
+        this.audio = new AudioManager();
+        this.vfx = new VFXManager();
+        
         // Renderers
         this.boxRenderer = new BoxRenderer(
             'boxes-grid',
@@ -3923,6 +4262,11 @@ class UIManager {
         this.btnSelectLevel = document.getElementById('btn-select-level');
         this.btnNextLevel = document.getElementById('btn-next-level');
         this.btnRetry = document.getElementById('btn-retry');
+        this.btnSound = document.getElementById('btn-sound');
+        this.soundIconOn = document.getElementById('sound-icon-on');
+        this.soundIconOff = document.getElementById('sound-icon-off');
+        this.btnWinReplay = document.getElementById('btn-win-replay');
+        this.btnLoseLevels = document.getElementById('btn-lose-levels');
         
         this.overlayWin = document.getElementById('overlay-win');
         this.overlayLose = document.getElementById('overlay-lose');
@@ -3933,10 +4277,18 @@ class UIManager {
         this.levelGrid = document.getElementById('level-grid');
         this.btnCloseLevelSelect = document.getElementById('btn-close-level-select');
         
+        this.winStarsEl = document.getElementById('win-stars');
+        this.winStatMoves = document.getElementById('win-stat-moves');
+        this.winStatTime = document.getElementById('win-stat-time');
+        this.winStatEff = document.getElementById('win-stat-eff');
+        
         this.dragGhost = document.getElementById('drag-ghost');
         
         // State
         this.currentLevel = 1;
+        this.levelStartTime = performance.now();
+        this.comboStreak = 0;
+        this.lastDeliveryTime = 0;
         this.dragState = {
             isDragging: false,
             boxId: null,
@@ -3952,34 +4304,81 @@ class UIManager {
         this.bindEvents();
         this.bindEngineCallbacks();
         this.renderLevelMenu();
+        this.updateSoundUI();
         
         // Start
         this.startNewLevel();
     }
     
+    updateSoundUI() {
+        if (!this.soundIconOn || !this.soundIconOff) return;
+        if (this.audio.on) {
+            this.soundIconOn.classList.remove('hidden');
+            this.soundIconOff.classList.add('hidden');
+        } else {
+            this.soundIconOn.classList.add('hidden');
+            this.soundIconOff.classList.remove('hidden');
+        }
+    }
+
     bindEvents() {
         this.btnNewGame.addEventListener('click', () => {
+            this.audio.tap();
             this.currentLevel = 1;
             this.startNewLevel();
         });
         
         this.btnSelectLevel.addEventListener('click', () => {
+            this.audio.tap();
             this.renderLevelMenu(); // Re-render to update active level class
             this.overlayLevelSelect.classList.remove('hidden');
         });
 
         this.btnCloseLevelSelect.addEventListener('click', () => {
+            this.audio.tap();
             this.overlayLevelSelect.classList.add('hidden');
         });
         
         this.btnNextLevel.addEventListener('click', () => {
+            this.audio.tap();
             this.currentLevel++;
             this.startNewLevel();
         });
         
         this.btnRetry.addEventListener('click', () => {
-            this.startNewLevel(true); // pass flag to retry same? for now just generate new
+            this.audio.tap();
+            this.startNewLevel(true);
         });
+
+        if (this.btnSound) {
+            this.btnSound.addEventListener('click', () => {
+                this.audio.toggle();
+                this.updateSoundUI();
+            });
+        }
+
+        if (this.btnWinReplay) {
+            this.btnWinReplay.addEventListener('click', () => {
+                this.audio.tap();
+                this.startNewLevel(true);
+            });
+        }
+
+        if (this.btnLoseLevels) {
+            this.btnLoseLevels.addEventListener('click', () => {
+                this.audio.tap();
+                this.overlayLose.classList.add('hidden');
+                this.renderLevelMenu();
+                this.overlayLevelSelect.classList.remove('hidden');
+            });
+        }
+
+        // Global unlock on first user gesture for Web Audio API
+        const unlockAudio = () => {
+            this.audio.ensure();
+            document.removeEventListener('pointerdown', unlockAudio);
+        };
+        document.addEventListener('pointerdown', unlockAudio);
 
         // Global pointer events for dragging
         document.addEventListener('pointermove', this.handleDragMove.bind(this));
@@ -3993,17 +4392,52 @@ class UIManager {
         this.moveLimitDisplay.classList.remove('low');
     }
 
+    showWinCelebration() {
+        const elapsedSec = Math.max(1, Math.floor((performance.now() - this.levelStartTime) / 1000));
+        const mins = Math.floor(elapsedSec / 60).toString().padStart(2, '0');
+        const secs = (elapsedSec % 60).toString().padStart(2, '0');
+
+        if (this.winStatMoves) this.winStatMoves.textContent = this.engine.moveCount;
+        if (this.winStatTime) this.winStatTime.textContent = `${mins}:${secs}`;
+        if (this.winStatEff) this.winStatEff.textContent = '100%';
+
+        // Tính sao dựa trên độ tối ưu nước đi (1, 2, hoặc 3 sao)
+        const cfg = configForLevelNumber(this.currentLevel);
+        const par = cfg.par || Math.max(4, Math.floor((cfg.numBoxes || 6) * 1.5));
+        let stars = 3;
+        if (this.engine.moveCount > par * 1.5) stars = 2;
+        if (this.engine.moveCount > par * 2.3) stars = 1;
+
+        if (this.winStarsEl) {
+            const starSpans = this.winStarsEl.querySelectorAll('.star');
+            starSpans.forEach((s, idx) => {
+                s.classList.remove('on');
+                if (idx < stars) {
+                    setTimeout(() => {
+                        s.classList.add('on');
+                        this.audio.star(idx);
+                    }, 280 + idx * 220);
+                }
+            });
+        }
+
+        this.audio.win();
+        this.vfx.confetti(this.overlayWin);
+        this.overlayWin.classList.remove('hidden');
+    }
+
     bindEngineCallbacks() {
         this.engine.onGameStateChanged = (state) => {
             if (state === 'WON') {
                 if (this.currentLevel === 1) {
                     this.tutorialManager.onGameStateWon();
                 } else {
-                    this.overlayWin.classList.remove('hidden');
+                    this.showWinCelebration();
                 }
             } else if (state === 'LOST') {
+                this.audio.lose();
                 if (this.loseReason) {
-                    this.loseReason.textContent = this.engine.loseReason || 'No more empty slots to move items.';
+                    this.loseReason.textContent = this.engine.loseReason || 'Hàng chờ đã đầy 5/5 thùng, không còn chỗ điều phối.';
                 }
                 this.overlayLose.classList.remove('hidden');
             } else {
@@ -4015,10 +4449,12 @@ class UIManager {
         this.engine.onMoveCountUpdated = (count) => {
             this.moveDisplay.textContent = count;
             this.renderMoveLimit();
+            this.vfx.bump('stat-moves');
         };
 
         this.engine.onQueueUpdated = (queue) => {
             this.queueRenderer.render(queue);
+            this.vfx.bump('queue-counter');
         };
         
         this.engine.onBoxUpdated = (box, isRemoved = false) => {
@@ -4056,6 +4492,9 @@ class UIManager {
                 logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
             }
             el.classList.add('wrapped');
+            this.audio.wrap();
+            this.vfx.burst(el, catConfig ? catConfig.color : '#f59e0b', 16);
+            this.vfx.praise(el, 'ĐÓNG GÓI! 📦', 1);
             if (navigator.vibrate) navigator.vibrate(35);
         };
     }
@@ -4113,13 +4552,14 @@ class UIManager {
         this.overlayLose.classList.add('hidden');
         this.overlayLoading.classList.remove('hidden');
         
+        this.levelStartTime = performance.now();
+        this.comboStreak = 0;
+        this.lastDeliveryTime = 0;
+        
         // Yield to browser to show loading
         await new Promise(r => setTimeout(r, 50));
         
         // Duong cong do kho nam TRON VEN trong configForLevelNumber() cua bo sinh man.
-        // Truoc day UI tu tinh mot bo tham so rieng (numBoxes/numCategories/...) khac
-        // han duong cong cua bo sinh => co ba nguon su that cho cung mot khai niem
-        // "level 7 kho the nao". Nay UI chi noi minh dang o level nao.
         const levelData = LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
         
         this.queueRenderer.render([]);
@@ -4152,8 +4592,6 @@ class UIManager {
 
     _renderNow() {
         const validTargets = this.engine.selectedSource ? this.engine.getValidTargets(this.engine.selectedSource.boxId) : [];
-        // Chi ve Thung TRONG TAM VOI, theo dung cot. Thung bi che khong vao DOM —
-        // khong co phan tu nao de cham nham, va cung khong ton chi phi render.
         const hiddenCounts = this.engine.columns.map(
             col => Math.max(0, col.length - this.engine.visibleRows));
             
@@ -4252,6 +4690,7 @@ class UIManager {
             // Select source - must tap an actual item
             if (itemIndex !== null) {
                 if (this.engine.selectSource(boxId, itemIndex)) {
+                    this.audio.tap();
                     if (navigator.vibrate) navigator.vibrate(12);
                     this.updateRender();
                 }
@@ -4263,6 +4702,7 @@ class UIManager {
             const willEmpty = sourceBoxBefore && sourceBoxBefore.items.length === 1;
 
             if (this.engine.selectTarget(boxId)) {
+                this.audio.swap();
                 this._animating = true;
                 const targetBox = this.engine.getBox(boxId);
                 this.boxRenderer.animateItemTransfer(sourceId, boxId, () => {
@@ -4311,6 +4751,7 @@ class UIManager {
                         // Thung nguon da rong -> hieu ung bien mat nhe nhang truoc khi cot tut xuong
                         const srcDom = document.querySelector(`.box[data-box-id="${sourceId}"]`);
                         if (srcDom) {
+                            this.vfx.praise(srcDom, 'DỌN GỌN! 🧹', 1);
                             srcDom.classList.add('disappearing');
                             if (navigator.vibrate) navigator.vibrate(20);
                             setTimeout(() => {
@@ -4325,10 +4766,13 @@ class UIManager {
                 });
             } else {
                 // Invalid or deselected
+                this.audio.reject();
                 this.engine.deselectSource();
                 // If they tapped a new source item, immediately select it
                 if (itemIndex !== null && sourceId !== boxId) {
-                    this.engine.selectSource(boxId, itemIndex);
+                    if (this.engine.selectSource(boxId, itemIndex)) {
+                        this.audio.tap();
+                    }
                 }
                 
                 const el = document.querySelector(`.box[data-box-id="${boxId}"]`);
@@ -4452,11 +4896,18 @@ class UIManager {
                         this.dragGhost.style.width = '';
                         this.dragGhost.style.height = '';
                         this.engine.dropOnTray(trayId);
+
+                        const catConfig = getCategoryConfig(box.getCategory());
+                        const color = catConfig ? catConfig.color : '#38bdf8';
+                        this.audio.combo(1);
+                        this.vfx.burst(trayEl, color, 14);
+                        this.vfx.praise(trayEl, 'XUẤT XƯỞNG! 🚚', 1);
                     }, 300);
                     return;
                 }
             } else {
                 console.log("Invalid tray");
+                this.audio.reject();
             }
         }
         
@@ -4543,6 +4994,23 @@ class UIManager {
             slotEl.classList.remove('dispatching');
             this.engine.deliverQueueBox(box.id, tray.id);
             this._animating = false;
+
+            const now = performance.now();
+            if (this.lastDeliveryTime && (now - this.lastDeliveryTime < 3400)) {
+                this.comboStreak++;
+            } else {
+                this.comboStreak = 1;
+            }
+            this.lastDeliveryTime = now;
+
+            const catConfig = getCategoryConfig(box.getCategory());
+            const color = catConfig ? catConfig.color : '#38bdf8';
+            this.audio.combo(this.comboStreak);
+            this.vfx.burst(trayEl, color, 14);
+            const slogan = this.comboStreak >= 2 ? `COMBO X${this.comboStreak}! ⚡` : 'XUẤT XƯỞNG! 🚚';
+            this.vfx.praise(trayEl, slogan, this.comboStreak);
+            this.vfx.bump('queue-counter');
+
             this.updateRender();
         });
     }
