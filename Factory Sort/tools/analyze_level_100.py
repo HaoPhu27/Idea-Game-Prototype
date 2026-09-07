@@ -1,7 +1,9 @@
 import json
+import os
 from collections import Counter
 
-with open(r'd:\game idea prototype\Factory Sort\extracted_level_100.json', 'r', encoding='utf-8') as f:
+DATA_PATH = os.path.join(os.path.dirname(__file__), 'data', 'extracted_level_100.json')
+with open(DATA_PATH, 'r', encoding='utf-8') as f:
     lvl = json.load(f)
 
 print('=== LEVEL 100 GENERAL INFO ===')

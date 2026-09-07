@@ -5,8 +5,11 @@
   "description": "Factory Sort / Goods Sort (Tray & Conveyor) prototype - solver + solvable level generator",
   "type": "module",
   "scripts": {
+    "start": "node tools/server.mjs",
     "test": "node tools/selftest.js",
     "demo": "node tools/demo.js",
-    "build": "node tools/build.mjs"
+    "build": "node delivery/build.mjs && node ab_test/build.mjs",
+    "build:delivery": "node delivery/build.mjs",
+    "build:abtest": "node ab_test/build.mjs"
   }
 }

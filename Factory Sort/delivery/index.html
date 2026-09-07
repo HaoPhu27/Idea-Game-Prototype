@@ -3,135 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Factory Sort - Đảo Layout (Theo Ý Jun iKame)</title>
-    <link rel="stylesheet" href="style.css">
-
-    <!-- CSS điều chỉnh layout đảo ngược: Băng Chuyền & Order ở Trên - Thùng Hàng ở Dưới -->
-    <style>
-        /* Banner thông báo chế độ đảo layout */
-        #inverted-mode-banner {
-            background: linear-gradient(90deg, #1e3a8a, #0369a1);
-            color: #f8fafc;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 4px 12px;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            z-index: 999;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-            letter-spacing: 0.3px;
-        }
-
-        #inverted-mode-banner .mode-tag {
-            background: #f59e0b;
-            color: #000;
-            font-size: 9px;
-            font-weight: 800;
-            padding: 2px 6px;
-            border-radius: 4px;
-            text-transform: uppercase;
-        }
-
-        #inverted-mode-banner a {
-            color: #38bdf8;
-            text-decoration: none;
-            font-weight: 700;
-            border-bottom: 1px dashed #38bdf8;
-        }
-
-        /* Tinh chỉnh thứ tự hiển thị trong Play Area */
-        #play-area {
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* 1. HEADER GỌN GÀNG */
-        #game-header {
-            margin: 8px 12px 4px 12px !important;
-            margin-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
-            height: 52px !important;
-        }
-
-        /* 2. VÙNG BĂNG CHUYỀN & ORDER (ĐẨY SÁT LÊN TRÊN TIÊU ĐỀ) */
-        #tray-area {
-            flex: 0 0 230px !important;
-            order: 1;
-            position: relative;
-            padding: 0 !important;
-            margin-top: 2px !important;
-            --belt-inset: 12px;
-            --belt-h: 215px !important;
-            --belt-bottom: 6px !important;
-            --belt-radius: 26px;
-            height: 230px !important;
-            min-height: 230px !important;
-            max-height: 230px !important;
-        }
-
-        /* 3. VÙNG THÙNG HÀNG HOÁ (CĂN LỀ TRÊN, ĐẨY LÊN TRÊN GẦN BĂNG CHUYỀN) */
-        #boxes-area {
-            flex: 1 1 auto !important;
-            order: 2;
-            padding: 10px 12px calc(14px + env(safe-area-inset-bottom, 0px)) 12px !important;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start !important; /* Căn lề trên */
-            min-height: 0;
-        }
-
-        #boxes-grid {
-            align-items: flex-start !important; /* Đẩy các cột thùng hàng sát lên trên */
-        }
-
-        /* Thêm viền phân cách nhẹ nhàng giữa 2 khu vực */
-        #boxes-area::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 20px;
-            right: 20px;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.25), transparent);
-            pointer-events: none;
-        }
-
-        /* 4. ĐIỀU CHỈNH BANNER HƯỚNG DẪN: ĐƯA XUỐNG ĐÁY MÀN HÌNH ĐỂ KHÔNG CHE BĂNG CHUYỀN */
-        .tutorial-banner {
-            top: auto !important;
-            bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
-            pointer-events: auto !important;
-            z-index: 550 !important;
-            animation: slide-up-fade 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        }
-
-        @keyframes slide-up-fade {
-            from {
-                opacity: 0;
-                transform: translateY(16px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .tutorial-skip-btn {
-            pointer-events: auto !important;
-            cursor: pointer !important;
-            touch-action: manipulation !important;
-            z-index: 560 !important;
-        }
-
-        /* Nút chuyển đổi nhanh giữa 2 phiên bản */
-        .btn-toggle-layout {
-            background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
-            font-size: 13px !important;
-            padding: 6px 10px !important;
-        }
-    </style>
+    <title>Factory Sort - Prototype v1</title>
+    <link rel="stylesheet" href="./style.css">
 
 <script>
 window.addEventListener('error', function(e) {
@@ -150,17 +23,6 @@ window.addEventListener('unhandledrejection', function(e) {
 </head>
 
 <body>
-    <!-- Banner ghi rõ bản thử nghiệm theo ý tưởng Jun -->
-    <div id="inverted-mode-banner">
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span class="mode-tag">Ý tưởng Jun iKame</span>
-            <span>Băng Chuyền & Order Ở Trên • Thùng Hàng Ở Dưới</span>
-        </div>
-        <div>
-            <a href="index.html" title="Chuyển về bản gốc để so sánh">Xem Bản Gốc ➔</a>
-        </div>
-    </div>
-
     <div id="game-container">
         <header id="game-header">
             <div class="level-info">Level: <span id="level-display">Random</span></div>
@@ -171,7 +33,12 @@ window.addEventListener('unhandledrejection', function(e) {
         </header>
 
         <main id="play-area">
-            <!-- 1. BĂNG CHUYỀN & KHAY ORDER ĐƯỢC ĐƯA LÊN PHÍA TRÊN -->
+            <!-- Box area occupies top -->
+            <section id="boxes-area">
+                <div id="boxes-grid"></div>
+            </section>
+            
+            <!-- Tray area occupies bottom (conveyor belt with nested queue deck) -->
             <section id="tray-area">
                 <div id="conveyor-belt">
                     <div class="port-in">IN ⬇</div>
@@ -194,11 +61,6 @@ window.addEventListener('unhandledrejection', function(e) {
                 </section>
 
                 <div id="trays-container"></div>
-            </section>
-
-            <!-- 2. KHU VỰC THÙNG HÀNG HOÁ ĐƯỢC CHUYỂN XUỐNG DƯỚI (THUẬN TAY NGƯỜI CHƠI) -->
-            <section id="boxes-area">
-                <div id="boxes-grid"></div>
             </section>
         </main>
         
@@ -295,7 +157,7 @@ window.addEventListener('unhandledrejection', function(e) {
                         <div class="rule-icon">🎁</div>
                         <div class="rule-text">
                             <strong>2. Tự động đóng gói & Hàng chờ</strong>
-                            <p>Thùng đủ 3 món sẽ tự dán kín và bay lên Hàng Chờ (tối đa 5 chỗ). Thùng rỗng tự biến mất!</p>
+                            <p>Thùng đủ 3 món sẽ tự dán kín và bay xuống Hàng Chờ (tối đa 5 chỗ). Thùng rỗng tự biến mất!</p>
                         </div>
                     </div>
                     <div class="rule-card">
@@ -326,7 +188,7 @@ window.addEventListener('unhandledrejection', function(e) {
                         <div class="rule-icon">📦</div>
                         <div class="rule-text">
                             <strong>Đóng gói & Hàng chờ</strong>
-                            <p>Gom đủ 3 món cùng loại vào 1 thùng -> Thùng tự đóng gói và bay lên Hàng Chờ (tối đa 5 ô).</p>
+                            <p>Gom đủ 3 món cùng loại vào 1 thùng -> Thùng tự đóng gói và rơi xuống Hàng Chờ (tối đa 5 ô).</p>
                         </div>
                     </div>
                     <div class="rule-card">
@@ -349,7 +211,7 @@ window.addEventListener('unhandledrejection', function(e) {
         </div>
     </div>
 
-    <!-- Scripts: dung bundle.js de chay duoc truc tiep tren moi trinh duyet ma khong bi chan CORS file:/// -->
-    <script src="bundle.js"></script>
+    <!-- Scripts using ES modules -->
+    <script type="module" src="./src/ui/UIManager.js"></script>
 </body>
 </html>

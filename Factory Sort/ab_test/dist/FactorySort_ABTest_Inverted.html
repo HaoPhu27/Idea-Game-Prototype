@@ -1573,9 +1573,24 @@ window.addEventListener('unhandledrejection', function(e) {
             <span>Băng Chuyền & Order Ở Trên • Thùng Hàng Ở Dưới</span>
         </div>
         <div>
-            <a href="index.html" title="Chuyển về bản gốc để so sánh">Xem Bản Gốc ➔</a>
+            <a id="btn-switch-to-standard" href="index.html" title="Chuyển về bản gốc để so sánh">Xem Bản Gốc ➔</a>
         </div>
     </div>
+    <script>
+    (function() {
+        var link = document.getElementById('btn-switch-to-standard');
+        if (link) {
+            var path = window.location.pathname.toLowerCase();
+            if (path.indexOf('dist') !== -1 || path.indexOf('delivery') !== -1) {
+                link.href = 'FactorySort_Standard_Delivery.html';
+            } else if (path.indexOf('standalone') !== -1) {
+                link.href = 'FactorySort_Standalone.html';
+            } else {
+                link.href = 'index.html';
+            }
+        }
+    })();
+    </script>
 
     <div id="game-container">
         <header id="game-header">
@@ -1765,7 +1780,7 @@ window.addEventListener('unhandledrejection', function(e) {
         </div>
     </div>
 
-    <!-- Scripts: dung bundle.js de chay duoc truc tiep tren moi trinh duyet ma khong bi chan CORS file:/// -->
+    <!-- Scripts using ES modules -->
     <script>
 // --- src/data/ItemCatalog.js ---
 const ITEM_CATALOG = {
@@ -2152,6 +2167,16 @@ class GameEngine {
             this._removeFromColumn(eb.id);
         }
         this.boxes = this.boxes.filter(b => !b.isEmpty());
+
+        // Với những level không có box ẩn (không có cột nào vượt quá visibleRows),
+        // tính effectiveRows theo chiều cao cột lớn nhất ban đầu để đẩy box lên sát conveyor.
+        const hasHidden = this.columns.some(col => col.length > this.visibleRows);
+        if (!hasHidden && Number.isFinite(this.visibleRows)) {
+            const maxColLen = Math.max(...this.columns.map(col => col.length), 1);
+            this.effectiveRows = Math.min(this.visibleRows, maxColLen);
+        } else {
+            this.effectiveRows = this.visibleRows;
+        }
 
         // Reset hang cho (staging queue 5 slots)
         this.queue = [];
@@ -5925,7 +5950,12 @@ class UIManager {
         }
 
         this.boxRenderer.render(
-            this.engine.getVisibleBoxes(), this.engine.selectedSource, validTargets, hiddenCounts, this.engine.visibleRows);
+            this.engine.getVisibleBoxes(),
+            this.engine.selectedSource,
+            validTargets,
+            hiddenCounts,
+            this.engine.effectiveRows || this.engine.visibleRows
+        );
             
         this._chayFlip(grid, truoc);
         this._boLuotFlip = false;

@@ -429,6 +429,16 @@ class GameEngine {
         }
         this.boxes = this.boxes.filter(b => !b.isEmpty());
 
+        // Với những level không có box ẩn (không có cột nào vượt quá visibleRows),
+        // tính effectiveRows theo chiều cao cột lớn nhất ban đầu để đẩy box lên sát conveyor.
+        const hasHidden = this.columns.some(col => col.length > this.visibleRows);
+        if (!hasHidden && Number.isFinite(this.visibleRows)) {
+            const maxColLen = Math.max(...this.columns.map(col => col.length), 1);
+            this.effectiveRows = Math.min(this.visibleRows, maxColLen);
+        } else {
+            this.effectiveRows = this.visibleRows;
+        }
+
         // Reset hang cho (staging queue 5 slots)
         this.queue = [];
         this.loseReason = '';
@@ -4201,7 +4211,12 @@ class UIManager {
         }
 
         this.boxRenderer.render(
-            this.engine.getVisibleBoxes(), this.engine.selectedSource, validTargets, hiddenCounts, this.engine.visibleRows);
+            this.engine.getVisibleBoxes(),
+            this.engine.selectedSource,
+            validTargets,
+            hiddenCounts,
+            this.engine.effectiveRows || this.engine.visibleRows
+        );
             
         this._chayFlip(grid, truoc);
         this._boLuotFlip = false;
