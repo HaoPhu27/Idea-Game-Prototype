@@ -17,7 +17,7 @@ export class TrayRenderer {
         this.onTick = null;
         
         this.geom = this.readBeltGeometry();
-        this._ro = new ResizeObserver(() => { this.geom = this.readBeltGeometry(); });
+        this._ro = new ResizeObserver(() => { this.geom = this.readBeltGeometry(); this._paintTrack(); });
         this._ro.observe(this.container);
 
         this.running = false;
@@ -121,7 +121,14 @@ export class TrayRenderer {
         const n = Math.max(1, this.slotCount || 4);
         const margin = 4;
 
-        let trayH = Math.max(36, Math.min(58, Math.floor((beltH - margin * 2 - 4) / 2)));
+        // Chieu cao Khay phai chua duoc: 2 dai bang tai + mot khoang LONG VONG nhin
+        // thay duoc. Khong con "lay toi da co the" nhu truoc — neu lay toi da thi hai
+        // dai cham nhau, vong chay bien thanh mot khoi dac va mat het chat conveyor.
+        //   beltH >= 2 x (trayH + BAND_PAD) + CORE_MIN
+        const BAND_PAD = 8;   // le dai bang tai moi ben ngoai Khay
+        const CORE_MIN = 16;  // long vong toi thieu, de con doc ra la mot VONG
+        let trayH = Math.max(34, Math.min(52,
+            Math.floor((beltH - CORE_MIN) / 2) - BAND_PAD));
         let trayW = Math.round(trayH * 0.94);
 
         const perim = 2 * Math.max(0, beltW - trayW) + 2 * Math.max(0, beltH - trayH);
@@ -136,12 +143,78 @@ export class TrayRenderer {
 
         const hx = Math.max(20, beltW / 2 - trayW / 2 - margin);
         const hy = Math.max(16, beltH / 2 - trayH / 2 - margin);
-        const radius = Math.min(18, hx * 0.45, hy * 0.45);
+
+        // Ban kinh goc = hy, tuc HAI DAU BO TRON HOAN TOAN (dang stadium/oval).
+        //
+        // Khong phai chon cho dep: mot `stroke` day bandW ve tren duong bo goc se TU
+        // CAT o goc khi bandW > 2 x ban kinh — cac go chan bung ra thanh hinh nan quat.
+        // Da thay dung loi do voi radius 16 / band 56. Lay radius = hy thi:
+        //   - ban kinh trong = hy - bandW/2 > 0  -> khong bao gio tu cat;
+        //   - va duong chay thanh dung dang bang tai oval: hai doan thang + hai nua
+        //     duong tron, thay vi mot hinh chu nhat co goc hoi tron.
+        const radius = hy;
+
+        // Be rong dai bang tai: phu tron Khay, nhung khong duoc de hai dai cham nhau
+        // (2*hy la khoang cach giua tim hai nhanh).
+        const bandW = Math.max(20, Math.min(trayH + BAND_PAD * 2, 2 * hy - CORE_MIN));
 
         return {
-            cx, cy, beltW, beltH, hx, hy, r: radius, trayW, trayH,
+            cx, cy, beltW, beltH, hx, hy, r: radius, trayW, trayH, bandW,
             frontY: cy - hy,                        // nhanh chay TRUOC (Khay di phai->trai)
         };
+    }
+
+    /** Chu vi duong chay. Dung chung cho ca Khay lan go chan tren dai bang tai. */
+    _trackPerimeter() {
+        const g = this.geom;
+        const Lx = Math.max(0, 2 * (g.hx - g.r));
+        const Ly = Math.max(0, 2 * (g.hy - g.r));
+        return 2 * Lx + 2 * Ly + 4 * (Math.PI / 2) * g.r;
+    }
+
+    /**
+     * Ve DUONG CHAY: mot hinh chu nhat ngang bo 4 goc, ke DUNG tren quy dao Khay.
+     *
+     * Ky thuat: mot <rect> bo goc voi `stroke-width` lon chinh la mot dai bang tai
+     * khep kin. Go chan la CUNG duong do, ve de len bang `stroke-dasharray` — nho
+     * vay go chan luon vuong goc voi huong chay, ke ca tren 4 goc cong (thu ma
+     * gradient CSS khong the lam duoc).
+     *
+     * Toa do lay thang tu geom nen dai bang tai va Khay khong bao gio lech nhau:
+     * geom.cy do tu DAY container len, con SVG do tu DINH xuong -> phai lat truc.
+     */
+    _paintTrack() {
+        const svg = document.getElementById('belt-track');
+        if (!svg) return;
+        const g = this.geom;
+
+        const x = g.cx - g.hx;
+        const y = (g.beltH - g.cy) - g.hy;   // lat truc y sang he cua SVG
+        const w = 2 * g.hx;
+        const h = 2 * g.hy;
+        if (w <= 0 || h <= 0) return;
+
+        const half = g.bandW / 2;
+        const set = (id, attrs) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            for (const k in attrs) el.setAttribute(k, attrs[k]);
+        };
+
+        // 1. Mat dai cao su
+        set('belt-band', { x, y, width: w, height: h, rx: g.r, ry: g.r,
+                           'stroke-width': g.bandW });
+        // 2. Go chan ngang, chu ky 22px
+        set('belt-cleat', { x, y, width: w, height: h, rx: g.r, ry: g.r,
+                            'stroke-width': g.bandW,
+                            'stroke-dasharray': '2.5 19.5' });
+        // 3. Hai thanh ray nhom vien trong / vien ngoai dai
+        set('belt-rail-o', { x: x - half, y: y - half, width: w + g.bandW, height: h + g.bandW,
+                             rx: g.r + half, ry: g.r + half, 'stroke-width': 1.5 });
+        const ih = Math.max(0, h - g.bandW), iw = Math.max(0, w - g.bandW);
+        set('belt-rail-i', { x: x + half, y: y + half, width: iw, height: ih,
+                             rx: Math.max(1, g.r - half), ry: Math.max(1, g.r - half),
+                             'stroke-width': 1.5 });
     }
 
     getTrackPoint(theta) {
@@ -239,6 +312,7 @@ export class TrayRenderer {
         this.geom = this.readBeltGeometry();
         this.container.style.setProperty('--tray-w', `${this.geom.trayW}px`);
         this.container.style.setProperty('--tray-h', `${this.geom.trayH}px`);
+        this._paintTrack();
 
         const isStartOfLevel = !activeTrays.some(tray => this.trayElements.some(t => t.id === tray.id));
 
@@ -473,6 +547,16 @@ export class TrayRenderer {
     }
 
     updatePositions(now = performance.now()) {
+        // Go chan tren dai bang tai troi cung mot quang duong voi Khay: cung `offset`,
+        // cung chu vi. Neu tinh rieng thi dai bang tai va Khay se chay lech toc do —
+        // mat mat cam giac Khay DUOC dai bang tai cho di.
+        const cleat = document.getElementById('belt-cleat');
+        if (cleat && this.geom) {
+            const P = this._trackPerimeter();
+            const d = (((-this.offset) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI) * P;
+            cleat.setAttribute('stroke-dashoffset', (-d).toFixed(1));
+        }
+
         if (!this.container || this.trayElements.length === 0) return;
         
         const g = this.geom;

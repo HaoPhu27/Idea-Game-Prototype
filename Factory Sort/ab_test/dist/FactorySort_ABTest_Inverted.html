@@ -1440,8 +1440,10 @@ html, body {
 /* Prominent category illustration emblem */
 .tray-illustration {
     margin-top: 3px;
-    width: 46px;
-    height: 46px;
+    /* Co theo be rong Khay: TrayRenderer thu nho Khay khi maxActive lon hoac khi vong
+       chay thap, huy hieu co dinh 46px se tran ra ngoai the. */
+    width: calc(var(--tray-w, 56px) * 0.78);
+    height: calc(var(--tray-w, 56px) * 0.78);
     border-radius: 50%;
     background:
         radial-gradient(circle at 35% 30%, #ffffff, #e6ecf3),
@@ -1452,7 +1454,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 30px;
+    font-size: calc(var(--tray-w, 56px) * 0.52);
     line-height: 1;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
     transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -2416,7 +2418,7 @@ html, body {
     /* Vong chay can chua HAI nhanh Khay chong len nhau theo chieu doc.
        118px la muc toi thieu de 2 nhanh khong dam vao nhau (2 x 48 + le).
        Van chi bang mot NUA cua ban delivery (242px). */
-    --lane-h: clamp(112px, 17vh, 128px);
+    --lane-h: clamp(120px, 19vh, 134px);
     --belt-inset: 10px;
     --belt-radius: 16px;
 }
@@ -2433,35 +2435,49 @@ html, body {
     border-radius: var(--belt-radius);
     overflow: visible;                 /* de cong IN/OUT nho len tren mep */
 
-    /* Mat dai co go chan chay NGANG — cung ngon ngu voi bang tai cot Thung,
-       chi khac huong. Khong con la mot cai hop rong co vien net dut. */
-    background:
-        repeating-linear-gradient(
-            90deg,
-            transparent 0 20px,
-            rgba(255, 255, 255, 0.055) 20px 21px,
-            #2a3646 21px 23px,
-            rgba(0, 0, 0, 0.62) 23px 26px,
-            transparent 26px 28px),
-        linear-gradient(180deg, #1c2735 0%, #141d29 46%, #0d141d 100%);
-    border: 2px solid #35465c;
-    border-top-color: #4e6582;
+    /* Khung may (chassis): chi la CAI BE cho duong chay nam len. Mat dai bang tai
+       do <svg class="belt-track"> ve — xem TrayRenderer._paintTrack().
+       Truoc day khung nay tu ve vach doc de gia lam mat dai; nhung vach doc tren mot
+       cai hop chu nhat khong doc ra la mot VONG CHAY — dung dieu nguoi choi phan anh. */
+    background: linear-gradient(180deg, #161f2b 0%, #10171f 55%, #0b1119 100%);
+    border: 2px solid #33445a;
+    border-top-color: #4a6180;
     box-shadow:
-        inset 0 9px 16px rgba(0, 0, 0, 0.72),
-        inset 0 -9px 16px rgba(0, 0, 0, 0.72),
+        inset 0 8px 18px rgba(0, 0, 0, 0.7),
+        inset 0 -8px 18px rgba(0, 0, 0, 0.7),
         0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- DUONG CHAY: hinh chu nhat ngang bo 4 goc, Khay chay tren no ---- */
+[data-layout="inverted"] .belt-track {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    overflow: visible;
+}
+
+/* 1. Mat dai cao su */
+[data-layout="inverted"] #belt-band { stroke: #222d3c; }
+
+/* 2. Go chan ngang. Vi la stroke tren CUNG duong bo goc nen go luon vuong goc voi
+      huong chay, ke ca o 4 goc cong — thu ma gradient CSS khong lam duoc. */
+[data-layout="inverted"] #belt-cleat {
+    stroke: rgba(255, 255, 255, 0.085);
+    stroke-linecap: butt;
+}
+
+/* 3. Hai thanh ray nhom vien dai */
+[data-layout="inverted"] #belt-rail-o,
+[data-layout="inverted"] #belt-rail-i {
+    stroke: rgba(140, 165, 200, 0.42);
 }
 
 /* Bo vien net dut cu (no la guide cua vong chay hinh chu nhat, gio khong con vong) */
 [data-layout="inverted"] #conveyor-belt::after {
-    content: '';
-    position: absolute;
-    inset: auto 0 0 0;
-    height: 3px;
-    border: none;
-    border-radius: 0 0 var(--belt-radius) var(--belt-radius);
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
-    box-shadow: none;
+    display: none;   /* vach sang o day khung — da thay bang ray SVG that */
 }
 
 /* Lop Khay phu KHIT len lan chay va CAT o hai dau: Khay truot ra tu duoi tam chan
@@ -2645,6 +2661,20 @@ window.addEventListener('unhandledrejection', function(e) {
             <!-- 1. BĂNG CHUYỀN & KHAY ORDER ĐƯỢC ĐƯA LÊN PHÍA TRÊN -->
             <section id="tray-area">
                 <div id="conveyor-belt">
+                    <!-- DUONG CHAY (belt loop). Ve bang SVG chu khong bang CSS vi:
+                         - mot rect bo goc voi stroke DAY chinh la mot dai bang tai
+                           hinh chu nhat ngang bo 4 goc — dung y hinh dang can;
+                         - stroke-dasharray tren cung duong do cho ra cac go chan
+                           VUONG GOC voi huong chay, ke ca o 4 goc cong. CSS gradient
+                           khong lam duoc dieu nay o goc.
+                         TrayRenderer._paintTrack() dat toa do cho khop DUNG quy dao
+                         Khay (hx/hy/r), nen dai bang tai va Khay khong bao gio lech. -->
+                    <svg id="belt-track" class="belt-track" aria-hidden="true" focusable="false">
+                        <rect id="belt-band"   fill="none"></rect>
+                        <rect id="belt-cleat"  fill="none"></rect>
+                        <rect id="belt-rail-o" fill="none"></rect>
+                        <rect id="belt-rail-i" fill="none"></rect>
+                    </svg>
                 </div>
 
                 <!-- Waiting queue area (5 slots) -->
@@ -6010,7 +6040,7 @@ class TrayRenderer {
         this.onTick = null;
         
         this.geom = this.readBeltGeometry();
-        this._ro = new ResizeObserver(() => { this.geom = this.readBeltGeometry(); });
+        this._ro = new ResizeObserver(() => { this.geom = this.readBeltGeometry(); this._paintTrack(); });
         this._ro.observe(this.container);
 
         this.running = false;
@@ -6114,7 +6144,14 @@ class TrayRenderer {
         const n = Math.max(1, this.slotCount || 4);
         const margin = 4;
 
-        let trayH = Math.max(36, Math.min(58, Math.floor((beltH - margin * 2 - 4) / 2)));
+        // Chieu cao Khay phai chua duoc: 2 dai bang tai + mot khoang LONG VONG nhin
+        // thay duoc. Khong con "lay toi da co the" nhu truoc — neu lay toi da thi hai
+        // dai cham nhau, vong chay bien thanh mot khoi dac va mat het chat conveyor.
+        //   beltH >= 2 x (trayH + BAND_PAD) + CORE_MIN
+        const BAND_PAD = 8;   // le dai bang tai moi ben ngoai Khay
+        const CORE_MIN = 16;  // long vong toi thieu, de con doc ra la mot VONG
+        let trayH = Math.max(34, Math.min(52,
+            Math.floor((beltH - CORE_MIN) / 2) - BAND_PAD));
         let trayW = Math.round(trayH * 0.94);
 
         const perim = 2 * Math.max(0, beltW - trayW) + 2 * Math.max(0, beltH - trayH);
@@ -6129,12 +6166,78 @@ class TrayRenderer {
 
         const hx = Math.max(20, beltW / 2 - trayW / 2 - margin);
         const hy = Math.max(16, beltH / 2 - trayH / 2 - margin);
-        const radius = Math.min(18, hx * 0.45, hy * 0.45);
+
+        // Ban kinh goc = hy, tuc HAI DAU BO TRON HOAN TOAN (dang stadium/oval).
+        //
+        // Khong phai chon cho dep: mot `stroke` day bandW ve tren duong bo goc se TU
+        // CAT o goc khi bandW > 2 x ban kinh — cac go chan bung ra thanh hinh nan quat.
+        // Da thay dung loi do voi radius 16 / band 56. Lay radius = hy thi:
+        //   - ban kinh trong = hy - bandW/2 > 0  -> khong bao gio tu cat;
+        //   - va duong chay thanh dung dang bang tai oval: hai doan thang + hai nua
+        //     duong tron, thay vi mot hinh chu nhat co goc hoi tron.
+        const radius = hy;
+
+        // Be rong dai bang tai: phu tron Khay, nhung khong duoc de hai dai cham nhau
+        // (2*hy la khoang cach giua tim hai nhanh).
+        const bandW = Math.max(20, Math.min(trayH + BAND_PAD * 2, 2 * hy - CORE_MIN));
 
         return {
-            cx, cy, beltW, beltH, hx, hy, r: radius, trayW, trayH,
+            cx, cy, beltW, beltH, hx, hy, r: radius, trayW, trayH, bandW,
             frontY: cy - hy,                        // nhanh chay TRUOC (Khay di phai->trai)
         };
+    }
+
+    /** Chu vi duong chay. Dung chung cho ca Khay lan go chan tren dai bang tai. */
+    _trackPerimeter() {
+        const g = this.geom;
+        const Lx = Math.max(0, 2 * (g.hx - g.r));
+        const Ly = Math.max(0, 2 * (g.hy - g.r));
+        return 2 * Lx + 2 * Ly + 4 * (Math.PI / 2) * g.r;
+    }
+
+    /**
+     * Ve DUONG CHAY: mot hinh chu nhat ngang bo 4 goc, ke DUNG tren quy dao Khay.
+     *
+     * Ky thuat: mot <rect> bo goc voi `stroke-width` lon chinh la mot dai bang tai
+     * khep kin. Go chan la CUNG duong do, ve de len bang `stroke-dasharray` — nho
+     * vay go chan luon vuong goc voi huong chay, ke ca tren 4 goc cong (thu ma
+     * gradient CSS khong the lam duoc).
+     *
+     * Toa do lay thang tu geom nen dai bang tai va Khay khong bao gio lech nhau:
+     * geom.cy do tu DAY container len, con SVG do tu DINH xuong -> phai lat truc.
+     */
+    _paintTrack() {
+        const svg = document.getElementById('belt-track');
+        if (!svg) return;
+        const g = this.geom;
+
+        const x = g.cx - g.hx;
+        const y = (g.beltH - g.cy) - g.hy;   // lat truc y sang he cua SVG
+        const w = 2 * g.hx;
+        const h = 2 * g.hy;
+        if (w <= 0 || h <= 0) return;
+
+        const half = g.bandW / 2;
+        const set = (id, attrs) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            for (const k in attrs) el.setAttribute(k, attrs[k]);
+        };
+
+        // 1. Mat dai cao su
+        set('belt-band', { x, y, width: w, height: h, rx: g.r, ry: g.r,
+                           'stroke-width': g.bandW });
+        // 2. Go chan ngang, chu ky 22px
+        set('belt-cleat', { x, y, width: w, height: h, rx: g.r, ry: g.r,
+                            'stroke-width': g.bandW,
+                            'stroke-dasharray': '2.5 19.5' });
+        // 3. Hai thanh ray nhom vien trong / vien ngoai dai
+        set('belt-rail-o', { x: x - half, y: y - half, width: w + g.bandW, height: h + g.bandW,
+                             rx: g.r + half, ry: g.r + half, 'stroke-width': 1.5 });
+        const ih = Math.max(0, h - g.bandW), iw = Math.max(0, w - g.bandW);
+        set('belt-rail-i', { x: x + half, y: y + half, width: iw, height: ih,
+                             rx: Math.max(1, g.r - half), ry: Math.max(1, g.r - half),
+                             'stroke-width': 1.5 });
     }
 
     getTrackPoint(theta) {
@@ -6232,6 +6335,7 @@ class TrayRenderer {
         this.geom = this.readBeltGeometry();
         this.container.style.setProperty('--tray-w', `${this.geom.trayW}px`);
         this.container.style.setProperty('--tray-h', `${this.geom.trayH}px`);
+        this._paintTrack();
 
         const isStartOfLevel = !activeTrays.some(tray => this.trayElements.some(t => t.id === tray.id));
 
@@ -6466,6 +6570,16 @@ class TrayRenderer {
     }
 
     updatePositions(now = performance.now()) {
+        // Go chan tren dai bang tai troi cung mot quang duong voi Khay: cung `offset`,
+        // cung chu vi. Neu tinh rieng thi dai bang tai va Khay se chay lech toc do —
+        // mat mat cam giac Khay DUOC dai bang tai cho di.
+        const cleat = document.getElementById('belt-cleat');
+        if (cleat && this.geom) {
+            const P = this._trackPerimeter();
+            const d = (((-this.offset) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI) * P;
+            cleat.setAttribute('stroke-dashoffset', (-d).toFixed(1));
+        }
+
         if (!this.container || this.trayElements.length === 0) return;
         
         const g = this.geom;

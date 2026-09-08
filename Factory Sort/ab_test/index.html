@@ -81,6 +81,20 @@ window.addEventListener('unhandledrejection', function(e) {
             <!-- 1. BĂNG CHUYỀN & KHAY ORDER ĐƯỢC ĐƯA LÊN PHÍA TRÊN -->
             <section id="tray-area">
                 <div id="conveyor-belt">
+                    <!-- DUONG CHAY (belt loop). Ve bang SVG chu khong bang CSS vi:
+                         - mot rect bo goc voi stroke DAY chinh la mot dai bang tai
+                           hinh chu nhat ngang bo 4 goc — dung y hinh dang can;
+                         - stroke-dasharray tren cung duong do cho ra cac go chan
+                           VUONG GOC voi huong chay, ke ca o 4 goc cong. CSS gradient
+                           khong lam duoc dieu nay o goc.
+                         TrayRenderer._paintTrack() dat toa do cho khop DUNG quy dao
+                         Khay (hx/hy/r), nen dai bang tai va Khay khong bao gio lech. -->
+                    <svg id="belt-track" class="belt-track" aria-hidden="true" focusable="false">
+                        <rect id="belt-band"   fill="none"></rect>
+                        <rect id="belt-cleat"  fill="none"></rect>
+                        <rect id="belt-rail-o" fill="none"></rect>
+                        <rect id="belt-rail-i" fill="none"></rect>
+                    </svg>
                 </div>
 
                 <!-- Waiting queue area (5 slots) -->
