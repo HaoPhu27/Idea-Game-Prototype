@@ -127,8 +127,7 @@ export class TutorialManager {
     }
 
     /**
-     * Kiem tra xem thao tac tap cua nguoi choi co dung voi muc tieu cua buoc hien tai khong.
-     * Ngan tuyet doi viec de item di nham vao thung khac loai trong qua trinh tutorial!
+     * Kiem tra xem thao tac tap/drag cua nguoi choi co dung voi muc tieu cua buoc hien tai khong.
      */
     isAllowedTap(boxId, itemIndex) {
         if (!this.active || !this.currentStep) return true;
@@ -150,6 +149,38 @@ export class TutorialManager {
             default:
                 return true;
         }
+    }
+
+    isAllowedDragStart(boxId) {
+        if (!this.active || !this.currentStep) return true;
+        const id = this._parseId(boxId);
+        if (this.currentStep === 'STEP_1_PICK_PENGUIN' || this.currentStep === 'STEP_2_PLACE_PENGUIN') {
+            return id === 1;
+        }
+        if (this.currentStep === 'STEP_4_PICK_BEAR' || this.currentStep === 'STEP_5_PLACE_BEAR') {
+            return id === 3;
+        }
+        return false;
+    }
+
+    isAllowedDrop(sourceBoxId, targetBoxId) {
+        if (!this.active || !this.currentStep) return true;
+        const srcId = this._parseId(sourceBoxId);
+        const tgtId = this._parseId(targetBoxId);
+
+        if (this.currentStep === 'STEP_1_PICK_PENGUIN' || this.currentStep === 'STEP_2_PLACE_PENGUIN') {
+            return srcId === 1 && tgtId === 0;
+        }
+        if (this.currentStep === 'STEP_4_PICK_BEAR' || this.currentStep === 'STEP_5_PLACE_BEAR') {
+            return srcId === 3 && tgtId === 2;
+        }
+        return false;
+    }
+
+    onItemDropped(sourceBoxId, targetBoxId) {
+        if (!this.active) return;
+        this.hideHighlight();
+        if (this.handPointer) this.handPointer.classList.add('hidden');
     }
 
     /**
@@ -185,11 +216,11 @@ export class TutorialManager {
 
                 this.showStep({
                     targetEl: target,
-                    badge: 'BƯỚC 1 / 4 • CHỌN MÓN ĐỒ',
-                    text: 'Chạm vào chú <b>Chim cánh cụt 🐧</b> để lấy ra khỏi thùng.',
+                    badge: 'BƯỚC 1 / 4 • KÉO THẢ MÓN ĐỒ',
+                    text: '<b>Kéo</b> chú <b>Chim cánh cụt 🐧</b> thả vào <b>Thùng chim cánh cụt 🐧</b> bên cạnh!',
                     handOffset: { x: 0, y: 55 },
                     handDirection: 'up',
-                    handText: 'Chạm vào đây!',
+                    handText: 'Kéo thả vào thùng 🐧',
                     padding: 8,
                     pulse: true
                 });
@@ -203,7 +234,7 @@ export class TutorialManager {
                 this.showStep({
                     targetEl: box0El,
                     badge: 'BƯỚC 2 / 4 • GOM 3 MÓN CÙNG LOẠI',
-                    text: 'Chạm vào <b>Thùng chim cánh cụt 🐧</b> để gom đủ 3 món!',
+                    text: 'Thả vào <b>Thùng chim cánh cụt 🐧</b> để gom đủ 3 món!',
                     handOffset: { x: 0, y: 65 },
                     handDirection: 'up',
                     handText: 'Thả vào đây!',
@@ -242,10 +273,10 @@ export class TutorialManager {
                 this.showStep({
                     targetEl: target,
                     badge: 'BƯỚC 4 / 4 • GOM GẤU BÔNG 🧸',
-                    text: 'Rất tốt! Giờ hãy chạm vào chú <b>Gấu bông 🧸</b> ở thùng bên dưới để lấy ra.',
+                    text: 'Rất tốt! Giờ hãy <b>kéo</b> chú <b>Gấu bông 🧸</b> thả vào <b>Thùng gấu bông 🧸</b> phía trên!',
                     handOffset: { x: 0, y: 55 },
                     handDirection: 'up',
-                    handText: 'Lấy gấu bông 🧸',
+                    handText: 'Kéo gấu bông 🧸',
                     padding: 8,
                     pulse: true
                 });
@@ -259,10 +290,10 @@ export class TutorialManager {
                 this.showStep({
                     targetEl: box2El,
                     badge: 'HOÀN THÀNH • GOM ĐỦ 3 GẤU BÔNG',
-                    text: 'Chạm vào <b>Thùng gấu bông 🧸</b> phía trên để hoàn tất đóng gói!',
+                    text: 'Thả vào <b>Thùng gấu bông 🧸</b> phía trên để hoàn tất đóng gói!',
                     handOffset: { x: 0, y: 65 },
                     handDirection: 'up',
-                    handText: 'Gom vào đây!',
+                    handText: 'Thả vào đây!',
                     padding: 12,
                     pulse: true
                 });

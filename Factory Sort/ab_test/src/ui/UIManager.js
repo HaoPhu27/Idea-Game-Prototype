@@ -22,7 +22,8 @@ class UIManager {
         this.boxRenderer = new BoxRenderer(
             'boxes-grid',
             this.handleSlotTap.bind(this),
-            this.handleDragStart.bind(this)
+            this.handleDragStart.bind(this),
+            this.handleItemDragStart.bind(this)
         );
         this.trayRenderer = new TrayRenderer('trays-container');
         this.trayRenderer.onTick = this.checkQueuePickup.bind(this);
@@ -71,6 +72,20 @@ class UIManager {
             targetTrayId: null,
             ghostW: 0,
             ghostH: 0
+        };
+        this.itemDragState = {
+            isDragging: false,
+            sourceBoxId: null,
+            sourceSlotIndex: null,
+            itemId: null,
+            targetBoxId: null,
+            targetSlotIndex: null,
+            pointerId: null,
+            pointerTarget: null,
+            sourceSlotEl: null,
+            ghostEl: null,
+            startX: 0,
+            startY: 0
         };
         this._animating = false;
         this.GHOST_LIFT = 28;
@@ -164,10 +179,19 @@ class UIManager {
         };
         document.addEventListener('pointerdown', unlockAudio);
 
-        // Global pointer events for dragging
-        document.addEventListener('pointermove', this.handleDragMove.bind(this));
-        document.addEventListener('pointerup', this.handleDragEnd.bind(this));
-        document.addEventListener('pointercancel', this.handleDragEnd.bind(this));
+        // Global pointer events for dragging (wrapped boxes to trays & items between boxes)
+        document.addEventListener('pointermove', (e) => {
+            this.handleDragMove(e);
+            this.handleItemDragMove(e);
+        });
+        document.addEventListener('pointerup', (e) => {
+            this.handleDragEnd(e);
+            this.handleItemDragEnd(e);
+        });
+        document.addEventListener('pointercancel', (e) => {
+            this.handleDragEnd(e);
+            this.handleItemDragEnd(e);
+        });
     }
     
     renderMoveLimit() {
@@ -378,14 +402,23 @@ class UIManager {
     }
 
     _renderNow() {
-        const validTargets = this.engine.selectedSource ? this.engine.getValidTargets(this.engine.selectedSource.boxId) : [];
+        const validTargets = this.itemDragState.isDragging
+            ? this.engine.getValidTargets(this.itemDragState.sourceBoxId)
+            : (this.engine.selectedSource ? this.engine.getValidTargets(this.engine.selectedSource.boxId) : []);
         const hiddenCounts = this.engine.columns.map(
             col => Math.max(0, col.length - this.engine.visibleRows));
             
+        const peekingBoxes = this.engine.columns.map(col => {
+            if (col.length > this.engine.visibleRows) {
+                return this.engine.getBox(col[this.engine.visibleRows]);
+            }
+            return null;
+        });
+
         const grid = document.getElementById('boxes-grid');
         const truoc = new Map();
         if (!this._boLuotFlip && grid) {
-            for (const el of grid.querySelectorAll('.box[data-box-id]')) {
+            for (const el of grid.querySelectorAll('.box:not(.peek-box)[data-box-id]')) {
                 truoc.set(el.dataset.boxId, el.getBoundingClientRect());
             }
         }
@@ -395,7 +428,8 @@ class UIManager {
             this.engine.selectedSource,
             validTargets,
             hiddenCounts,
-            this.engine.visibleRows
+            this.engine.visibleRows,
+            peekingBoxes
         );
             
         this._chayFlip(grid, truoc);
@@ -405,6 +439,15 @@ class UIManager {
         if (this.dragState.isDragging && this.dragState.boxId) {
             const dragBoxEl = document.querySelector(`.box[data-box-id="${this.dragState.boxId}"]`);
             if (dragBoxEl) dragBoxEl.classList.add('dragging');
+        }
+
+        // Ensure slot-dragging class persists on rerender
+        if (this.itemDragState.isDragging && this.itemDragState.sourceBoxId !== null) {
+            const srcBoxEl = document.querySelector(`.box[data-box-id="${this.itemDragState.sourceBoxId}"]`);
+            if (srcBoxEl) {
+                const slotEl = srcBoxEl.querySelector(`.slot[data-slot-index="${this.itemDragState.sourceSlotIndex}"]`);
+                if (slotEl) slotEl.classList.add('slot-dragging');
+            }
         }
         
         let highlightTray = null;
@@ -430,11 +473,14 @@ class UIManager {
         const itMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (itMotion || this._boLuotFlip) return;
 
-        const THOI_LUONG = 340;
-        const NHIP = 'cubic-bezier(.16, 1, .3, 1)';
+        const THOI_LUONG = 2400;
+        const NHIP = 'cubic-bezier(0.25, 1, 0.4, 1)';
         const animatedCols = new Set();
 
-        for (const el of grid.querySelectorAll('.box[data-box-id]')) {
+        const cs = getComputedStyle(grid);
+        const gap = parseFloat(cs.rowGap || cs.gap) || 8;
+
+        for (const el of grid.querySelectorAll('.box:not(.peek-box)[data-box-id]')) {
             if (el.classList.contains('dragging')) continue;
 
             const cu = truoc.get(el.dataset.boxId);
@@ -443,11 +489,12 @@ class UIManager {
             const colIndex = colEl && colEl.dataset.colIndex !== undefined ? Number(colEl.dataset.colIndex) : null;
 
             if (!cu) {
-                // Thùng mới từ kho trên đỉnh trượt XUỐNG
+                // Thùng mới từ đáy trượt LÊN vị trí hàng dưới cùng
+                const startY = moi.height + gap;
                 el.animate(
-                    [ { transform: `translateY(${-(moi.height + 14)}px)`, opacity: 0 },
+                    [ { transform: `translateY(${startY}px)`, opacity: 0.72 },
                       { transform: 'none', opacity: 1 } ],
-                    { duration: THOI_LUONG, easing: NHIP, delay: 50, fill: 'backwards' }
+                    { duration: THOI_LUONG, easing: NHIP }
                 );
                 if (colIndex !== null && !animatedCols.has(colIndex)) {
                     animatedCols.add(colIndex);
@@ -466,11 +513,26 @@ class UIManager {
                 { duration: THOI_LUONG, easing: NHIP }
             );
 
-            // Thùng trượt xuống theo dây chuyền băng tải
+            // Băng chuyền đẩy các thùng trượt lên
             if (colIndex !== null && !animatedCols.has(colIndex)) {
                 animatedCols.add(colIndex);
                 this.boxRenderer.triggerRollAnimation(colIndex);
                 this.audio.conveyorRoll();
+            }
+        }
+
+        // Animate thùng trong ô peek ở đáy trượt lên từ từ
+        for (const colIndex of animatedCols) {
+            const peekSlot = this.boxRenderer._peekSlots ? this.boxRenderer._peekSlots[colIndex] : null;
+            const peekBox = peekSlot ? peekSlot.querySelector('.box.peek-box') : null;
+            if (peekBox) {
+                const peekRect = peekBox.getBoundingClientRect();
+                const startY = peekRect.height + gap;
+                peekBox.animate(
+                    [ { transform: `translateY(${startY}px)`, opacity: 0.25 },
+                      { transform: 'none', opacity: 0.72 } ],
+                    { duration: THOI_LUONG, easing: NHIP }
+                );
             }
         }
 
@@ -486,7 +548,7 @@ class UIManager {
 
     // --- Layer 1 Input (Tap) ---
     handleSlotTap(boxId, itemIndex) {
-        if (this.dragState.isDragging) return;
+        if (this.dragState.isDragging || this.itemDragState.isDragging) return;
         if (this._animating) return;
         
         // During tutorial, enforce allowed target to prevent accidental wrong placement
@@ -513,76 +575,12 @@ class UIManager {
             const sourceBoxBefore = this.engine.getBox(sourceId);
             const willEmpty = sourceBoxBefore && sourceBoxBefore.items.length === 1;
 
-            if (this.engine.selectTarget(boxId)) {
+            if (this.engine.selectTarget(boxId, itemIndex)) {
                 this.audio.swap();
                 this._animating = true;
                 const targetBox = this.engine.getBox(boxId);
                 this.boxRenderer.animateItemTransfer(sourceId, boxId, () => {
-                    const finishTransfer = () => {
-                        if (targetBox.isWrapped) {
-                            // Apply wrapped class to existing DOM to trigger transition
-                            const domBox = document.querySelector(`.box[data-box-id="${boxId}"]`);
-                            if (domBox) {
-                                const catConfig = getCategoryConfig(targetBox.getCategory());
-                                const itemType = targetBox.getItemType() || (targetBox.items.length > 0 ? targetBox.items[0] : null);
-                                const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
-                                if (catConfig) {
-                                    domBox.style.setProperty('--cat-color', catConfig.color);
-                                    let logo = domBox.querySelector('.box-logo');
-                                    if (!logo) {
-                                        logo = document.createElement('div');
-                                        logo.className = 'box-logo';
-                                        domBox.appendChild(logo);
-                                    }
-                                    logo.style.setProperty('--cat-color', catConfig.color);
-                                    logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
-                                }
-                                domBox.classList.add('wrapped');
-                            }
-                            
-                            // Doi flap gop lai va dan bang keo (0.5s) -> sau do bay xuong hang cho
-                            setTimeout(() => {
-                                const currentQueue = this.engine.getQueue();
-                                const nextSlotIdx = currentQueue.length;
-                                const domBoxCurrent = document.querySelector(`.box[data-box-id="${boxId}"]`);
-                                const wrapColEl = domBoxCurrent ? domBoxCurrent.closest('.box-column') : null;
-                                if (wrapColEl && wrapColEl.dataset.colIndex !== undefined) {
-                                    this._lastAffectedColIndex = Number(wrapColEl.dataset.colIndex);
-                                }
-
-                                this.queueRenderer.animateBoxToQueue(targetBox, nextSlotIdx, domBoxCurrent, () => {
-                                    targetBox.queueEnteredTime = performance.now();
-                                    this.engine.moveBoxToQueue(targetBox);
-                                    this._animating = false;
-                                    this.updateRender();
-                                });
-                            }, 550);
-                        } else {
-                            this._animating = false;
-                            this.updateRender();
-                        }
-                    };
-
-                    if (willEmpty) {
-                        // Thung nguon da rong -> hieu ung bien mat nhe nhang truoc khi cot tut xuong
-                        const srcDom = document.querySelector(`.box[data-box-id="${sourceId}"]`);
-                        if (srcDom) {
-                            const emptyColEl = srcDom.closest('.box-column');
-                            if (emptyColEl && emptyColEl.dataset.colIndex !== undefined) {
-                                this._lastAffectedColIndex = Number(emptyColEl.dataset.colIndex);
-                            }
-                            this.vfx.praise(srcDom, 'DỌN GỌN! 🧹', 1);
-                            srcDom.classList.add('disappearing');
-                            if (navigator.vibrate) navigator.vibrate(20);
-                            setTimeout(() => {
-                                finishTransfer();
-                            }, 200);
-                        } else {
-                            finishTransfer();
-                        }
-                    } else {
-                        finishTransfer();
-                    }
+                    this._finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox);
                 });
             } else {
                 // Invalid or deselected
@@ -604,6 +602,312 @@ class UIManager {
                 
                 this.updateRender();
             }
+        }
+    }
+
+    // --- Layer 1 Input: Item Drag & Drop ---
+    handleItemDragStart(boxId, slotIndex, slotEl, e) {
+        if (this._animating) return;
+        if (this.dragState.isDragging || this.itemDragState.isDragging) return;
+        if (!this.engine.isAccessible(boxId)) return;
+
+        const box = this.engine.getBox(boxId);
+        if (!box || box.isWrapped) return;
+
+        const itemId = box.slots ? box.slots[slotIndex] : null;
+        if (!itemId) return;
+
+        // Tutorial check
+        if (this.tutorialManager && this.tutorialManager.active) {
+            if (this.tutorialManager.isAllowedDragStart && !this.tutorialManager.isAllowedDragStart(boxId)) {
+                this.tutorialManager.onDisallowedTap(boxId);
+                return;
+            }
+        }
+
+        if (e) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.pointerId !== undefined && slotEl && slotEl.setPointerCapture) {
+                try { slotEl.setPointerCapture(e.pointerId); } catch (_) {}
+            }
+        }
+
+        this.itemDragState.isDragging = true;
+        this.itemDragState.sourceBoxId = boxId;
+        this.itemDragState.sourceSlotIndex = slotIndex;
+        this.itemDragState.itemId = itemId;
+        this.itemDragState.targetBoxId = null;
+        this.itemDragState.targetSlotIndex = null;
+        this.itemDragState.pointerId = e ? e.pointerId : null;
+        this.itemDragState.pointerTarget = slotEl;
+        this.itemDragState.sourceSlotEl = slotEl;
+        this.itemDragState.startX = e ? e.clientX : 0;
+        this.itemDragState.startY = e ? e.clientY : 0;
+
+        slotEl.classList.add('slot-dragging');
+        document.body.classList.add('is-item-dragging');
+
+        // Create or get ghost
+        let ghost = document.getElementById('item-drag-ghost');
+        if (!ghost) {
+            ghost = document.createElement('div');
+            ghost.id = 'item-drag-ghost';
+            ghost.className = 'item-drag-ghost';
+            document.body.appendChild(ghost);
+        }
+        ghost.textContent = getItemEmoji(itemId);
+        ghost.style.display = 'flex';
+        ghost.style.transition = 'none';
+        ghost.style.left = `${e ? e.clientX : 0}px`;
+        ghost.style.top = `${(e ? e.clientY : 0) - 22}px`;
+        ghost.style.transform = 'translate(-50%, -50%) scale(1.18)';
+        ghost.style.opacity = '1';
+        this.itemDragState.ghostEl = ghost;
+
+        this.audio.tap();
+        if (navigator.vibrate) navigator.vibrate(10);
+
+        this.updateRender();
+    }
+
+    handleItemDragMove(e) {
+        if (!this.itemDragState.isDragging) return;
+        if (e.preventDefault) e.preventDefault();
+
+        const ghost = this.itemDragState.ghostEl;
+        if (ghost) {
+            ghost.style.left = `${e.clientX}px`;
+            ghost.style.top = `${e.clientY - 22}px`;
+        }
+
+        // Hit test: kiem tra ca diem cham va vi tri ghost
+        let elementsUnder = document.elementsFromPoint(e.clientX, e.clientY);
+        let boxEl = elementsUnder.find(el => el.classList && el.classList.contains('box') && !el.classList.contains('peek-box'));
+        let slotEl = elementsUnder.find(el => el.classList && el.classList.contains('slot'));
+
+        if (!boxEl) {
+            const hitUnderGhost = document.elementsFromPoint(e.clientX, e.clientY - 22);
+            boxEl = hitUnderGhost.find(el => el.classList && el.classList.contains('box') && !el.classList.contains('peek-box'));
+            if (!slotEl) slotEl = hitUnderGhost.find(el => el.classList && el.classList.contains('slot'));
+        }
+
+        // Clear existing hover highlights
+        document.querySelectorAll('.box.drag-over').forEach(b => b.classList.remove('drag-over'));
+        document.querySelectorAll('.slot.drop-target-active').forEach(s => s.classList.remove('drop-target-active'));
+
+        if (boxEl) {
+            const hoverBoxId = boxEl.dataset.boxId;
+            const targetBox = this.engine.getBox(hoverBoxId);
+            const isSource = String(hoverBoxId) === String(this.itemDragState.sourceBoxId);
+            const isValid = !isSource && targetBox && !targetBox.isWrapped && targetBox.canAccept() && this.engine.isAccessible(hoverBoxId);
+
+            if (isValid) {
+                boxEl.classList.add('drag-over');
+                this.itemDragState.targetBoxId = hoverBoxId;
+
+                if (slotEl && slotEl.closest('.box') === boxEl && slotEl.classList.contains('placeholder')) {
+                    slotEl.classList.add('drop-target-active');
+                    this.itemDragState.targetSlotIndex = Number(slotEl.dataset.slotIndex);
+                } else {
+                    this.itemDragState.targetSlotIndex = null;
+                }
+            } else {
+                this.itemDragState.targetBoxId = null;
+                this.itemDragState.targetSlotIndex = null;
+            }
+        } else {
+            this.itemDragState.targetBoxId = null;
+            this.itemDragState.targetSlotIndex = null;
+        }
+    }
+
+    handleItemDragEnd(e) {
+        if (!this.itemDragState.isDragging) return;
+
+        if (this.itemDragState.pointerId !== null && this.itemDragState.pointerTarget && this.itemDragState.pointerTarget.releasePointerCapture) {
+            try { this.itemDragState.pointerTarget.releasePointerCapture(this.itemDragState.pointerId); } catch (_) {}
+        }
+        this.itemDragState.pointerId = null;
+        this.itemDragState.pointerTarget = null;
+
+        document.querySelectorAll('.box.drag-over').forEach(b => b.classList.remove('drag-over'));
+        document.querySelectorAll('.slot.drop-target-active').forEach(s => s.classList.remove('drop-target-active'));
+
+        const srcBoxId = this.itemDragState.sourceBoxId;
+        const srcSlotIndex = this.itemDragState.sourceSlotIndex;
+        let targetBoxId = this.itemDragState.targetBoxId;
+        let targetSlotIndex = this.itemDragState.targetSlotIndex;
+        const ghost = this.itemDragState.ghostEl;
+        const srcSlotEl = this.itemDragState.sourceSlotEl;
+
+        // Neu targetBoxId chua co, kiem tra truc tiep tai toa do pointerup
+        if (e && (targetBoxId === null || targetBoxId === undefined)) {
+            const elementsUnder = document.elementsFromPoint(e.clientX, e.clientY);
+            const boxEl = elementsUnder.find(el => el.classList && el.classList.contains('box') && !el.classList.contains('peek-box'));
+            const slotEl = elementsUnder.find(el => el.classList && el.classList.contains('slot'));
+            if (boxEl) {
+                const hoverBoxId = boxEl.dataset.boxId;
+                const targetBox = this.engine.getBox(hoverBoxId);
+                const isSource = String(hoverBoxId) === String(srcBoxId);
+                if (!isSource && targetBox && !targetBox.isWrapped && targetBox.canAccept() && this.engine.isAccessible(hoverBoxId)) {
+                    targetBoxId = hoverBoxId;
+                    if (slotEl && slotEl.closest('.box') === boxEl && slotEl.classList.contains('placeholder')) {
+                        targetSlotIndex = Number(slotEl.dataset.slotIndex);
+                    }
+                }
+            }
+        }
+
+        this.itemDragState.isDragging = false;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => document.body.classList.remove('is-item-dragging'));
+        });
+
+        // If targetBoxId is valid
+        if (targetBoxId !== null && targetBoxId !== srcBoxId) {
+            // Tutorial check
+            if (this.tutorialManager && this.tutorialManager.active) {
+                if (this.tutorialManager.isAllowedDrop && !this.tutorialManager.isAllowedDrop(srcBoxId, targetBoxId)) {
+                    this.tutorialManager.onDisallowedTap(targetBoxId);
+                    this._cancelItemDrag(ghost, srcSlotEl);
+                    return;
+                }
+            }
+
+            const targetBoxEl = document.querySelector(`.box[data-box-id="${targetBoxId}"]`);
+            let targetSlotEl = null;
+            if (targetBoxEl) {
+                if (targetSlotIndex !== null) {
+                    targetSlotEl = targetBoxEl.querySelector(`.slot[data-slot-index="${targetSlotIndex}"]`);
+                }
+                if (!targetSlotEl || !targetSlotEl.classList.contains('placeholder')) {
+                    targetSlotEl = targetBoxEl.querySelector('.slot.placeholder');
+                }
+            }
+
+            const sourceBoxBefore = this.engine.getBox(srcBoxId);
+            const willEmpty = sourceBoxBefore && sourceBoxBefore.items.length === 1;
+
+            const success = this.engine.moveItem(srcBoxId, srcSlotIndex, targetBoxId, targetSlotIndex);
+            if (success) {
+                this.audio.swap();
+                this._animating = true;
+                if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
+
+                if (ghost && targetSlotEl) {
+                    const targetRect = targetSlotEl.getBoundingClientRect();
+                    ghost.style.transition = 'all 0.14s cubic-bezier(0.2, 0.9, 0.4, 1)';
+                    ghost.style.left = `${targetRect.left + targetRect.width / 2}px`;
+                    ghost.style.top = `${targetRect.top + targetRect.height / 2}px`;
+                    ghost.style.transform = 'translate(-50%, -50%) scale(1)';
+                }
+
+                if (this.tutorialManager && this.tutorialManager.active) {
+                    this.tutorialManager.onItemDropped(srcBoxId, targetBoxId);
+                }
+
+                setTimeout(() => {
+                    if (ghost) ghost.style.display = 'none';
+                    const targetBox = this.engine.getBox(targetBoxId);
+                    this._finalizeMoveAfterDrag(srcBoxId, targetBoxId, willEmpty, targetBox);
+                }, 140);
+                return;
+            }
+        }
+
+        // Invalid target -> cancel & snap back
+        this._cancelItemDrag(ghost, srcSlotEl);
+    }
+
+    _cancelItemDrag(ghost, srcSlotEl) {
+        this.audio.reject();
+        if (navigator.vibrate) navigator.vibrate(18);
+
+        if (ghost && srcSlotEl) {
+            const rect = srcSlotEl.getBoundingClientRect();
+            ghost.style.transition = 'all 0.18s cubic-bezier(0.25, 1, 0.5, 1)';
+            ghost.style.left = `${rect.left + rect.width / 2}px`;
+            ghost.style.top = `${rect.top + rect.height / 2}px`;
+            ghost.style.transform = 'translate(-50%, -50%) scale(0.95)';
+            ghost.style.opacity = '0.7';
+
+            setTimeout(() => {
+                ghost.style.display = 'none';
+                ghost.style.transition = '';
+                ghost.style.transform = '';
+                ghost.style.opacity = '';
+                if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
+                this.updateRender();
+            }, 180);
+        } else {
+            if (ghost) ghost.style.display = 'none';
+            if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
+            this.updateRender();
+        }
+    }
+
+    _finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox) {
+        const finishTransfer = () => {
+            if (targetBox && targetBox.isWrapped) {
+                const domBox = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                if (domBox) {
+                    const catConfig = getCategoryConfig(targetBox.getCategory());
+                    const itemType = targetBox.getItemType() || (targetBox.items.length > 0 ? targetBox.items[0] : null);
+                    const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
+                    if (catConfig) {
+                        domBox.style.setProperty('--cat-color', catConfig.color);
+                        let logo = domBox.querySelector('.box-logo');
+                        if (!logo) {
+                            logo = document.createElement('div');
+                            logo.className = 'box-logo';
+                            domBox.appendChild(logo);
+                        }
+                        logo.style.setProperty('--cat-color', catConfig.color);
+                        logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
+                    }
+                    domBox.classList.add('wrapped');
+                }
+                
+                setTimeout(() => {
+                    const currentQueue = this.engine.getQueue();
+                    const nextSlotIdx = currentQueue.length;
+                    const domBoxCurrent = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                    const wrapColEl = domBoxCurrent ? domBoxCurrent.closest('.box-column') : null;
+                    if (wrapColEl && wrapColEl.dataset.colIndex !== undefined) {
+                        this._lastAffectedColIndex = Number(wrapColEl.dataset.colIndex);
+                    }
+
+                    this.queueRenderer.animateBoxToQueue(targetBox, nextSlotIdx, domBoxCurrent, () => {
+                        targetBox.queueEnteredTime = performance.now();
+                        this.engine.moveBoxToQueue(targetBox);
+                        this._animating = false;
+                        this.updateRender();
+                    });
+                }, 550);
+            } else {
+                this._animating = false;
+                this.updateRender();
+            }
+        };
+
+        if (willEmpty) {
+            const srcDom = document.querySelector(`.box[data-box-id="${sourceId}"]`);
+            if (srcDom) {
+                const emptyColEl = srcDom.closest('.box-column');
+                if (emptyColEl && emptyColEl.dataset.colIndex !== undefined) {
+                    this._lastAffectedColIndex = Number(emptyColEl.dataset.colIndex);
+                }
+                this.vfx.praise(srcDom, 'DỌN GỌN! 🧹', 1);
+                srcDom.classList.add('disappearing');
+                if (navigator.vibrate) navigator.vibrate(20);
+                setTimeout(() => {
+                    finishTransfer();
+                }, 200);
+            } else {
+                finishTransfer();
+            }
+        } else {
+            finishTransfer();
         }
     }
     
@@ -787,7 +1091,7 @@ class UIManager {
             if (!slotEl || !trayEl) continue;
 
             // Phase 1 §1.4: Tách giao hàng khỏi toạ độ hình học
-            if (!this.trayRenderer.isInDeliveryZone(trayObj, slotIdx, queue.length)) continue;
+            if (!this.trayRenderer.isInDeliveryZone(trayObj, slotEl, queue.length)) continue;
 
             this.triggerQueueDelivery(box, matchingTray, slotEl, trayEl);
             break; // Giao 1 thung moi lan

@@ -532,9 +532,23 @@ html, body {
     }
 }
 
+@keyframes cleatBeltScrollUp {
+    0% {
+        background-position: 0 0, 0 0, 0 0;
+    }
+    100% {
+        background-position: 0 -96px, 0 0, 0 0;
+    }
+}
+
 .conveyor-cleat-belt.rolling-down,
 .conveyor-roller-bed.rolling-down {
     animation: cleatBeltScroll 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.conveyor-cleat-belt.rolling-up,
+.conveyor-roller-bed.rolling-up {
+    animation: cleatBeltScrollUp 2.4s cubic-bezier(0.25, 1, 0.4, 1);
 }
 
 /* 2. Thanh nhôm định hình T-Slot 2 bên (T-Slot Aluminum Extrusion Side Beams) */
@@ -930,14 +944,14 @@ html, body {
 }
 
 .flap.top {
-    top: -34%; left: 0; width: 100%; height: 34%;
+    top: calc(-50% + 3.5px); left: 0; width: 100%; height: calc(50% - 3.5px);
     transform-origin: bottom center;
     border-radius: 6px 6px 0 0;
     z-index: 3;
 }
 
 .flap.bottom {
-    top: calc(100% - 7px); left: 0; width: 100%; height: 34%;
+    top: calc(100% - 7px); left: 0; width: 100%; height: calc(50% - 3.5px);
     transform-origin: top center;
     border-radius: 0 0 6px 6px;
     z-index: 3;
@@ -946,21 +960,34 @@ html, body {
 /* Wrapped State Animation (Folding IN) */
 .box.wrapped .flap.top { 
     transform: rotateX(-180deg); 
-    opacity: 1;
+    opacity: 1; 
     z-index: 10; 
 }
 .box.wrapped .flap.bottom { 
-    transform: rotateX(180deg);
-    opacity: 1;
+    transform: rotateX(180deg); 
+    opacity: 1; 
     z-index: 10; 
+}
+
+/* Ẩn các item bên trong khi thùng đã đóng gói kín */
+.box.wrapped .top-face .slot {
+    opacity: 0 !important;
+    transition: opacity 0.2s ease;
+}
+
+/* Giữ viền thùng đóng gói luôn là màu bìa carton cơ khí, không bị viền xanh neon */
+.box.wrapped .flap,
+.box.wrapped .top-face,
+.box.wrapped .front-face {
+    border-color: #8c6239 !important;
 }
 
 .tape {
     position: absolute;
-    top: 50%;
+    top: calc(50% - 3.5px);
     left: 0;
     width: 100%;
-    height: 16%;
+    height: 22%;
     background: rgba(230, 200, 150, 0.95);
     border-top: 1px solid rgba(0,0,0,0.15);
     border-bottom: 1px solid rgba(0,0,0,0.15);
@@ -978,7 +1005,7 @@ html, body {
 /* Box Category Logo (Packed/Wrapped) */
 .box-logo {
     position: absolute;
-    top: 50%;
+    top: calc(50% - 3.5px);
     left: 50%;
     transform: translate(-50%, -50%) scale(0.2);
     width: 38px;
@@ -1040,24 +1067,22 @@ html, body {
 .slot {
     flex: 1 1 0;
     min-width: 0;
-    /* KHONG dung aspect-ratio: 1/1.
-       Ly do: `min-height: auto` suy tu noi dung (emoji + line-height) LON HON canh
-       vuong, nen aspect-ratio bi ghi de am tham — do dung 31x38 chu khong phai 31x31.
-       Dat thang chieu cao theo be rong o thi vua chac chan vua lap day duoc phan
-       chieu cao du cua Thung (be rong o do so cot quyet dinh nen luon la nut that). */
-    height: min(100%, calc(var(--slot-size, 30px) * 1.5));
-    min-height: 0;
+    height: calc(100% - 6px);
+    max-height: calc(var(--slot-size, 30px) * 1.35);
     align-self: center;
     margin: 0;
-    display: grid;
-    place-items: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
     line-height: 1;
-    font-size: min(var(--slot-size, 30px) * 0.86, var(--box-h, 105px) * 0.44);
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+    font-size: min(calc(var(--slot-size, 30px) * 0.70), calc(var(--box-h, 105px) * 0.32), 23px);
     position: relative;
     z-index: 5;
-    border-radius: 9px;
+    border-radius: 8px;
     background: rgba(0, 0, 0, 0.22);
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+    box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.45);
     border: 1px solid rgba(255, 255, 255, 0.06);
     transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
@@ -1109,6 +1134,65 @@ html, body {
     font-size: 24px;
     transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     pointer-events: none;
+}
+
+/* Item Drag & Drop Styles */
+.box:not(.wrapped) .slot:not(.placeholder) {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body.is-item-dragging {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grabbing !important;
+}
+
+body.is-item-dragging * {
+    cursor: grabbing !important;
+}
+
+.slot.slot-dragging {
+    opacity: 0.28 !important;
+    transform: scale(0.92) !important;
+    border-style: dashed !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.item-drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 99999;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    line-height: 1;
+    font-size: 32px;
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+    filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+    transform: translate(-50%, -50%) scale(1.18);
+    will-change: left, top, transform;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.box.drag-over {
+    box-shadow: 0 0 0 2px #f59e0b, 0 8px 24px rgba(245, 158, 11, 0.45) !important;
+    transform: translateY(-2px) scale(1.02);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.slot.drop-target-active {
+    background: rgba(245, 158, 11, 0.35) !important;
+    border: 1.5px dashed #f59e0b !important;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.6), inset 0 0 8px rgba(245, 158, 11, 0.3) !important;
+    transform: scale(1.12) !important;
+    z-index: 10;
 }
 
 /* Staging Roller Deck (Centered Inside Conveyor Loop - Sleek Smooth Style) */
@@ -1210,6 +1294,7 @@ html, body {
 
 .queue-slots {
     display: flex;
+    flex-direction: row-reverse;
     justify-content: space-between;
     align-items: center;
     gap: 5px;
@@ -2405,15 +2490,13 @@ html, body {
     display: flex;
     flex-direction: column;
     gap: 5px;
-    padding: 12px 10px calc(4px + env(safe-area-inset-bottom, 0px)) 10px;
+    padding: 6px 12px 2px 12px;
     overflow: visible;
 
-    /* Vong chay can chua HAI nhanh Khay chong len nhau theo chieu doc.
-       118px la muc toi thieu de 2 nhanh khong dam vao nhau (2 x 48 + le).
-       Van chi bang mot NUA cua ban delivery (242px). */
-    --lane-h: clamp(120px, 19vh, 134px);
+    /* Vòng chạy khay cân đối, không lấn át quá nhiều không gian của bàn chơi */
+    --lane-h: clamp(138px, 20.5vh, 168px);
     --belt-inset: 10px;
-    --belt-radius: 16px;
+    --belt-radius: 18px;
 }
 
 /* Hang 1 — LAN CHAY: dua bang tai VAO LUONG, khong con absolute */
@@ -2429,9 +2512,7 @@ html, body {
     overflow: visible;                 /* de cong IN/OUT nho len tren mep */
 
     /* Khung may (chassis): chi la CAI BE cho duong chay nam len. Mat dai bang tai
-       do <svg class="belt-track"> ve — xem TrayRenderer._paintTrack().
-       Truoc day khung nay tu ve vach doc de gia lam mat dai; nhung vach doc tren mot
-       cai hop chu nhat khong doc ra la mot VONG CHAY — dung dieu nguoi choi phan anh. */
+       do <svg class="belt-track"> ve — xem TrayRenderer._paintTrack(). */
     background: linear-gradient(180deg, #161f2b 0%, #10171f 55%, #0b1119 100%);
     border: 2px solid #33445a;
     border-top-color: #4a6180;
@@ -2474,13 +2555,12 @@ html, body {
 }
 
 /* Lop Khay phu KHIT len lan chay va CAT o hai dau: Khay truot ra tu duoi tam chan
-   cong IN, qua lan, roi khuat sau tam chan cong OUT. Day la thu tra lai cam giac
-   "may dang chay" ma ban truoc lam mat. */
+   cong IN, qua lan, roi khuat sau tam chan cong OUT. */
 [data-layout="inverted"] #trays-container {
     position: absolute;
     left: var(--belt-inset);
     right: var(--belt-inset);
-    top: 12px;
+    top: 6px;
     width: auto;
     height: var(--lane-h);
     overflow: hidden;
@@ -2488,12 +2568,10 @@ html, body {
     z-index: 6;
 }
 
-/* Cong IN/OUT thanh TAM CHAN dung o hai dau lan, khong con la nhan noi lo lung.
-   Neo theo #tray-area (cha moi) chu khong theo bang tai: dinh lan = padding-top 12px,
-   nen tam lan = 12px + --lane-h / 2. */
+/* Cong IN/OUT thanh TAM CHAN dung o hai dau lan, khong con la nhan noi lo lung. */
 [data-layout="inverted"] .port-out,
 [data-layout="inverted"] .port-in {
-    top: 14px;
+    top: 8px;
     height: calc(var(--lane-h) - 4px);
     transform: none;
     z-index: 8;
@@ -2516,23 +2594,189 @@ html, body {
 [data-layout="inverted"] .port-in  { right: 12px; border-radius: 0 14px 14px 0;
     background: linear-gradient(270deg, #1a2434 0%, #1a2434 55%, rgba(26, 36, 52, 0) 100%); }
 
-/* Hang 2 — HANG CHO: hang rieng, khong bao gio bi bang tai de len nua */
+/* Hang 2 — HANG CHO: gon gang, ty le hai hoa */
 [data-layout="inverted"] #queue-area {
     position: static;
     transform: none;
     width: 100%;
     max-width: none;
     margin-top: 0;
-    padding: 4px 8px 6px;
+    padding: 3px 8px 4px;
     z-index: auto;
     flex: 0 0 auto;
 }
 
+[data-layout="inverted"] .queue-slots {
+    flex-direction: row-reverse;
+    gap: 6px;
+}
+
+[data-layout="inverted"] .queue-slot {
+    height: clamp(40px, 5.6vh, 48px);
+    border-radius: 9px;
+}
+
+[data-layout="inverted"] .queue-box .queue-box-icon {
+    font-size: 22px;
+}
+
+[data-layout="inverted"] .queue-counter {
+    font-size: 11px;
+    padding: 2px 8px;
+}
+
+/* Khu vuc thung hang: mo rong be ngang, bo cuc day thung peeking day len tren */
 [data-layout="inverted"] #boxes-area {
     order: 2;
     flex: 1 1 auto;
     min-height: 0;
-    padding: 6px 20px calc(8px + env(safe-area-inset-bottom, 0px)) 20px;
+    padding: 4px 10px calc(6px + env(safe-area-inset-bottom, 0px)) 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+[data-layout="inverted"] #boxes-grid {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: clamp(6px, 1.8vw, 12px);
+    width: 100%;
+    max-width: min(450px, 100%);
+    height: 100%;
+    /* Khóa chiều cao 3 cột theo 4 hàng thùng + 1 khoảng peek ở đáy */
+    max-height: calc(var(--rows, 4) * var(--box-h) + (var(--rows, 4) - 1) * var(--stack-gap) + var(--peek-h, 34px) + 20px);
+    overflow: visible;
+}
+
+[data-layout="inverted"] .box-column {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    height: 100%;
+    max-height: calc(var(--rows, 4) * var(--box-h) + (var(--rows, 4) - 1) * var(--stack-gap) + var(--peek-h, 34px) + 20px);
+    position: relative;
+}
+
+[data-layout="inverted"] .conveyor-track {
+    position: relative;
+    width: 100%;
+    flex: 1 1 auto;
+    height: 100%;
+    max-height: calc(var(--rows, 4) * var(--box-h) + (var(--rows, 4) - 1) * var(--stack-gap) + var(--peek-h, 34px) + 20px);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    padding: 6px 0 6px 0;
+    border-radius: 8px 8px 10px 10px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* Trong layout inverted, chồng thùng neo từ TRÊN (Row 0) xuống DƯỚI (Row 3) */
+[data-layout="inverted"] .box-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--stack-gap, 8px);
+    overflow: visible;
+    height: auto;
+    flex: 0 0 auto;
+    width: 100%;
+    position: relative;
+    z-index: 2;
+    justify-content: flex-start;
+}
+
+/* Ô peek ở đáy băng chuyền: hiển thị hé lộ thùng ẩn kế tiếp từ bên dưới */
+[data-layout="inverted"] .conveyor-bottom-peek {
+    position: relative;
+    width: 100%;
+    height: var(--peek-h, 34px);
+    margin-top: var(--stack-gap, 8px);
+    overflow: hidden;
+    border-radius: 4px 4px 8px 8px;
+    pointer-events: none;
+    z-index: 2;
+    flex-shrink: 0;
+}
+
+[data-layout="inverted"] .box.peek-box {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: var(--box-h, 85px);
+    opacity: 0.72;
+    filter: brightness(0.82) contrast(0.95);
+    pointer-events: none;
+    cursor: default;
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+[data-layout="inverted"] .box.peek-box .slot {
+    font-size: min(calc(var(--slot-size, 30px) * 0.52), 17px);
+}
+
+/* Chip đếm số thùng ẩn ở ĐÁY cột băng chuyền (nơi cấp thùng lên) */
+[data-layout="inverted"] .column-hidden-count {
+    position: absolute;
+    top: auto;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, .94);
+    border: 1px solid var(--chrome-line);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--amber-300, #fcd34d);
+    box-shadow: 0 2px 6px rgba(0,0,0,.7);
+    z-index: 10;
+    pointer-events: none;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+/* Khung đỡ cửa cấp phôi ở đáy băng tải */
+[data-layout="inverted"] .conveyor-bottom-terminal {
+    position: absolute;
+    bottom: -6px;
+    left: -5px;
+    right: -5px;
+    height: 10px;
+    z-index: 4;
+    pointer-events: none;
+    background: linear-gradient(180deg, #1e293b 0%, #475569 100%);
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.6);
+}
+
+[data-layout="inverted"] .conveyor-top-terminal {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    height: 6px;
+    z-index: 4;
+    pointer-events: none;
+    background: linear-gradient(180deg, #64748b 0%, #334155 100%);
+    border-radius: 4px 4px 0 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+[data-layout="inverted"] .conveyor-cleat-belt {
+    border-radius: 4px 4px 10px 10px;
+}
+
+[data-layout="inverted"] .conveyor-side-beam {
+    bottom: -4px;
 }
 
 [data-layout="inverted"] .tutorial-banner {
@@ -2570,7 +2814,8 @@ html, body {
     .box.wrapped,
     .queue-slot.dispatching,
     .vfx-confetti,
-    .conveyor-cleat-belt.rolling-down {
+    .conveyor-cleat-belt.rolling-down,
+    .conveyor-cleat-belt.rolling-up {
         animation: none !important;
     }
 }

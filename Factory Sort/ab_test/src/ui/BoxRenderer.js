@@ -1,15 +1,17 @@
 import { getItemEmoji, getCategoryConfig, getCategoryByItemId } from '../data/ItemCatalog.js';
 
 export class BoxRenderer {
-    constructor(containerId, onSlotTap, onDragStart) {
+    constructor(containerId, onSlotTap, onDragStart, onItemDragStart) {
         this.container = document.getElementById(containerId);
         this.onSlotTap = onSlotTap;
         this.onDragStart = onDragStart;
+        this.onItemDragStart = onItemDragStart;
 
         this._fitRows = null;
         this._fitChip = false;
         this._builtCols = 0;
         this._stacks = [];
+        this._peekSlots = [];
 
         if (typeof ResizeObserver !== 'undefined' && this.container && this.container.parentElement) {
             new ResizeObserver(() => this._fitBoxHeight()).observe(this.container.parentElement);
@@ -18,11 +20,11 @@ export class BoxRenderer {
         // Phase 5 §5.3: Event delegation gắn 1 lần trên container
         if (this.container) {
             this.container.addEventListener('click', (e) => {
-                if (document.body.classList.contains('is-dragging')) return;
+                if (document.body.classList.contains('is-dragging') || document.body.classList.contains('is-item-dragging')) return;
                 const slot = e.target.closest('.slot');
-                const boxEl = e.target.closest('.box');
+                const boxEl = e.target.closest('.box:not(.peek-box)');
                 if (!boxEl) return;
-                const boxId = Number(boxEl.dataset.boxId);
+                const boxId = boxEl.dataset.boxId;
                 if (slot) {
                     const i = Number(slot.dataset.slotIndex);
                     this.onSlotTap(boxId, slot.classList.contains('placeholder') ? null : i);
@@ -32,9 +34,25 @@ export class BoxRenderer {
             });
 
             this.container.addEventListener('pointerdown', (e) => {
-                const boxEl = e.target.closest('.box.wrapped');
-                if (boxEl) {
-                    this.onDragStart(Number(boxEl.dataset.boxId), e);
+                const boxEl = e.target.closest('.box:not(.peek-box)');
+                if (!boxEl) return;
+                const boxId = boxEl.dataset.boxId;
+
+                // 1. Keo Thung da wrapped (che do drag to tray)
+                if (boxEl.classList.contains('wrapped')) {
+                    if (this.onDragStart) {
+                        this.onDragStart(boxId, e);
+                    }
+                    return;
+                }
+
+                // 2. Keo Tha tung mon item trong o slot
+                const slot = e.target.closest('.slot');
+                if (slot && !slot.classList.contains('placeholder')) {
+                    const slotIndex = Number(slot.dataset.slotIndex);
+                    if (this.onItemDragStart) {
+                        this.onItemDragStart(boxId, slotIndex, slot, e);
+                    }
                 }
             });
         }
@@ -44,16 +62,19 @@ export class BoxRenderer {
         if (this.container) this.container.innerHTML = '';
         this._builtCols = 0;
         this._stacks = [];
+        this._peekSlots = [];
     }
 
     /**
-     * Dựng khung cột (băng tải, thanh nhôm, đầu nạp). Gọi khi số cột thay đổi.
-     * Bỏ các chi tiết phụ không cần thiết (chân trụ, bu lông) để giảm 38 node/cột.
+     * Dựng khung cột (băng tải, thanh nhôm, đầu nạp, đáy peeking).
      */
     buildColumns(colCount, visibleRows) {
         if (this._builtCols === colCount) return;
         this.container.innerHTML = '';
         this._stacks = [];
+        this._peekSlots = [];
+
+        this.container.style.setProperty('--rows', visibleRows);
 
         for (let c = 0; c < colCount; c++) {
             const colEl = document.createElement('div');
@@ -63,6 +84,7 @@ export class BoxRenderer {
 
             const trackEl = document.createElement('div');
             trackEl.className = 'conveyor-track';
+            trackEl.style.setProperty('--rows', visibleRows);
 
             const beltSurface = document.createElement('div');
             beltSurface.className = 'conveyor-cleat-belt';
@@ -82,24 +104,33 @@ export class BoxRenderer {
             const boxStack = document.createElement('div');
             boxStack.className = 'box-stack';
 
+            const peekSlot = document.createElement('div');
+            peekSlot.className = 'conveyor-bottom-peek';
+
+            const bottomTerminal = document.createElement('div');
+            bottomTerminal.className = 'conveyor-bottom-terminal';
+
             trackEl.appendChild(beltSurface);
             trackEl.appendChild(beamLeft);
             trackEl.appendChild(beamRight);
             trackEl.appendChild(entryEl);
             trackEl.appendChild(boxStack);
+            trackEl.appendChild(peekSlot);
+            trackEl.appendChild(bottomTerminal);
 
             colEl.appendChild(trackEl);
             this.container.appendChild(colEl);
             this._stacks.push(boxStack);
+            this._peekSlots.push(peekSlot);
         }
 
         this._builtCols = colCount;
     }
 
     /**
-     * Vẽ lại Thùng tăng dần: không xoá khung, chỉ cập nhật Thùng.
+     * Vẽ lại Thùng tăng dần: không xoá khung, chỉ cập nhật Thùng và Thùng peek ở đáy.
      */
-    render(columns, selectedSource = null, validTargetIds = [], hiddenCounts = [], visibleRows = 5) {
+    render(columns, selectedSource = null, validTargetIds = [], hiddenCounts = [], visibleRows = 5, peekingBoxes = []) {
         if (columns.length && !Array.isArray(columns[0])) columns = [columns];
         this.buildColumns(columns.length, visibleRows);
         this._fitBoxHeight(visibleRows, hiddenCounts.some(n => n > 0));
@@ -108,6 +139,7 @@ export class BoxRenderer {
             if (this._stacks[c]) {
                 this._syncStack(this._stacks[c], boxes, selectedSource, validTargetIds);
                 this._syncHiddenChip(c, hiddenCounts[c] || 0);
+                this._syncPeekBox(c, peekingBoxes ? peekingBoxes[c] : null);
             }
         });
     }
@@ -176,8 +208,8 @@ export class BoxRenderer {
     _updateBox(el, box, selectedSource, validTargetIds) {
         el.classList.toggle('empty-box', box.isEmpty());
         el.classList.toggle('wrapped', box.isWrapped);
-        el.classList.toggle('valid-target', validTargetIds.includes(box.id));
-        el.classList.toggle('selected', !!selectedSource && selectedSource.boxId === box.id);
+        el.classList.toggle('valid-target', !box.isWrapped && validTargetIds.includes(box.id));
+        el.classList.toggle('selected', !box.isWrapped && !!selectedSource && selectedSource.boxId === box.id);
         el.classList.toggle('near-pack', !box.isWrapped && box.items.length >= 2 && box.items[0] === box.items[1]);
 
         el.style.cursor = box.isWrapped ? 'grab' : '';
@@ -199,12 +231,15 @@ export class BoxRenderer {
 
         const slots = el.querySelectorAll('.slot');
         for (let i = 0; i < 3; i++) {
-            const has = i < box.items.length;
-            const text = has ? getItemEmoji(box.items[i]) : '—';
+            const item = box.slots ? box.slots[i] : (i < box.items.length ? box.items[i] : null);
+            const has = item !== null && item !== undefined;
+            const text = has ? getItemEmoji(item) : '—';
             if (slots[i].textContent !== text) {
                 slots[i].textContent = text;
             }
             slots[i].classList.toggle('placeholder', !has);
+            slots[i].dataset.slotIndex = i;
+            slots[i].dataset.hasItem = has ? 'true' : 'false';
             slots[i].classList.toggle('selected', has && !!selectedSource && selectedSource.boxId === box.id && selectedSource.itemIndex === i);
         }
     }
@@ -220,30 +255,53 @@ export class BoxRenderer {
                 colEl.appendChild(chip);
             }
             chip.textContent = `+${hidden}`;
-            chip.title = `Còn ${hidden} Thùng bị che phía trên cột này`;
+            chip.title = `Còn ${hidden} Thùng đang chờ bên dưới cột này`;
         } else if (chip) {
             chip.remove();
         }
     }
 
     triggerRollAnimation(colIndex) {
+        const cls = 'rolling-up';
         if (colIndex !== undefined && colIndex !== null) {
             const belt = this.container.querySelector(`.conveyor-cleat-belt[data-col-index="${colIndex}"]`);
             if (belt) {
-                belt.classList.remove('rolling-down');
+                belt.classList.remove(cls, 'rolling-down');
                 void belt.offsetWidth;
-                belt.classList.add('rolling-down');
-                setTimeout(() => belt.classList.remove('rolling-down'), 450);
+                belt.classList.add(cls);
+                setTimeout(() => belt.classList.remove(cls), 2450);
             }
         } else {
             const belts = this.container.querySelectorAll('.conveyor-cleat-belt');
             belts.forEach(belt => {
-                belt.classList.remove('rolling-down');
+                belt.classList.remove(cls, 'rolling-down');
                 void belt.offsetWidth;
-                belt.classList.add('rolling-down');
-                setTimeout(() => belt.classList.remove('rolling-down'), 450);
+                belt.classList.add(cls);
+                setTimeout(() => belt.classList.remove(cls), 2450);
             });
         }
+    }
+
+    _syncPeekBox(colIndex, box) {
+        const slot = this._peekSlots[colIndex];
+        if (!slot) return;
+
+        if (!box) {
+            slot.innerHTML = '';
+            slot.dataset.boxId = '';
+            return;
+        }
+
+        let peekBoxEl = slot.querySelector('.box.peek-box');
+        if (!peekBoxEl || peekBoxEl.dataset.peekBoxId !== String(box.id)) {
+            slot.innerHTML = '';
+            peekBoxEl = this._createBox(box);
+            peekBoxEl.classList.add('peek-box');
+            peekBoxEl.dataset.peekBoxId = String(box.id);
+            peekBoxEl.removeAttribute('data-box-id'); // Không thể click chọn hay kéo thả
+            slot.appendChild(peekBoxEl);
+        }
+        this._updateBox(peekBoxEl, box, null, []);
     }
 
     _fitBoxHeight(visibleRows, hasHiddenChip) {
@@ -253,7 +311,7 @@ export class BoxRenderer {
         const area = this.container.parentElement;
         if (!area || !Number.isFinite(rows)) return;
 
-        const avail = (this.container && this.container.clientHeight >= 120) ? this.container.clientHeight : area.clientHeight;
+        const avail = area.clientHeight;
         if (avail < 120) return;
 
         const cs = getComputedStyle(this.container);
@@ -265,21 +323,16 @@ export class BoxRenderer {
         const slotW = Math.max(18, (colW - 4 /*border*/ - 8 /*padding*/ - 8 /*2x gap*/) / 3);
         this.container.style.setProperty('--slot-size', `${slotW.toFixed(1)}px`);
 
-        const room = avail - 8 - (rows - 1) * gap;
+        const peekH = 34;
+        const room = avail - 16 - peekH - (rows - 1) * gap;
         const h = Math.max(50, Math.floor(room / rows));
 
-        // Tran chieu cao Thung theo be rong o hang.
-        //
-        // He so 3.0 (truoc: 2.6) — chon lai sau khi nhin bo cuc that:
-        //  - 2.6 cho Thung 84px o may 390px, chong Thung chi cao 366/583 -> con ~220px
-        //    ray bang tai TRONG duoi cung, doc ra nhu "cai thang rong".
-        //  - 3.0 cho Thung ~93px, chong Thung ~400/583, phan ray con lai vua du de lam
-        //    diem tua thi giac chu khong con la khoang trong.
-        // Khong nang cao hon: qua 3.0-3.4 thi Thung thanh hinh dung, trong khi noi dung cua
-        // no la 3 o VUONG nam ngang — ti le sai se lo ngay.
-        const capped = Math.min(h, Math.round(slotW * 3.0));
+        // Tỉ lệ hộp 3D cân đối, chiều cao thoải mái không bị ép dẹp
+        const capped = Math.min(h, Math.round(slotW * 3.2), 104);
         this.container.style.setProperty('--box-h', `${Math.max(50, capped)}px`);
         this.container.style.setProperty('--stack-gap', `${gap}px`);
+        this.container.style.setProperty('--peek-h', `${peekH}px`);
+        this.container.style.setProperty('--rows', `${rows}`);
     }
 
     animateItemTransfer(sourceBoxId, targetBoxId, onComplete) {

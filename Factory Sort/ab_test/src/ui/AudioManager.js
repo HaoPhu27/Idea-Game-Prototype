@@ -124,10 +124,10 @@ export class AudioManager {
         this.blip(1320, 0.22, 'sine', 0.07, 0.04);
     }
 
-    /** Tiếng băng chuyền chạy đưa thùng hàng trượt xuống */
+    /** Tiếng băng chuyền cơ khí chạy đưa thùng hàng trượt lên */
     conveyorRoll() {
-        this.blip(180, 0.18, 'triangle', 0.05, 0, 120);
-        this.blip(280, 0.12, 'sawtooth', 0.02, 0.02, 200);
+        this.blip(160, 0.75, 'triangle', 0.05, 0, 120);
+        this.blip(220, 0.60, 'sawtooth', 0.02, 0.04, 180);
     }
 
     /**

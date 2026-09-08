@@ -467,6 +467,9 @@ html, body {
     display: flex;
     justify-content: center;
     align-items: center;
+    text-align: center;
+    line-height: 1;
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
     /* Theo ca be ngang lan chieu cao Thung: o man nhieu hang, Thung thap hon nen
        emoji phai nho lai, neu khong no tran ra ngoai o. */
     font-size: min(clamp(18px, 7vw, 24px), calc(var(--box-h, 75px) * 0.33));
@@ -501,6 +504,65 @@ html, body {
     font-size: 24px;
     transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     pointer-events: none;
+}
+
+/* Item Drag & Drop Styles */
+.box:not(.wrapped) .slot:not(.placeholder) {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body.is-item-dragging {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grabbing !important;
+}
+
+body.is-item-dragging * {
+    cursor: grabbing !important;
+}
+
+.slot.slot-dragging {
+    opacity: 0.28 !important;
+    transform: scale(0.92) !important;
+    border-style: dashed !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.item-drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 99999;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    line-height: 1;
+    font-size: 32px;
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+    filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+    transform: translate(-50%, -50%) scale(1.18);
+    will-change: left, top, transform;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.box.drag-over {
+    box-shadow: 0 0 0 2px #f59e0b, 0 8px 24px rgba(245, 158, 11, 0.45) !important;
+    transform: translateY(-2px) scale(1.02);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.slot.drop-target-active {
+    background: rgba(245, 158, 11, 0.35) !important;
+    border: 1.5px dashed #f59e0b !important;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.6), inset 0 0 8px rgba(245, 158, 11, 0.3) !important;
+    transform: scale(1.12) !important;
+    z-index: 10;
 }
 
 /* Staging Roller Deck (Centered Inside Conveyor Loop - Sleek Smooth Style) */
@@ -602,6 +664,7 @@ html, body {
 
 .queue-slots {
     display: flex;
+    flex-direction: row-reverse;
     justify-content: space-between;
     align-items: center;
     gap: 5px;

@@ -28,7 +28,7 @@ export class GameEngine {
     startLevel(levelConfig) {
         this.boxes = levelConfig.boxes.map((boxData, idx) => {
             const box = new Box(idx);
-            boxData.items.forEach(item => box.push(item));
+            box.items = boxData.items;
             box.checkWrapped(); // Just in case it starts wrapped
             return box;
         });
@@ -101,7 +101,7 @@ export class GameEngine {
     }
 
     getBox(id) {
-        return this.boxes.find(b => b.id === id) || this.queue.find(b => b.id === id);
+        return this.boxes.find(b => String(b.id) === String(id)) || this.queue.find(b => String(b.id) === String(id));
     }
 
     /** Lay toan bo thung dang trong hang cho */
@@ -117,7 +117,7 @@ export class GameEngine {
     /** Chuyen mot Thung wrapped xuong hang cho */
     moveBoxToQueue(box) {
         if (!box) return false;
-        this.boxes = this.boxes.filter(b => b.id !== box.id);
+        this.boxes = this.boxes.filter(b => String(b.id) !== String(box.id));
         this._removeFromColumn(box.id);
 
         if (!this.onTrayDelivered) {
@@ -219,7 +219,7 @@ export class GameEngine {
      */
     isAccessible(boxId) {
         for (const col of this.columns) {
-            const at = col.indexOf(boxId);
+            const at = col.findIndex(id => String(id) === String(boxId));
             if (at !== -1) return at < this.visibleRows;
         }
         return false;
@@ -228,22 +228,25 @@ export class GameEngine {
     /** Go Thung khoi cot sau khi giao => cot tut xuong, lo Thung ke tiep. */
     _removeFromColumn(boxId) {
         for (const col of this.columns) {
-            const at = col.indexOf(boxId);
+            const at = col.findIndex(id => String(id) === String(boxId));
             if (at !== -1) { col.splice(at, 1); return; }
         }
     }
 
-    // Layer 1: Tap source item
-    selectSource(boxId, itemIndex) {
+    // Layer 1: Tap / Drag source item
+    selectSource(boxId, slotIndex) {
         if (this.gameState !== 'PLAYING') return false;
         
         const box = this.getBox(boxId);
         if (!this.isAccessible(boxId)) return false;   // Thung bi che
-        if (!box || box.isWrapped || box.isEmpty() || itemIndex < 0 || itemIndex >= box.items.length) {
+        if (!box || box.isWrapped || box.isEmpty() || slotIndex < 0 || slotIndex >= box.maxSize) {
+            return false;
+        }
+        if (box.slots && box.slots[slotIndex] === null) {
             return false;
         }
         
-        this.selectedSource = { boxId, itemIndex };
+        this.selectedSource = { boxId, itemIndex: slotIndex };
         return true;
     }
     
@@ -251,36 +254,37 @@ export class GameEngine {
         this.selectedSource = null;
     }
 
-    // Layer 1: Tap target
-    selectTarget(boxId) {
-        if (this.gameState !== 'PLAYING' || !this.selectedSource) return false;
-        
-        // If clicking the same box, just deselect for now (or could allow sorting within same box if needed, but usually we just deselect)
-        if (this.selectedSource.boxId === boxId) {
-            this.deselectSource();
-            return false;
-        }
+    /**
+     * Di chuyen item truc tiep tu sourceBox (o sourceSlotIndex) sang targetBox (o targetSlotIndex tuy chon).
+     */
+    moveItem(sourceBoxId, sourceSlotIndex, targetBoxId, targetSlotIndex = null) {
+        if (this.gameState !== 'PLAYING') return false;
+        if (sourceBoxId === targetBoxId) return false;
 
-        const sourceBox = this.getBox(this.selectedSource.boxId);
-        const targetBox = this.getBox(boxId);
+        const sourceBox = this.getBox(sourceBoxId);
+        const targetBox = this.getBox(targetBoxId);
 
-        if (!sourceBox || !targetBox || !targetBox.canAccept()) {
-            return false;
-        }
-        if (!this.isAccessible(boxId)) return false;   // khong tha vao Thung bi che
+        if (!sourceBox || !targetBox) return false;
+        if (!this.isAccessible(sourceBoxId) || !this.isAccessible(targetBoxId)) return false;
+        if (sourceBox.isWrapped || targetBox.isWrapped) return false;
+        if (!targetBox.canAccept(targetSlotIndex)) return false;
 
-        // Perform move
-        const item = sourceBox.removeItem(this.selectedSource.itemIndex);
+        const item = sourceBox.removeItem(sourceSlotIndex);
         if (item === null) return false;
-        
-        targetBox.push(item);
-        
+
+        const placed = targetBox.push(item, targetSlotIndex);
+        if (!placed) {
+            // Hoan tac neu khong dat duoc
+            sourceBox.push(item, sourceSlotIndex);
+            return false;
+        }
+
         this.moveCount++;
         if (this.onMoveCountUpdated) this.onMoveCountUpdated(this.moveCount);
-        
+
         this.deselectSource();
-        
-        // Luat moi: Thung rong tu dong bien mat, cac thung phia tren tut xuong
+
+        // Luat: Thung rong tu dong bien mat, cac thung phia tren tut xuong
         const sourceEmptied = sourceBox.isEmpty();
         if (sourceEmptied) {
             this.boxes = this.boxes.filter(b => b.id !== sourceBox.id);
@@ -308,6 +312,19 @@ export class GameEngine {
         }
 
         return true;
+    }
+
+    // Layer 1: Tap target
+    selectTarget(boxId, targetSlotIndex = null) {
+        if (this.gameState !== 'PLAYING' || !this.selectedSource) return false;
+        
+        // If clicking the same box, just deselect
+        if (this.selectedSource.boxId === boxId) {
+            this.deselectSource();
+            return false;
+        }
+
+        return this.moveItem(this.selectedSource.boxId, this.selectedSource.itemIndex, boxId, targetSlotIndex);
     }
 
     getValidTargets(sourceBoxId) {

@@ -148,45 +148,69 @@ function getCategoryIcon(categoryId) {
 class Box {
     constructor(id) {
         this.id = id;
-        this.items = []; // Stack of item IDs, max 3. items[0] is bottom, items[items.length-1] is top.
+        this.slots = [null, null, null]; // Fixed 3 visual & logical slots
         this.isWrapped = false;
         this.maxSize = 3;
     }
 
-    removeItem(index) {
-        if (this.isWrapped || this.items.length === 0 || index < 0 || index >= this.items.length) {
-            return null;
-        }
-        // Remove item at index and shift rest down
-        return this.items.splice(index, 1)[0];
+    get items() {
+        return this.slots.filter(s => s !== null && s !== undefined);
     }
 
-    push(itemId) {
-        if (this.canAccept()) {
-            this.items.push(itemId);
+    set items(arr) {
+        this.slots = [null, null, null];
+        if (Array.isArray(arr)) {
+            arr.forEach((it, idx) => {
+                if (idx < 3) this.slots[idx] = it;
+            });
+        }
+    }
+
+    removeItem(slotIndex) {
+        if (this.isWrapped || slotIndex < 0 || slotIndex >= this.maxSize) {
+            return null;
+        }
+        const item = this.slots[slotIndex];
+        this.slots[slotIndex] = null;
+        return item;
+    }
+
+    push(itemId, targetSlotIndex = null) {
+        if (!this.canAccept(targetSlotIndex)) {
+            return false;
+        }
+        if (targetSlotIndex !== null && targetSlotIndex >= 0 && targetSlotIndex < this.maxSize && this.slots[targetSlotIndex] === null) {
+            this.slots[targetSlotIndex] = itemId;
+            return true;
+        }
+        const emptyIdx = this.slots.findIndex(s => s === null);
+        if (emptyIdx !== -1) {
+            this.slots[emptyIdx] = itemId;
             return true;
         }
         return false;
     }
 
-    canAccept() {
-        // GDD v0.3: Target box only needs to have at least 1 empty slot. No type restriction.
-        return this.items.length < this.maxSize && !this.isWrapped;
+    canAccept(targetSlotIndex = null) {
+        if (this.isWrapped) return false;
+        if (targetSlotIndex !== null && targetSlotIndex >= 0 && targetSlotIndex < this.maxSize) {
+            return this.slots[targetSlotIndex] === null;
+        }
+        return this.slots.some(s => s === null);
     }
 
     isFull() {
-        return this.items.length === this.maxSize;
+        return this.slots.every(s => s !== null && s !== undefined);
     }
 
     isEmpty() {
-        return this.items.length === 0;
+        return this.slots.every(s => s === null || s === undefined);
     }
 
     checkWrapped() {
         if (this.isFull() && !this.isWrapped) {
-            const firstId = this.items[0];
-            const allSame = this.items.every(id => id === firstId);
-            if (allSame) {
+            const firstId = this.slots[0];
+            if (firstId !== null && this.slots[1] === firstId && this.slots[2] === firstId) {
                 this.isWrapped = true;
                 return true;
             }
@@ -195,19 +219,21 @@ class Box {
     }
 
     getCategory() {
-        if (!this.isWrapped || this.items.length === 0) return null;
-        return getCategoryByItemId(this.items[0]);
+        if (!this.isWrapped || this.isEmpty()) return null;
+        const nonNull = this.items;
+        return nonNull.length > 0 ? getCategoryByItemId(nonNull[0]) : null;
     }
 
     /** Loai item cua Thung da wrapped (ca 3 o giong nhau). Dung cho Khay che do 'itemType'. */
     getItemType() {
-        if (!this.isWrapped || this.items.length === 0) return null;
-        return this.items[0];
+        if (!this.isWrapped || this.isEmpty()) return null;
+        const nonNull = this.items;
+        return nonNull.length > 0 ? nonNull[0] : null;
     }
     
     clone() {
         const cloned = new Box(this.id);
-        cloned.items = [...this.items];
+        cloned.slots = [...this.slots];
         cloned.isWrapped = this.isWrapped;
         return cloned;
     }
@@ -346,7 +372,7 @@ class GameEngine {
     startLevel(levelConfig) {
         this.boxes = levelConfig.boxes.map((boxData, idx) => {
             const box = new Box(idx);
-            boxData.items.forEach(item => box.push(item));
+            box.items = boxData.items;
             box.checkWrapped(); // Just in case it starts wrapped
             return box;
         });
@@ -419,7 +445,7 @@ class GameEngine {
     }
 
     getBox(id) {
-        return this.boxes.find(b => b.id === id) || this.queue.find(b => b.id === id);
+        return this.boxes.find(b => String(b.id) === String(id)) || this.queue.find(b => String(b.id) === String(id));
     }
 
     /** Lay toan bo thung dang trong hang cho */
@@ -435,7 +461,7 @@ class GameEngine {
     /** Chuyen mot Thung wrapped xuong hang cho */
     moveBoxToQueue(box) {
         if (!box) return false;
-        this.boxes = this.boxes.filter(b => b.id !== box.id);
+        this.boxes = this.boxes.filter(b => String(b.id) !== String(box.id));
         this._removeFromColumn(box.id);
 
         if (!this.onTrayDelivered) {
@@ -537,7 +563,7 @@ class GameEngine {
      */
     isAccessible(boxId) {
         for (const col of this.columns) {
-            const at = col.indexOf(boxId);
+            const at = col.findIndex(id => String(id) === String(boxId));
             if (at !== -1) return at < this.visibleRows;
         }
         return false;
@@ -546,22 +572,25 @@ class GameEngine {
     /** Go Thung khoi cot sau khi giao => cot tut xuong, lo Thung ke tiep. */
     _removeFromColumn(boxId) {
         for (const col of this.columns) {
-            const at = col.indexOf(boxId);
+            const at = col.findIndex(id => String(id) === String(boxId));
             if (at !== -1) { col.splice(at, 1); return; }
         }
     }
 
-    // Layer 1: Tap source item
-    selectSource(boxId, itemIndex) {
+    // Layer 1: Tap / Drag source item
+    selectSource(boxId, slotIndex) {
         if (this.gameState !== 'PLAYING') return false;
         
         const box = this.getBox(boxId);
         if (!this.isAccessible(boxId)) return false;   // Thung bi che
-        if (!box || box.isWrapped || box.isEmpty() || itemIndex < 0 || itemIndex >= box.items.length) {
+        if (!box || box.isWrapped || box.isEmpty() || slotIndex < 0 || slotIndex >= box.maxSize) {
+            return false;
+        }
+        if (box.slots && box.slots[slotIndex] === null) {
             return false;
         }
         
-        this.selectedSource = { boxId, itemIndex };
+        this.selectedSource = { boxId, itemIndex: slotIndex };
         return true;
     }
     
@@ -569,36 +598,37 @@ class GameEngine {
         this.selectedSource = null;
     }
 
-    // Layer 1: Tap target
-    selectTarget(boxId) {
-        if (this.gameState !== 'PLAYING' || !this.selectedSource) return false;
-        
-        // If clicking the same box, just deselect for now (or could allow sorting within same box if needed, but usually we just deselect)
-        if (this.selectedSource.boxId === boxId) {
-            this.deselectSource();
-            return false;
-        }
+    /**
+     * Di chuyen item truc tiep tu sourceBox (o sourceSlotIndex) sang targetBox (o targetSlotIndex tuy chon).
+     */
+    moveItem(sourceBoxId, sourceSlotIndex, targetBoxId, targetSlotIndex = null) {
+        if (this.gameState !== 'PLAYING') return false;
+        if (sourceBoxId === targetBoxId) return false;
 
-        const sourceBox = this.getBox(this.selectedSource.boxId);
-        const targetBox = this.getBox(boxId);
+        const sourceBox = this.getBox(sourceBoxId);
+        const targetBox = this.getBox(targetBoxId);
 
-        if (!sourceBox || !targetBox || !targetBox.canAccept()) {
-            return false;
-        }
-        if (!this.isAccessible(boxId)) return false;   // khong tha vao Thung bi che
+        if (!sourceBox || !targetBox) return false;
+        if (!this.isAccessible(sourceBoxId) || !this.isAccessible(targetBoxId)) return false;
+        if (sourceBox.isWrapped || targetBox.isWrapped) return false;
+        if (!targetBox.canAccept(targetSlotIndex)) return false;
 
-        // Perform move
-        const item = sourceBox.removeItem(this.selectedSource.itemIndex);
+        const item = sourceBox.removeItem(sourceSlotIndex);
         if (item === null) return false;
-        
-        targetBox.push(item);
-        
+
+        const placed = targetBox.push(item, targetSlotIndex);
+        if (!placed) {
+            // Hoan tac neu khong dat duoc
+            sourceBox.push(item, sourceSlotIndex);
+            return false;
+        }
+
         this.moveCount++;
         if (this.onMoveCountUpdated) this.onMoveCountUpdated(this.moveCount);
-        
+
         this.deselectSource();
-        
-        // Luat moi: Thung rong tu dong bien mat, cac thung phia tren tut xuong
+
+        // Luat: Thung rong tu dong bien mat, cac thung phia tren tut xuong
         const sourceEmptied = sourceBox.isEmpty();
         if (sourceEmptied) {
             this.boxes = this.boxes.filter(b => b.id !== sourceBox.id);
@@ -626,6 +656,19 @@ class GameEngine {
         }
 
         return true;
+    }
+
+    // Layer 1: Tap target
+    selectTarget(boxId, targetSlotIndex = null) {
+        if (this.gameState !== 'PLAYING' || !this.selectedSource) return false;
+        
+        // If clicking the same box, just deselect
+        if (this.selectedSource.boxId === boxId) {
+            this.deselectSource();
+            return false;
+        }
+
+        return this.moveItem(this.selectedSource.boxId, this.selectedSource.itemIndex, boxId, targetSlotIndex);
     }
 
     getValidTargets(sourceBoxId) {
@@ -2595,10 +2638,10 @@ class AudioManager {
         this.blip(1320, 0.22, 'sine', 0.07, 0.04);
     }
 
-    /** Tiếng băng chuyền chạy đưa thùng hàng trượt xuống */
+    /** Tiếng băng chuyền cơ khí chạy đưa thùng hàng trượt lên */
     conveyorRoll() {
-        this.blip(180, 0.18, 'triangle', 0.05, 0, 120);
-        this.blip(280, 0.12, 'sawtooth', 0.02, 0.02, 200);
+        this.blip(160, 0.75, 'triangle', 0.05, 0, 120);
+        this.blip(220, 0.60, 'sawtooth', 0.02, 0.04, 180);
     }
 
     /**
@@ -2812,15 +2855,17 @@ class VFXManager {
 // --- src/ui/BoxRenderer.js ---
 
 class BoxRenderer {
-    constructor(containerId, onSlotTap, onDragStart) {
+    constructor(containerId, onSlotTap, onDragStart, onItemDragStart) {
         this.container = document.getElementById(containerId);
         this.onSlotTap = onSlotTap;
         this.onDragStart = onDragStart;
+        this.onItemDragStart = onItemDragStart;
 
         this._fitRows = null;
         this._fitChip = false;
         this._builtCols = 0;
         this._stacks = [];
+        this._peekSlots = [];
 
         if (typeof ResizeObserver !== 'undefined' && this.container && this.container.parentElement) {
             new ResizeObserver(() => this._fitBoxHeight()).observe(this.container.parentElement);
@@ -2829,11 +2874,11 @@ class BoxRenderer {
         // Phase 5 §5.3: Event delegation gắn 1 lần trên container
         if (this.container) {
             this.container.addEventListener('click', (e) => {
-                if (document.body.classList.contains('is-dragging')) return;
+                if (document.body.classList.contains('is-dragging') || document.body.classList.contains('is-item-dragging')) return;
                 const slot = e.target.closest('.slot');
-                const boxEl = e.target.closest('.box');
+                const boxEl = e.target.closest('.box:not(.peek-box)');
                 if (!boxEl) return;
-                const boxId = Number(boxEl.dataset.boxId);
+                const boxId = boxEl.dataset.boxId;
                 if (slot) {
                     const i = Number(slot.dataset.slotIndex);
                     this.onSlotTap(boxId, slot.classList.contains('placeholder') ? null : i);
@@ -2843,9 +2888,25 @@ class BoxRenderer {
             });
 
             this.container.addEventListener('pointerdown', (e) => {
-                const boxEl = e.target.closest('.box.wrapped');
-                if (boxEl) {
-                    this.onDragStart(Number(boxEl.dataset.boxId), e);
+                const boxEl = e.target.closest('.box:not(.peek-box)');
+                if (!boxEl) return;
+                const boxId = boxEl.dataset.boxId;
+
+                // 1. Keo Thung da wrapped (che do drag to tray)
+                if (boxEl.classList.contains('wrapped')) {
+                    if (this.onDragStart) {
+                        this.onDragStart(boxId, e);
+                    }
+                    return;
+                }
+
+                // 2. Keo Tha tung mon item trong o slot
+                const slot = e.target.closest('.slot');
+                if (slot && !slot.classList.contains('placeholder')) {
+                    const slotIndex = Number(slot.dataset.slotIndex);
+                    if (this.onItemDragStart) {
+                        this.onItemDragStart(boxId, slotIndex, slot, e);
+                    }
                 }
             });
         }
@@ -2855,16 +2916,19 @@ class BoxRenderer {
         if (this.container) this.container.innerHTML = '';
         this._builtCols = 0;
         this._stacks = [];
+        this._peekSlots = [];
     }
 
     /**
-     * Dựng khung cột (băng tải, thanh nhôm, đầu nạp). Gọi khi số cột thay đổi.
-     * Bỏ các chi tiết phụ không cần thiết (chân trụ, bu lông) để giảm 38 node/cột.
+     * Dựng khung cột (băng tải, thanh nhôm, đầu nạp, đáy peeking).
      */
     buildColumns(colCount, visibleRows) {
         if (this._builtCols === colCount) return;
         this.container.innerHTML = '';
         this._stacks = [];
+        this._peekSlots = [];
+
+        this.container.style.setProperty('--rows', visibleRows);
 
         for (let c = 0; c < colCount; c++) {
             const colEl = document.createElement('div');
@@ -2874,6 +2938,7 @@ class BoxRenderer {
 
             const trackEl = document.createElement('div');
             trackEl.className = 'conveyor-track';
+            trackEl.style.setProperty('--rows', visibleRows);
 
             const beltSurface = document.createElement('div');
             beltSurface.className = 'conveyor-cleat-belt';
@@ -2893,24 +2958,33 @@ class BoxRenderer {
             const boxStack = document.createElement('div');
             boxStack.className = 'box-stack';
 
+            const peekSlot = document.createElement('div');
+            peekSlot.className = 'conveyor-bottom-peek';
+
+            const bottomTerminal = document.createElement('div');
+            bottomTerminal.className = 'conveyor-bottom-terminal';
+
             trackEl.appendChild(beltSurface);
             trackEl.appendChild(beamLeft);
             trackEl.appendChild(beamRight);
             trackEl.appendChild(entryEl);
             trackEl.appendChild(boxStack);
+            trackEl.appendChild(peekSlot);
+            trackEl.appendChild(bottomTerminal);
 
             colEl.appendChild(trackEl);
             this.container.appendChild(colEl);
             this._stacks.push(boxStack);
+            this._peekSlots.push(peekSlot);
         }
 
         this._builtCols = colCount;
     }
 
     /**
-     * Vẽ lại Thùng tăng dần: không xoá khung, chỉ cập nhật Thùng.
+     * Vẽ lại Thùng tăng dần: không xoá khung, chỉ cập nhật Thùng và Thùng peek ở đáy.
      */
-    render(columns, selectedSource = null, validTargetIds = [], hiddenCounts = [], visibleRows = 5) {
+    render(columns, selectedSource = null, validTargetIds = [], hiddenCounts = [], visibleRows = 5, peekingBoxes = []) {
         if (columns.length && !Array.isArray(columns[0])) columns = [columns];
         this.buildColumns(columns.length, visibleRows);
         this._fitBoxHeight(visibleRows, hiddenCounts.some(n => n > 0));
@@ -2919,6 +2993,7 @@ class BoxRenderer {
             if (this._stacks[c]) {
                 this._syncStack(this._stacks[c], boxes, selectedSource, validTargetIds);
                 this._syncHiddenChip(c, hiddenCounts[c] || 0);
+                this._syncPeekBox(c, peekingBoxes ? peekingBoxes[c] : null);
             }
         });
     }
@@ -2987,8 +3062,8 @@ class BoxRenderer {
     _updateBox(el, box, selectedSource, validTargetIds) {
         el.classList.toggle('empty-box', box.isEmpty());
         el.classList.toggle('wrapped', box.isWrapped);
-        el.classList.toggle('valid-target', validTargetIds.includes(box.id));
-        el.classList.toggle('selected', !!selectedSource && selectedSource.boxId === box.id);
+        el.classList.toggle('valid-target', !box.isWrapped && validTargetIds.includes(box.id));
+        el.classList.toggle('selected', !box.isWrapped && !!selectedSource && selectedSource.boxId === box.id);
         el.classList.toggle('near-pack', !box.isWrapped && box.items.length >= 2 && box.items[0] === box.items[1]);
 
         el.style.cursor = box.isWrapped ? 'grab' : '';
@@ -3010,12 +3085,15 @@ class BoxRenderer {
 
         const slots = el.querySelectorAll('.slot');
         for (let i = 0; i < 3; i++) {
-            const has = i < box.items.length;
-            const text = has ? getItemEmoji(box.items[i]) : '—';
+            const item = box.slots ? box.slots[i] : (i < box.items.length ? box.items[i] : null);
+            const has = item !== null && item !== undefined;
+            const text = has ? getItemEmoji(item) : '—';
             if (slots[i].textContent !== text) {
                 slots[i].textContent = text;
             }
             slots[i].classList.toggle('placeholder', !has);
+            slots[i].dataset.slotIndex = i;
+            slots[i].dataset.hasItem = has ? 'true' : 'false';
             slots[i].classList.toggle('selected', has && !!selectedSource && selectedSource.boxId === box.id && selectedSource.itemIndex === i);
         }
     }
@@ -3031,30 +3109,53 @@ class BoxRenderer {
                 colEl.appendChild(chip);
             }
             chip.textContent = `+${hidden}`;
-            chip.title = `Còn ${hidden} Thùng bị che phía trên cột này`;
+            chip.title = `Còn ${hidden} Thùng đang chờ bên dưới cột này`;
         } else if (chip) {
             chip.remove();
         }
     }
 
     triggerRollAnimation(colIndex) {
+        const cls = 'rolling-up';
         if (colIndex !== undefined && colIndex !== null) {
             const belt = this.container.querySelector(`.conveyor-cleat-belt[data-col-index="${colIndex}"]`);
             if (belt) {
-                belt.classList.remove('rolling-down');
+                belt.classList.remove(cls, 'rolling-down');
                 void belt.offsetWidth;
-                belt.classList.add('rolling-down');
-                setTimeout(() => belt.classList.remove('rolling-down'), 450);
+                belt.classList.add(cls);
+                setTimeout(() => belt.classList.remove(cls), 2450);
             }
         } else {
             const belts = this.container.querySelectorAll('.conveyor-cleat-belt');
             belts.forEach(belt => {
-                belt.classList.remove('rolling-down');
+                belt.classList.remove(cls, 'rolling-down');
                 void belt.offsetWidth;
-                belt.classList.add('rolling-down');
-                setTimeout(() => belt.classList.remove('rolling-down'), 450);
+                belt.classList.add(cls);
+                setTimeout(() => belt.classList.remove(cls), 2450);
             });
         }
+    }
+
+    _syncPeekBox(colIndex, box) {
+        const slot = this._peekSlots[colIndex];
+        if (!slot) return;
+
+        if (!box) {
+            slot.innerHTML = '';
+            slot.dataset.boxId = '';
+            return;
+        }
+
+        let peekBoxEl = slot.querySelector('.box.peek-box');
+        if (!peekBoxEl || peekBoxEl.dataset.peekBoxId !== String(box.id)) {
+            slot.innerHTML = '';
+            peekBoxEl = this._createBox(box);
+            peekBoxEl.classList.add('peek-box');
+            peekBoxEl.dataset.peekBoxId = String(box.id);
+            peekBoxEl.removeAttribute('data-box-id'); // Không thể click chọn hay kéo thả
+            slot.appendChild(peekBoxEl);
+        }
+        this._updateBox(peekBoxEl, box, null, []);
     }
 
     _fitBoxHeight(visibleRows, hasHiddenChip) {
@@ -3064,7 +3165,7 @@ class BoxRenderer {
         const area = this.container.parentElement;
         if (!area || !Number.isFinite(rows)) return;
 
-        const avail = (this.container && this.container.clientHeight >= 120) ? this.container.clientHeight : area.clientHeight;
+        const avail = area.clientHeight;
         if (avail < 120) return;
 
         const cs = getComputedStyle(this.container);
@@ -3076,21 +3177,16 @@ class BoxRenderer {
         const slotW = Math.max(18, (colW - 4 /*border*/ - 8 /*padding*/ - 8 /*2x gap*/) / 3);
         this.container.style.setProperty('--slot-size', `${slotW.toFixed(1)}px`);
 
-        const room = avail - 8 - (rows - 1) * gap;
+        const peekH = 34;
+        const room = avail - 16 - peekH - (rows - 1) * gap;
         const h = Math.max(50, Math.floor(room / rows));
 
-        // Tran chieu cao Thung theo be rong o hang.
-        //
-        // He so 3.0 (truoc: 2.6) — chon lai sau khi nhin bo cuc that:
-        //  - 2.6 cho Thung 84px o may 390px, chong Thung chi cao 366/583 -> con ~220px
-        //    ray bang tai TRONG duoi cung, doc ra nhu "cai thang rong".
-        //  - 3.0 cho Thung ~93px, chong Thung ~400/583, phan ray con lai vua du de lam
-        //    diem tua thi giac chu khong con la khoang trong.
-        // Khong nang cao hon: qua 3.0-3.4 thi Thung thanh hinh dung, trong khi noi dung cua
-        // no la 3 o VUONG nam ngang — ti le sai se lo ngay.
-        const capped = Math.min(h, Math.round(slotW * 3.0));
+        // Tỉ lệ hộp 3D cân đối, chiều cao thoải mái không bị ép dẹp
+        const capped = Math.min(h, Math.round(slotW * 3.2), 104);
         this.container.style.setProperty('--box-h', `${Math.max(50, capped)}px`);
         this.container.style.setProperty('--stack-gap', `${gap}px`);
+        this.container.style.setProperty('--peek-h', `${peekH}px`);
+        this.container.style.setProperty('--rows', `${rows}`);
     }
 
     animateItemTransfer(sourceBoxId, targetBoxId, onComplete) {
@@ -3199,12 +3295,14 @@ class TrayRenderer {
      * Chi khac mot diem: toa do doc tu he cua #trays-container thay vi tu
      * getBoundingClientRect() cua hai phan tu, nen doi bo cuc khong lam lech nhip giao.
      */
-    isInDeliveryZone(trayObj, slotIdx, queueLength) {
+    isInDeliveryZone(trayObj, slotRef, queueLength) {
         const g = this.geom;
         const pt = this.getTrackPoint(trayObj.currentTheta);
         if (Math.abs(pt.y - g.frontY) >= 22) return false;   // phai o nhanh chay truoc
 
-        const slotEl = document.querySelectorAll('.queue-slot')[slotIdx];
+        const slotEl = (slotRef && typeof slotRef === 'object' && slotRef.nodeType)
+            ? slotRef
+            : document.querySelectorAll('.queue-slot')[slotRef];
         if (!slotEl) return false;
         const cRect = this.container.getBoundingClientRect();
         const sRect = slotEl.getBoundingClientRect();
@@ -3257,7 +3355,7 @@ class TrayRenderer {
         //   beltH >= 2 x (trayH + BAND_PAD) + CORE_MIN
         const BAND_PAD = 8;   // le dai bang tai moi ben ngoai Khay
         const CORE_MIN = 16;  // long vong toi thieu, de con doc ra la mot VONG
-        let trayH = Math.max(34, Math.min(52,
+        let trayH = Math.max(34, Math.min(70,
             Math.floor((beltH - CORE_MIN) / 2) - BAND_PAD));
         let trayW = Math.round(trayH * 0.94);
 
@@ -4157,8 +4255,7 @@ class TutorialManager {
     }
 
     /**
-     * Kiem tra xem thao tac tap cua nguoi choi co dung voi muc tieu cua buoc hien tai khong.
-     * Ngan tuyet doi viec de item di nham vao thung khac loai trong qua trinh tutorial!
+     * Kiem tra xem thao tac tap/drag cua nguoi choi co dung voi muc tieu cua buoc hien tai khong.
      */
     isAllowedTap(boxId, itemIndex) {
         if (!this.active || !this.currentStep) return true;
@@ -4180,6 +4277,38 @@ class TutorialManager {
             default:
                 return true;
         }
+    }
+
+    isAllowedDragStart(boxId) {
+        if (!this.active || !this.currentStep) return true;
+        const id = this._parseId(boxId);
+        if (this.currentStep === 'STEP_1_PICK_PENGUIN' || this.currentStep === 'STEP_2_PLACE_PENGUIN') {
+            return id === 1;
+        }
+        if (this.currentStep === 'STEP_4_PICK_BEAR' || this.currentStep === 'STEP_5_PLACE_BEAR') {
+            return id === 3;
+        }
+        return false;
+    }
+
+    isAllowedDrop(sourceBoxId, targetBoxId) {
+        if (!this.active || !this.currentStep) return true;
+        const srcId = this._parseId(sourceBoxId);
+        const tgtId = this._parseId(targetBoxId);
+
+        if (this.currentStep === 'STEP_1_PICK_PENGUIN' || this.currentStep === 'STEP_2_PLACE_PENGUIN') {
+            return srcId === 1 && tgtId === 0;
+        }
+        if (this.currentStep === 'STEP_4_PICK_BEAR' || this.currentStep === 'STEP_5_PLACE_BEAR') {
+            return srcId === 3 && tgtId === 2;
+        }
+        return false;
+    }
+
+    onItemDropped(sourceBoxId, targetBoxId) {
+        if (!this.active) return;
+        this.hideHighlight();
+        if (this.handPointer) this.handPointer.classList.add('hidden');
     }
 
     /**
@@ -4215,11 +4344,11 @@ class TutorialManager {
 
                 this.showStep({
                     targetEl: target,
-                    badge: 'BƯỚC 1 / 4 • CHỌN MÓN ĐỒ',
-                    text: 'Chạm vào chú <b>Chim cánh cụt 🐧</b> để lấy ra khỏi thùng.',
+                    badge: 'BƯỚC 1 / 4 • KÉO THẢ MÓN ĐỒ',
+                    text: '<b>Kéo</b> chú <b>Chim cánh cụt 🐧</b> thả vào <b>Thùng chim cánh cụt 🐧</b> bên cạnh!',
                     handOffset: { x: 0, y: 55 },
                     handDirection: 'up',
-                    handText: 'Chạm vào đây!',
+                    handText: 'Kéo thả vào thùng 🐧',
                     padding: 8,
                     pulse: true
                 });
@@ -4233,7 +4362,7 @@ class TutorialManager {
                 this.showStep({
                     targetEl: box0El,
                     badge: 'BƯỚC 2 / 4 • GOM 3 MÓN CÙNG LOẠI',
-                    text: 'Chạm vào <b>Thùng chim cánh cụt 🐧</b> để gom đủ 3 món!',
+                    text: 'Thả vào <b>Thùng chim cánh cụt 🐧</b> để gom đủ 3 món!',
                     handOffset: { x: 0, y: 65 },
                     handDirection: 'up',
                     handText: 'Thả vào đây!',
@@ -4272,10 +4401,10 @@ class TutorialManager {
                 this.showStep({
                     targetEl: target,
                     badge: 'BƯỚC 4 / 4 • GOM GẤU BÔNG 🧸',
-                    text: 'Rất tốt! Giờ hãy chạm vào chú <b>Gấu bông 🧸</b> ở thùng bên dưới để lấy ra.',
+                    text: 'Rất tốt! Giờ hãy <b>kéo</b> chú <b>Gấu bông 🧸</b> thả vào <b>Thùng gấu bông 🧸</b> phía trên!',
                     handOffset: { x: 0, y: 55 },
                     handDirection: 'up',
-                    handText: 'Lấy gấu bông 🧸',
+                    handText: 'Kéo gấu bông 🧸',
                     padding: 8,
                     pulse: true
                 });
@@ -4289,10 +4418,10 @@ class TutorialManager {
                 this.showStep({
                     targetEl: box2El,
                     badge: 'HOÀN THÀNH • GOM ĐỦ 3 GẤU BÔNG',
-                    text: 'Chạm vào <b>Thùng gấu bông 🧸</b> phía trên để hoàn tất đóng gói!',
+                    text: 'Thả vào <b>Thùng gấu bông 🧸</b> phía trên để hoàn tất đóng gói!',
                     handOffset: { x: 0, y: 65 },
                     handDirection: 'up',
-                    handText: 'Gom vào đây!',
+                    handText: 'Thả vào đây!',
                     padding: 12,
                     pulse: true
                 });
@@ -4521,7 +4650,8 @@ class UIManager {
         this.boxRenderer = new BoxRenderer(
             'boxes-grid',
             this.handleSlotTap.bind(this),
-            this.handleDragStart.bind(this)
+            this.handleDragStart.bind(this),
+            this.handleItemDragStart.bind(this)
         );
         this.trayRenderer = new TrayRenderer('trays-container');
         this.trayRenderer.onTick = this.checkQueuePickup.bind(this);
@@ -4570,6 +4700,20 @@ class UIManager {
             targetTrayId: null,
             ghostW: 0,
             ghostH: 0
+        };
+        this.itemDragState = {
+            isDragging: false,
+            sourceBoxId: null,
+            sourceSlotIndex: null,
+            itemId: null,
+            targetBoxId: null,
+            targetSlotIndex: null,
+            pointerId: null,
+            pointerTarget: null,
+            sourceSlotEl: null,
+            ghostEl: null,
+            startX: 0,
+            startY: 0
         };
         this._animating = false;
         this.GHOST_LIFT = 28;
@@ -4663,10 +4807,19 @@ class UIManager {
         };
         document.addEventListener('pointerdown', unlockAudio);
 
-        // Global pointer events for dragging
-        document.addEventListener('pointermove', this.handleDragMove.bind(this));
-        document.addEventListener('pointerup', this.handleDragEnd.bind(this));
-        document.addEventListener('pointercancel', this.handleDragEnd.bind(this));
+        // Global pointer events for dragging (wrapped boxes to trays & items between boxes)
+        document.addEventListener('pointermove', (e) => {
+            this.handleDragMove(e);
+            this.handleItemDragMove(e);
+        });
+        document.addEventListener('pointerup', (e) => {
+            this.handleDragEnd(e);
+            this.handleItemDragEnd(e);
+        });
+        document.addEventListener('pointercancel', (e) => {
+            this.handleDragEnd(e);
+            this.handleItemDragEnd(e);
+        });
     }
     
     renderMoveLimit() {
@@ -4877,14 +5030,23 @@ class UIManager {
     }
 
     _renderNow() {
-        const validTargets = this.engine.selectedSource ? this.engine.getValidTargets(this.engine.selectedSource.boxId) : [];
+        const validTargets = this.itemDragState.isDragging
+            ? this.engine.getValidTargets(this.itemDragState.sourceBoxId)
+            : (this.engine.selectedSource ? this.engine.getValidTargets(this.engine.selectedSource.boxId) : []);
         const hiddenCounts = this.engine.columns.map(
             col => Math.max(0, col.length - this.engine.visibleRows));
             
+        const peekingBoxes = this.engine.columns.map(col => {
+            if (col.length > this.engine.visibleRows) {
+                return this.engine.getBox(col[this.engine.visibleRows]);
+            }
+            return null;
+        });
+
         const grid = document.getElementById('boxes-grid');
         const truoc = new Map();
         if (!this._boLuotFlip && grid) {
-            for (const el of grid.querySelectorAll('.box[data-box-id]')) {
+            for (const el of grid.querySelectorAll('.box:not(.peek-box)[data-box-id]')) {
                 truoc.set(el.dataset.boxId, el.getBoundingClientRect());
             }
         }
@@ -4894,7 +5056,8 @@ class UIManager {
             this.engine.selectedSource,
             validTargets,
             hiddenCounts,
-            this.engine.visibleRows
+            this.engine.visibleRows,
+            peekingBoxes
         );
             
         this._chayFlip(grid, truoc);
@@ -4904,6 +5067,15 @@ class UIManager {
         if (this.dragState.isDragging && this.dragState.boxId) {
             const dragBoxEl = document.querySelector(`.box[data-box-id="${this.dragState.boxId}"]`);
             if (dragBoxEl) dragBoxEl.classList.add('dragging');
+        }
+
+        // Ensure slot-dragging class persists on rerender
+        if (this.itemDragState.isDragging && this.itemDragState.sourceBoxId !== null) {
+            const srcBoxEl = document.querySelector(`.box[data-box-id="${this.itemDragState.sourceBoxId}"]`);
+            if (srcBoxEl) {
+                const slotEl = srcBoxEl.querySelector(`.slot[data-slot-index="${this.itemDragState.sourceSlotIndex}"]`);
+                if (slotEl) slotEl.classList.add('slot-dragging');
+            }
         }
         
         let highlightTray = null;
@@ -4929,11 +5101,14 @@ class UIManager {
         const itMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (itMotion || this._boLuotFlip) return;
 
-        const THOI_LUONG = 340;
-        const NHIP = 'cubic-bezier(.16, 1, .3, 1)';
+        const THOI_LUONG = 2400;
+        const NHIP = 'cubic-bezier(0.25, 1, 0.4, 1)';
         const animatedCols = new Set();
 
-        for (const el of grid.querySelectorAll('.box[data-box-id]')) {
+        const cs = getComputedStyle(grid);
+        const gap = parseFloat(cs.rowGap || cs.gap) || 8;
+
+        for (const el of grid.querySelectorAll('.box:not(.peek-box)[data-box-id]')) {
             if (el.classList.contains('dragging')) continue;
 
             const cu = truoc.get(el.dataset.boxId);
@@ -4942,11 +5117,12 @@ class UIManager {
             const colIndex = colEl && colEl.dataset.colIndex !== undefined ? Number(colEl.dataset.colIndex) : null;
 
             if (!cu) {
-                // Thùng mới từ kho trên đỉnh trượt XUỐNG
+                // Thùng mới từ đáy trượt LÊN vị trí hàng dưới cùng
+                const startY = moi.height + gap;
                 el.animate(
-                    [ { transform: `translateY(${-(moi.height + 14)}px)`, opacity: 0 },
+                    [ { transform: `translateY(${startY}px)`, opacity: 0.72 },
                       { transform: 'none', opacity: 1 } ],
-                    { duration: THOI_LUONG, easing: NHIP, delay: 50, fill: 'backwards' }
+                    { duration: THOI_LUONG, easing: NHIP }
                 );
                 if (colIndex !== null && !animatedCols.has(colIndex)) {
                     animatedCols.add(colIndex);
@@ -4965,11 +5141,26 @@ class UIManager {
                 { duration: THOI_LUONG, easing: NHIP }
             );
 
-            // Thùng trượt xuống theo dây chuyền băng tải
+            // Băng chuyền đẩy các thùng trượt lên
             if (colIndex !== null && !animatedCols.has(colIndex)) {
                 animatedCols.add(colIndex);
                 this.boxRenderer.triggerRollAnimation(colIndex);
                 this.audio.conveyorRoll();
+            }
+        }
+
+        // Animate thùng trong ô peek ở đáy trượt lên từ từ
+        for (const colIndex of animatedCols) {
+            const peekSlot = this.boxRenderer._peekSlots ? this.boxRenderer._peekSlots[colIndex] : null;
+            const peekBox = peekSlot ? peekSlot.querySelector('.box.peek-box') : null;
+            if (peekBox) {
+                const peekRect = peekBox.getBoundingClientRect();
+                const startY = peekRect.height + gap;
+                peekBox.animate(
+                    [ { transform: `translateY(${startY}px)`, opacity: 0.25 },
+                      { transform: 'none', opacity: 0.72 } ],
+                    { duration: THOI_LUONG, easing: NHIP }
+                );
             }
         }
 
@@ -4985,7 +5176,7 @@ class UIManager {
 
     // --- Layer 1 Input (Tap) ---
     handleSlotTap(boxId, itemIndex) {
-        if (this.dragState.isDragging) return;
+        if (this.dragState.isDragging || this.itemDragState.isDragging) return;
         if (this._animating) return;
         
         // During tutorial, enforce allowed target to prevent accidental wrong placement
@@ -5012,76 +5203,12 @@ class UIManager {
             const sourceBoxBefore = this.engine.getBox(sourceId);
             const willEmpty = sourceBoxBefore && sourceBoxBefore.items.length === 1;
 
-            if (this.engine.selectTarget(boxId)) {
+            if (this.engine.selectTarget(boxId, itemIndex)) {
                 this.audio.swap();
                 this._animating = true;
                 const targetBox = this.engine.getBox(boxId);
                 this.boxRenderer.animateItemTransfer(sourceId, boxId, () => {
-                    const finishTransfer = () => {
-                        if (targetBox.isWrapped) {
-                            // Apply wrapped class to existing DOM to trigger transition
-                            const domBox = document.querySelector(`.box[data-box-id="${boxId}"]`);
-                            if (domBox) {
-                                const catConfig = getCategoryConfig(targetBox.getCategory());
-                                const itemType = targetBox.getItemType() || (targetBox.items.length > 0 ? targetBox.items[0] : null);
-                                const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
-                                if (catConfig) {
-                                    domBox.style.setProperty('--cat-color', catConfig.color);
-                                    let logo = domBox.querySelector('.box-logo');
-                                    if (!logo) {
-                                        logo = document.createElement('div');
-                                        logo.className = 'box-logo';
-                                        domBox.appendChild(logo);
-                                    }
-                                    logo.style.setProperty('--cat-color', catConfig.color);
-                                    logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
-                                }
-                                domBox.classList.add('wrapped');
-                            }
-                            
-                            // Doi flap gop lai va dan bang keo (0.5s) -> sau do bay xuong hang cho
-                            setTimeout(() => {
-                                const currentQueue = this.engine.getQueue();
-                                const nextSlotIdx = currentQueue.length;
-                                const domBoxCurrent = document.querySelector(`.box[data-box-id="${boxId}"]`);
-                                const wrapColEl = domBoxCurrent ? domBoxCurrent.closest('.box-column') : null;
-                                if (wrapColEl && wrapColEl.dataset.colIndex !== undefined) {
-                                    this._lastAffectedColIndex = Number(wrapColEl.dataset.colIndex);
-                                }
-
-                                this.queueRenderer.animateBoxToQueue(targetBox, nextSlotIdx, domBoxCurrent, () => {
-                                    targetBox.queueEnteredTime = performance.now();
-                                    this.engine.moveBoxToQueue(targetBox);
-                                    this._animating = false;
-                                    this.updateRender();
-                                });
-                            }, 550);
-                        } else {
-                            this._animating = false;
-                            this.updateRender();
-                        }
-                    };
-
-                    if (willEmpty) {
-                        // Thung nguon da rong -> hieu ung bien mat nhe nhang truoc khi cot tut xuong
-                        const srcDom = document.querySelector(`.box[data-box-id="${sourceId}"]`);
-                        if (srcDom) {
-                            const emptyColEl = srcDom.closest('.box-column');
-                            if (emptyColEl && emptyColEl.dataset.colIndex !== undefined) {
-                                this._lastAffectedColIndex = Number(emptyColEl.dataset.colIndex);
-                            }
-                            this.vfx.praise(srcDom, 'DỌN GỌN! 🧹', 1);
-                            srcDom.classList.add('disappearing');
-                            if (navigator.vibrate) navigator.vibrate(20);
-                            setTimeout(() => {
-                                finishTransfer();
-                            }, 200);
-                        } else {
-                            finishTransfer();
-                        }
-                    } else {
-                        finishTransfer();
-                    }
+                    this._finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox);
                 });
             } else {
                 // Invalid or deselected
@@ -5103,6 +5230,312 @@ class UIManager {
                 
                 this.updateRender();
             }
+        }
+    }
+
+    // --- Layer 1 Input: Item Drag & Drop ---
+    handleItemDragStart(boxId, slotIndex, slotEl, e) {
+        if (this._animating) return;
+        if (this.dragState.isDragging || this.itemDragState.isDragging) return;
+        if (!this.engine.isAccessible(boxId)) return;
+
+        const box = this.engine.getBox(boxId);
+        if (!box || box.isWrapped) return;
+
+        const itemId = box.slots ? box.slots[slotIndex] : null;
+        if (!itemId) return;
+
+        // Tutorial check
+        if (this.tutorialManager && this.tutorialManager.active) {
+            if (this.tutorialManager.isAllowedDragStart && !this.tutorialManager.isAllowedDragStart(boxId)) {
+                this.tutorialManager.onDisallowedTap(boxId);
+                return;
+            }
+        }
+
+        if (e) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.pointerId !== undefined && slotEl && slotEl.setPointerCapture) {
+                try { slotEl.setPointerCapture(e.pointerId); } catch (_) {}
+            }
+        }
+
+        this.itemDragState.isDragging = true;
+        this.itemDragState.sourceBoxId = boxId;
+        this.itemDragState.sourceSlotIndex = slotIndex;
+        this.itemDragState.itemId = itemId;
+        this.itemDragState.targetBoxId = null;
+        this.itemDragState.targetSlotIndex = null;
+        this.itemDragState.pointerId = e ? e.pointerId : null;
+        this.itemDragState.pointerTarget = slotEl;
+        this.itemDragState.sourceSlotEl = slotEl;
+        this.itemDragState.startX = e ? e.clientX : 0;
+        this.itemDragState.startY = e ? e.clientY : 0;
+
+        slotEl.classList.add('slot-dragging');
+        document.body.classList.add('is-item-dragging');
+
+        // Create or get ghost
+        let ghost = document.getElementById('item-drag-ghost');
+        if (!ghost) {
+            ghost = document.createElement('div');
+            ghost.id = 'item-drag-ghost';
+            ghost.className = 'item-drag-ghost';
+            document.body.appendChild(ghost);
+        }
+        ghost.textContent = getItemEmoji(itemId);
+        ghost.style.display = 'flex';
+        ghost.style.transition = 'none';
+        ghost.style.left = `${e ? e.clientX : 0}px`;
+        ghost.style.top = `${(e ? e.clientY : 0) - 22}px`;
+        ghost.style.transform = 'translate(-50%, -50%) scale(1.18)';
+        ghost.style.opacity = '1';
+        this.itemDragState.ghostEl = ghost;
+
+        this.audio.tap();
+        if (navigator.vibrate) navigator.vibrate(10);
+
+        this.updateRender();
+    }
+
+    handleItemDragMove(e) {
+        if (!this.itemDragState.isDragging) return;
+        if (e.preventDefault) e.preventDefault();
+
+        const ghost = this.itemDragState.ghostEl;
+        if (ghost) {
+            ghost.style.left = `${e.clientX}px`;
+            ghost.style.top = `${e.clientY - 22}px`;
+        }
+
+        // Hit test: kiem tra ca diem cham va vi tri ghost
+        let elementsUnder = document.elementsFromPoint(e.clientX, e.clientY);
+        let boxEl = elementsUnder.find(el => el.classList && el.classList.contains('box') && !el.classList.contains('peek-box'));
+        let slotEl = elementsUnder.find(el => el.classList && el.classList.contains('slot'));
+
+        if (!boxEl) {
+            const hitUnderGhost = document.elementsFromPoint(e.clientX, e.clientY - 22);
+            boxEl = hitUnderGhost.find(el => el.classList && el.classList.contains('box') && !el.classList.contains('peek-box'));
+            if (!slotEl) slotEl = hitUnderGhost.find(el => el.classList && el.classList.contains('slot'));
+        }
+
+        // Clear existing hover highlights
+        document.querySelectorAll('.box.drag-over').forEach(b => b.classList.remove('drag-over'));
+        document.querySelectorAll('.slot.drop-target-active').forEach(s => s.classList.remove('drop-target-active'));
+
+        if (boxEl) {
+            const hoverBoxId = boxEl.dataset.boxId;
+            const targetBox = this.engine.getBox(hoverBoxId);
+            const isSource = String(hoverBoxId) === String(this.itemDragState.sourceBoxId);
+            const isValid = !isSource && targetBox && !targetBox.isWrapped && targetBox.canAccept() && this.engine.isAccessible(hoverBoxId);
+
+            if (isValid) {
+                boxEl.classList.add('drag-over');
+                this.itemDragState.targetBoxId = hoverBoxId;
+
+                if (slotEl && slotEl.closest('.box') === boxEl && slotEl.classList.contains('placeholder')) {
+                    slotEl.classList.add('drop-target-active');
+                    this.itemDragState.targetSlotIndex = Number(slotEl.dataset.slotIndex);
+                } else {
+                    this.itemDragState.targetSlotIndex = null;
+                }
+            } else {
+                this.itemDragState.targetBoxId = null;
+                this.itemDragState.targetSlotIndex = null;
+            }
+        } else {
+            this.itemDragState.targetBoxId = null;
+            this.itemDragState.targetSlotIndex = null;
+        }
+    }
+
+    handleItemDragEnd(e) {
+        if (!this.itemDragState.isDragging) return;
+
+        if (this.itemDragState.pointerId !== null && this.itemDragState.pointerTarget && this.itemDragState.pointerTarget.releasePointerCapture) {
+            try { this.itemDragState.pointerTarget.releasePointerCapture(this.itemDragState.pointerId); } catch (_) {}
+        }
+        this.itemDragState.pointerId = null;
+        this.itemDragState.pointerTarget = null;
+
+        document.querySelectorAll('.box.drag-over').forEach(b => b.classList.remove('drag-over'));
+        document.querySelectorAll('.slot.drop-target-active').forEach(s => s.classList.remove('drop-target-active'));
+
+        const srcBoxId = this.itemDragState.sourceBoxId;
+        const srcSlotIndex = this.itemDragState.sourceSlotIndex;
+        let targetBoxId = this.itemDragState.targetBoxId;
+        let targetSlotIndex = this.itemDragState.targetSlotIndex;
+        const ghost = this.itemDragState.ghostEl;
+        const srcSlotEl = this.itemDragState.sourceSlotEl;
+
+        // Neu targetBoxId chua co, kiem tra truc tiep tai toa do pointerup
+        if (e && (targetBoxId === null || targetBoxId === undefined)) {
+            const elementsUnder = document.elementsFromPoint(e.clientX, e.clientY);
+            const boxEl = elementsUnder.find(el => el.classList && el.classList.contains('box') && !el.classList.contains('peek-box'));
+            const slotEl = elementsUnder.find(el => el.classList && el.classList.contains('slot'));
+            if (boxEl) {
+                const hoverBoxId = boxEl.dataset.boxId;
+                const targetBox = this.engine.getBox(hoverBoxId);
+                const isSource = String(hoverBoxId) === String(srcBoxId);
+                if (!isSource && targetBox && !targetBox.isWrapped && targetBox.canAccept() && this.engine.isAccessible(hoverBoxId)) {
+                    targetBoxId = hoverBoxId;
+                    if (slotEl && slotEl.closest('.box') === boxEl && slotEl.classList.contains('placeholder')) {
+                        targetSlotIndex = Number(slotEl.dataset.slotIndex);
+                    }
+                }
+            }
+        }
+
+        this.itemDragState.isDragging = false;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => document.body.classList.remove('is-item-dragging'));
+        });
+
+        // If targetBoxId is valid
+        if (targetBoxId !== null && targetBoxId !== srcBoxId) {
+            // Tutorial check
+            if (this.tutorialManager && this.tutorialManager.active) {
+                if (this.tutorialManager.isAllowedDrop && !this.tutorialManager.isAllowedDrop(srcBoxId, targetBoxId)) {
+                    this.tutorialManager.onDisallowedTap(targetBoxId);
+                    this._cancelItemDrag(ghost, srcSlotEl);
+                    return;
+                }
+            }
+
+            const targetBoxEl = document.querySelector(`.box[data-box-id="${targetBoxId}"]`);
+            let targetSlotEl = null;
+            if (targetBoxEl) {
+                if (targetSlotIndex !== null) {
+                    targetSlotEl = targetBoxEl.querySelector(`.slot[data-slot-index="${targetSlotIndex}"]`);
+                }
+                if (!targetSlotEl || !targetSlotEl.classList.contains('placeholder')) {
+                    targetSlotEl = targetBoxEl.querySelector('.slot.placeholder');
+                }
+            }
+
+            const sourceBoxBefore = this.engine.getBox(srcBoxId);
+            const willEmpty = sourceBoxBefore && sourceBoxBefore.items.length === 1;
+
+            const success = this.engine.moveItem(srcBoxId, srcSlotIndex, targetBoxId, targetSlotIndex);
+            if (success) {
+                this.audio.swap();
+                this._animating = true;
+                if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
+
+                if (ghost && targetSlotEl) {
+                    const targetRect = targetSlotEl.getBoundingClientRect();
+                    ghost.style.transition = 'all 0.14s cubic-bezier(0.2, 0.9, 0.4, 1)';
+                    ghost.style.left = `${targetRect.left + targetRect.width / 2}px`;
+                    ghost.style.top = `${targetRect.top + targetRect.height / 2}px`;
+                    ghost.style.transform = 'translate(-50%, -50%) scale(1)';
+                }
+
+                if (this.tutorialManager && this.tutorialManager.active) {
+                    this.tutorialManager.onItemDropped(srcBoxId, targetBoxId);
+                }
+
+                setTimeout(() => {
+                    if (ghost) ghost.style.display = 'none';
+                    const targetBox = this.engine.getBox(targetBoxId);
+                    this._finalizeMoveAfterDrag(srcBoxId, targetBoxId, willEmpty, targetBox);
+                }, 140);
+                return;
+            }
+        }
+
+        // Invalid target -> cancel & snap back
+        this._cancelItemDrag(ghost, srcSlotEl);
+    }
+
+    _cancelItemDrag(ghost, srcSlotEl) {
+        this.audio.reject();
+        if (navigator.vibrate) navigator.vibrate(18);
+
+        if (ghost && srcSlotEl) {
+            const rect = srcSlotEl.getBoundingClientRect();
+            ghost.style.transition = 'all 0.18s cubic-bezier(0.25, 1, 0.5, 1)';
+            ghost.style.left = `${rect.left + rect.width / 2}px`;
+            ghost.style.top = `${rect.top + rect.height / 2}px`;
+            ghost.style.transform = 'translate(-50%, -50%) scale(0.95)';
+            ghost.style.opacity = '0.7';
+
+            setTimeout(() => {
+                ghost.style.display = 'none';
+                ghost.style.transition = '';
+                ghost.style.transform = '';
+                ghost.style.opacity = '';
+                if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
+                this.updateRender();
+            }, 180);
+        } else {
+            if (ghost) ghost.style.display = 'none';
+            if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
+            this.updateRender();
+        }
+    }
+
+    _finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox) {
+        const finishTransfer = () => {
+            if (targetBox && targetBox.isWrapped) {
+                const domBox = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                if (domBox) {
+                    const catConfig = getCategoryConfig(targetBox.getCategory());
+                    const itemType = targetBox.getItemType() || (targetBox.items.length > 0 ? targetBox.items[0] : null);
+                    const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
+                    if (catConfig) {
+                        domBox.style.setProperty('--cat-color', catConfig.color);
+                        let logo = domBox.querySelector('.box-logo');
+                        if (!logo) {
+                            logo = document.createElement('div');
+                            logo.className = 'box-logo';
+                            domBox.appendChild(logo);
+                        }
+                        logo.style.setProperty('--cat-color', catConfig.color);
+                        logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
+                    }
+                    domBox.classList.add('wrapped');
+                }
+                
+                setTimeout(() => {
+                    const currentQueue = this.engine.getQueue();
+                    const nextSlotIdx = currentQueue.length;
+                    const domBoxCurrent = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                    const wrapColEl = domBoxCurrent ? domBoxCurrent.closest('.box-column') : null;
+                    if (wrapColEl && wrapColEl.dataset.colIndex !== undefined) {
+                        this._lastAffectedColIndex = Number(wrapColEl.dataset.colIndex);
+                    }
+
+                    this.queueRenderer.animateBoxToQueue(targetBox, nextSlotIdx, domBoxCurrent, () => {
+                        targetBox.queueEnteredTime = performance.now();
+                        this.engine.moveBoxToQueue(targetBox);
+                        this._animating = false;
+                        this.updateRender();
+                    });
+                }, 550);
+            } else {
+                this._animating = false;
+                this.updateRender();
+            }
+        };
+
+        if (willEmpty) {
+            const srcDom = document.querySelector(`.box[data-box-id="${sourceId}"]`);
+            if (srcDom) {
+                const emptyColEl = srcDom.closest('.box-column');
+                if (emptyColEl && emptyColEl.dataset.colIndex !== undefined) {
+                    this._lastAffectedColIndex = Number(emptyColEl.dataset.colIndex);
+                }
+                this.vfx.praise(srcDom, 'DỌN GỌN! 🧹', 1);
+                srcDom.classList.add('disappearing');
+                if (navigator.vibrate) navigator.vibrate(20);
+                setTimeout(() => {
+                    finishTransfer();
+                }, 200);
+            } else {
+                finishTransfer();
+            }
+        } else {
+            finishTransfer();
         }
     }
     
@@ -5286,7 +5719,7 @@ class UIManager {
             if (!slotEl || !trayEl) continue;
 
             // Phase 1 §1.4: Tách giao hàng khỏi toạ độ hình học
-            if (!this.trayRenderer.isInDeliveryZone(trayObj, slotIdx, queue.length)) continue;
+            if (!this.trayRenderer.isInDeliveryZone(trayObj, slotEl, queue.length)) continue;
 
             this.triggerQueueDelivery(box, matchingTray, slotEl, trayEl);
             break; // Giao 1 thung moi lan

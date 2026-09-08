@@ -69,12 +69,14 @@ export class TrayRenderer {
      * Chi khac mot diem: toa do doc tu he cua #trays-container thay vi tu
      * getBoundingClientRect() cua hai phan tu, nen doi bo cuc khong lam lech nhip giao.
      */
-    isInDeliveryZone(trayObj, slotIdx, queueLength) {
+    isInDeliveryZone(trayObj, slotRef, queueLength) {
         const g = this.geom;
         const pt = this.getTrackPoint(trayObj.currentTheta);
         if (Math.abs(pt.y - g.frontY) >= 22) return false;   // phai o nhanh chay truoc
 
-        const slotEl = document.querySelectorAll('.queue-slot')[slotIdx];
+        const slotEl = (slotRef && typeof slotRef === 'object' && slotRef.nodeType)
+            ? slotRef
+            : document.querySelectorAll('.queue-slot')[slotRef];
         if (!slotEl) return false;
         const cRect = this.container.getBoundingClientRect();
         const sRect = slotEl.getBoundingClientRect();
@@ -127,7 +129,7 @@ export class TrayRenderer {
         //   beltH >= 2 x (trayH + BAND_PAD) + CORE_MIN
         const BAND_PAD = 8;   // le dai bang tai moi ben ngoai Khay
         const CORE_MIN = 16;  // long vong toi thieu, de con doc ra la mot VONG
-        let trayH = Math.max(34, Math.min(52,
+        let trayH = Math.max(34, Math.min(70,
             Math.floor((beltH - CORE_MIN) / 2) - BAND_PAD));
         let trayW = Math.round(trayH * 0.94);
 
