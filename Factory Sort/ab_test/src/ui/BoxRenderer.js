@@ -268,8 +268,16 @@ export class BoxRenderer {
         const room = avail - 8 - (rows - 1) * gap;
         const h = Math.max(50, Math.floor(room / rows));
 
-        // Phase 2 §2.4b: trần theo bề rộng ô
-        const capped = Math.min(h, Math.round(slotW * 2.6));
+        // Tran chieu cao Thung theo be rong o hang.
+        //
+        // He so 3.0 (truoc: 2.6) — chon lai sau khi nhin bo cuc that:
+        //  - 2.6 cho Thung 84px o may 390px, chong Thung chi cao 366/583 -> con ~220px
+        //    ray bang tai TRONG duoi cung, doc ra nhu "cai thang rong".
+        //  - 3.0 cho Thung ~93px, chong Thung ~400/583, phan ray con lai vua du de lam
+        //    diem tua thi giac chu khong con la khoang trong.
+        // Khong nang cao hon: qua 3.0-3.4 thi Thung thanh hinh dung, trong khi noi dung cua
+        // no la 3 o VUONG nam ngang — ti le sai se lo ngay.
+        const capped = Math.min(h, Math.round(slotW * 3.0));
         this.container.style.setProperty('--box-h', `${Math.max(50, capped)}px`);
         this.container.style.setProperty('--stack-gap', `${gap}px`);
     }

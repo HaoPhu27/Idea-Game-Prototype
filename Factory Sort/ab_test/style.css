@@ -444,11 +444,15 @@ html, body {
        ke thua xuong. Dat mac dinh o day de CSS van dung khi JS chua kip chay. */
     --box-h: 75px;
     display: flex;
-    align-items: center;
+    /* Cot CAO HET khung, nhung chong Thung ben trong thi neo len tren (xem .box-stack).
+       Truoc day de `center` theo P2 §2.4b: Thung dung giua, de lai HAI khoang den
+       ~115px tren va duoi — nhin nhu trang bi loi. Ray keo xuong day thi bo cuc co
+       diem tua, con Thung van dung ti le. */
+    align-items: stretch;
     gap: clamp(5px, 1.4vw, 12px);
     width: 100%;
     max-width: min(400px, 100%);
-    height: auto;
+    height: 100%;
     overflow: visible;
 }
 
@@ -459,7 +463,7 @@ html, body {
     align-items: stretch;
     gap: clamp(4px, 1.5vw, 10px);
     min-width: 0;
-    height: auto;
+    height: 100%;
     position: relative;
     --stack-gap: clamp(5px, 1.4vw, 12px);
 }
@@ -472,8 +476,10 @@ html, body {
 .conveyor-track {
     position: relative;
     width: 100%;
-    flex: 0 0 auto;
-    height: auto;
+    /* Ray + thanh nhom keo dai het chieu cao cot (cham "san nha may"), nhung
+       .box-stack ben trong chi cao bang noi dung nen Thung khong bi keo gian. */
+    flex: 1 1 auto;
+    height: 100%;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -794,7 +800,8 @@ html, body {
     flex-direction: column-reverse;
     gap: var(--stack-gap, 8px);
     overflow: visible;
-    height: 100%;
+    height: auto;              /* cao bang noi dung, khong keo gian Thung */
+    flex: 0 0 auto;
     width: 100%;
     position: relative;
     z-index: 2;
@@ -1033,12 +1040,18 @@ html, body {
 .slot {
     flex: 1 1 0;
     min-width: 0;
-    aspect-ratio: 1 / 1;
+    /* KHONG dung aspect-ratio: 1/1.
+       Ly do: `min-height: auto` suy tu noi dung (emoji + line-height) LON HON canh
+       vuong, nen aspect-ratio bi ghi de am tham — do dung 31x38 chu khong phai 31x31.
+       Dat thang chieu cao theo be rong o thi vua chac chan vua lap day duoc phan
+       chieu cao du cua Thung (be rong o do so cot quyet dinh nen luon la nut that). */
+    height: min(100%, calc(var(--slot-size, 30px) * 1.5));
+    min-height: 0;
     align-self: center;
     margin: 0;
-    max-height: 100%;
     display: grid;
     place-items: center;
+    line-height: 1;
     font-size: min(var(--slot-size, 30px) * 0.86, var(--box-h, 105px) * 0.44);
     position: relative;
     z-index: 5;
@@ -1377,8 +1390,10 @@ html, body {
 /* Individual Tray (Sleek card designed to fit completely INSIDE conveyor) */
 .tray {
     --hl: 1;
-    width: 62px;
-    height: 66px;
+    /* TrayRenderer cap --tray-w/--tray-h theo so Khay hien dien: o man 50 co toi 7 Khay,
+       kich thuoc co dinh se tran ra ngoai chu vi vong chay. */
+    width: var(--tray-w, 62px);
+    height: var(--tray-h, 66px);
     background: linear-gradient(180deg, #33415a, #1b2536);
     border-radius: 12px;
     border: 2px solid var(--cat-color, #64748b);
@@ -1475,6 +1490,21 @@ html, body {
     letter-spacing: .04em;
     color: #64748b;
     pointer-events: none;
+}
+
+/* Bo cuc dao: khu don hang la flex column nen mot phan tu absolute neo `bottom`
+   se roi DE LEN hang cho. Dua no len dinh, nam canh cong IN tren mep lan chay. */
+[data-layout="inverted"] .tray-remaining {
+    right: 14px;
+    bottom: auto;
+    top: 0;
+    font-size: 9px;
+    letter-spacing: .06em;
+    color: var(--text-500, #7c8ba2);
+    background: rgba(11, 17, 30, .9);
+    padding: 1px 6px;
+    border-radius: 999px;
+    z-index: 9;
 }
 
 .tray-remaining.is-last {
@@ -2351,34 +2381,142 @@ html, body {
     flex-direction: column;
 }
 
+/* --------------------------------------------------------------------------
+   KHU DON HANG = HAI HANG XEP CHONG, KHONG PHAI MOT HOP RONG
+   --------------------------------------------------------------------------
+   Hang 1: #conveyor-belt — LAN CHAY cua Khay (bang tai ngang mot chieu).
+   Hang 2: #queue-area    — HANG CHO 5 o.
+
+   Vi sao phai tach ra: ban truoc chi doi #queue-area sang position:static nhung
+   van de #conveyor-belt la absolute phu kin #tray-area. Bang tai co nen mo duc
+   va z-index:1 nen NUOT TRON hang cho — nguoi choi mat hoan toan chi so 0/5,
+   thu quan trong nhat de biet minh sap thua. Day la loi cua ban dac ta P3 §3.5,
+   khong phai loi cai dat.
+   -------------------------------------------------------------------------- */
 [data-layout="inverted"] #tray-area {
     order: 1;
-    flex: 0 0 clamp(108px, 20vh, 152px);
+    flex: 0 0 auto;
     height: auto;
     min-height: 0;
     max-height: none;
 
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 12px 10px calc(4px + env(safe-area-inset-bottom, 0px)) 10px;
+    overflow: visible;
+
+    /* Vong chay can chua HAI nhanh Khay chong len nhau theo chieu doc.
+       118px la muc toi thieu de 2 nhanh khong dam vao nhau (2 x 48 + le).
+       Van chi bang mot NUA cua ban delivery (242px). */
+    --lane-h: clamp(112px, 17vh, 128px);
     --belt-inset: 10px;
-    --belt-h: clamp(96px, 18vh, 138px);
-    --belt-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-    --belt-radius: 18px;
+    --belt-radius: 16px;
+}
+
+/* Hang 1 — LAN CHAY: dua bang tai VAO LUONG, khong con absolute */
+[data-layout="inverted"] #conveyor-belt {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    width: 100%;
+    height: var(--lane-h);
+    flex: 0 0 var(--lane-h);
+    border-radius: var(--belt-radius);
+    overflow: visible;                 /* de cong IN/OUT nho len tren mep */
+
+    /* Mat dai co go chan chay NGANG — cung ngon ngu voi bang tai cot Thung,
+       chi khac huong. Khong con la mot cai hop rong co vien net dut. */
+    background:
+        repeating-linear-gradient(
+            90deg,
+            transparent 0 20px,
+            rgba(255, 255, 255, 0.055) 20px 21px,
+            #2a3646 21px 23px,
+            rgba(0, 0, 0, 0.62) 23px 26px,
+            transparent 26px 28px),
+        linear-gradient(180deg, #1c2735 0%, #141d29 46%, #0d141d 100%);
+    border: 2px solid #35465c;
+    border-top-color: #4e6582;
+    box-shadow:
+        inset 0 9px 16px rgba(0, 0, 0, 0.72),
+        inset 0 -9px 16px rgba(0, 0, 0, 0.72),
+        0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* Bo vien net dut cu (no la guide cua vong chay hinh chu nhat, gio khong con vong) */
+[data-layout="inverted"] #conveyor-belt::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 3px;
+    border: none;
+    border-radius: 0 0 var(--belt-radius) var(--belt-radius);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+    box-shadow: none;
+}
+
+/* Lop Khay phu KHIT len lan chay va CAT o hai dau: Khay truot ra tu duoi tam chan
+   cong IN, qua lan, roi khuat sau tam chan cong OUT. Day la thu tra lai cam giac
+   "may dang chay" ma ban truoc lam mat. */
+[data-layout="inverted"] #trays-container {
+    position: absolute;
+    left: var(--belt-inset);
+    right: var(--belt-inset);
+    top: 12px;
+    width: auto;
+    height: var(--lane-h);
+    overflow: hidden;
+    border-radius: var(--belt-radius);
+    z-index: 6;
+}
+
+/* Cong IN/OUT thanh TAM CHAN dung o hai dau lan, khong con la nhan noi lo lung.
+   Neo theo #tray-area (cha moi) chu khong theo bang tai: dinh lan = padding-top 12px,
+   nen tam lan = 12px + --lane-h / 2. */
+[data-layout="inverted"] .port-out,
+[data-layout="inverted"] .port-in {
+    top: 14px;
+    height: calc(var(--lane-h) - 4px);
+    transform: none;
+    z-index: 8;
+    padding: 0 4px;
+    font-size: 8.5px;
+    line-height: 1.05;
+    width: 24px;
+    max-width: 24px;
+    text-align: center;
+    white-space: normal;
+    align-items: center;
+    justify-content: center;
+    /* Tam chan cua may: mo dan vao giua de Khay "chim vao trong" chu khong bi cat cut */
+    background: linear-gradient(90deg, #1a2434 0%, #1a2434 55%, rgba(26, 36, 52, 0) 100%);
+    border: none;
+    box-shadow: none;
+    color: var(--text-500, #7c8ba2);
+}
+[data-layout="inverted"] .port-out { left: 12px;  border-radius: 14px 0 0 14px; }
+[data-layout="inverted"] .port-in  { right: 12px; border-radius: 0 14px 14px 0;
+    background: linear-gradient(270deg, #1a2434 0%, #1a2434 55%, rgba(26, 36, 52, 0) 100%); }
+
+/* Hang 2 — HANG CHO: hang rieng, khong bao gio bi bang tai de len nua */
+[data-layout="inverted"] #queue-area {
+    position: static;
+    transform: none;
+    width: 100%;
+    max-width: none;
+    margin-top: 0;
+    padding: 4px 8px 6px;
+    z-index: auto;
+    flex: 0 0 auto;
 }
 
 [data-layout="inverted"] #boxes-area {
     order: 2;
     flex: 1 1 auto;
     min-height: 0;
-    padding: 6px 24px calc(10px + env(safe-area-inset-bottom, 0px)) 24px;
-}
-
-[data-layout="inverted"] #queue-area {
-    position: static;
-    transform: none;
-    width: 100%;
-    max-width: none;
-    margin-top: 6px;
-    padding: 5px 10px 7px;
-    z-index: auto;
+    padding: 6px 20px calc(8px + env(safe-area-inset-bottom, 0px)) 20px;
 }
 
 [data-layout="inverted"] .tutorial-banner {

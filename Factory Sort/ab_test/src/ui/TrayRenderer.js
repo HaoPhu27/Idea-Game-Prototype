@@ -38,7 +38,19 @@ export class TrayRenderer {
         requestAnimationFrame(this.animate);
     }
 
-    static get DELIVERY_WINDOW() { return 0.055; }
+    /**
+     * Ban kinh vung giao hang, tinh bang PIXEL tren lan chay.
+     *
+     * DAY LA HOP DONG GAMEPLAY. 28px la ngưỡng nguyen ban cua UIManager truoc khi
+     * tach khoi hinh hoc:
+     *     if (Math.abs(trayCenterX - slotCenterX) <= 28) triggerQueueDelivery(...)
+     *
+     * Giu don vi PIXEL chu khong phai ti le vong chay: chieu dai hanh trinh doi theo
+     * be rong may (432px o 390px, 402px o 360px...), nen mot ti le co dinh se lam
+     * nhip giao NHANH CHAM KHAC NHAU tuy may — dung thu can tranh nhat. Doi sang ti
+     * le ngay tai cho dung, dua tren hinh hoc thuc.
+     */
+    static get DELIVERY_RADIUS_PX() { return 28; }
 
     /** Tiến độ 0..1 của một Khay trên vòng chạy, 0 tại cổng IN. */
     getTrackProgress(theta) {
@@ -48,76 +60,167 @@ export class TrayRenderer {
     /**
      * Khay có đang nằm trong cửa sổ giao ứng với ô hàng chờ thứ slotIdx không.
      */
+    /**
+     * Khay co dang o vung giao cua o hang cho thu slotIdx khong.
+     *
+     * DAY LA HOP DONG GAMEPLAY — tai lap DUNG phep thu nguyen ban cua UIManager:
+     *     isFrontTrack: |pt.y - (cy - hy)| < 22
+     *     trung o     : |trayCenterX - slotCenterX| <= 28
+     * Chi khac mot diem: toa do doc tu he cua #trays-container thay vi tu
+     * getBoundingClientRect() cua hai phan tu, nen doi bo cuc khong lam lech nhip giao.
+     */
     isInDeliveryZone(trayObj, slotIdx, queueLength) {
-        const p = this.getTrackProgress(trayObj.currentTheta);
-        const center = this.deliveryCenterForSlot(slotIdx, queueLength);
-        let d = Math.abs(p - center);
-        if (d > 0.5) d = 1 - d;
-        return d <= TrayRenderer.DELIVERY_WINDOW / 2;
-    }
-
-    deliveryCenterForSlot(slotIdx, queueLength) {
-        const slotEl = document.querySelectorAll('.queue-slot')[slotIdx];
-        if (!slotEl) return 0.5;
-        const rect = slotEl.getBoundingClientRect();
-        return this._progressAtScreenX(rect.left + rect.width / 2);
-    }
-
-    _progressAtScreenX(screenX) {
         const g = this.geom;
+        const pt = this.getTrackPoint(trayObj.currentTheta);
+        if (Math.abs(pt.y - g.frontY) >= 22) return false;   // phai o nhanh chay truoc
+
+        const slotEl = document.querySelectorAll('.queue-slot')[slotIdx];
+        if (!slotEl) return false;
         const cRect = this.container.getBoundingClientRect();
-        const localX = screenX - cRect.left;
-        const xIn = g.cx + g.beltW / 2 + g.trayW;
-        const xOut = g.cx - g.beltW / 2 - g.trayW;
-        const span = xOut - xIn;
-        if (Math.abs(span) < 1) return 0.5;
-        return Math.max(0, Math.min(1, (localX - xIn) / span));
+        const sRect = slotEl.getBoundingClientRect();
+        const slotLocalX = (sRect.left + sRect.width / 2) - cRect.left;
+
+        return Math.abs(pt.x - slotLocalX) <= TrayRenderer.DELIVERY_RADIUS_PX;
     }
 
-    readBeltGeometry() {
-        const area = this.container.parentElement;
-        const cs = getComputedStyle(area);
-        const num = (name, fallback) => {
-            const v = parseFloat(cs.getPropertyValue(name));
-            return Number.isFinite(v) ? v : fallback;
-        };
-        const W      = this.container.clientWidth || 600;
-        const inset  = num('--belt-inset', 10);
-        const h      = num('--belt-h', 110);
-        const bottom = num('--belt-bottom', 6);
-        const radius = num('--belt-radius', 18);
 
-        const beltW = Math.max(80, W - inset * 2);
-        const beltH = Math.max(80, h);
-        const cx = W / 2;
-        const cy = bottom + h / 2;
-
-        const trayW = 62;
-        const trayH = 66;
-        const margin = 6;
-
-        // Half-extents of track perimeter so trays are ALWAYS 100% inside the conveyor
-        const hx = Math.max(20, beltW / 2 - trayW / 2 - margin);
-        const hy = Math.max(20, beltH / 2 - trayH / 2 - margin);
-        const r = Math.min(radius, hx * 0.45, hy * 0.45);
-        const laneY = bottom + h / 2;
-
-        return {
-            cx, cy, beltW, beltH, hx, hy, r, trayW, trayH, bottom, h, laneY
-        };
-    }
 
     /**
-     * Quỹ đạo tuyến tính: Khay vào ở cổng IN (phải), trôi sang trái, ra ở cổng OUT.
-     * theta giảm dần -> tiến độ p tăng dần 0..1.
+     * Hinh hoc VONG CHAY — do truc tiep tu DOM.
+     *
+     * Vi sao quay lai vong chay (sau khi thu lan thang mot chieu):
+     *   Lan thang KHONG THE dam bao hien du maxActive Khay, va day la rang buoc bat
+     *   bien cua khu don hang. Hai ly do do duoc bang so:
+     *     - Khay phai truot vao/ra hai dau, nen moi Khay chi "doc duoc" khoang 78%
+     *       thoi gian. O man 1 (2 Khay) chi 57% so khung hinh thay du ca hai.
+     *     - O man 50, maxActive len 6-7. 7 Khay x 62px = 434px, trong khi lan chi rong
+     *       ~340px o may 360px. Khong du cho, du co lam gi voi quy dao.
+     *   Vong chay co chu vi ~2x be rong lan nen chua duoc ca 7 Khay va khong Khay nao
+     *   phai roi khung. Day dung la ly do ban delivery dung vong chay ngay tu dau.
+     *
+     * Cai VAN GIU lai tu ban lan thang: chieu cao. Vong chay o day cao ~118px thay vi
+     * 242px cua delivery — van tra ve cho ban choi hon 120px.
      */
+    readBeltGeometry() {
+        const cRect = this.container.getBoundingClientRect();
+        const belt  = document.getElementById('conveyor-belt');
+        const bRect = (belt && belt.getBoundingClientRect().width > 40)
+            ? belt.getBoundingClientRect() : cRect;
+
+        const W     = this.container.clientWidth || cRect.width || 600;
+        const beltW = Math.max(80, cRect.width || bRect.width);
+        const beltH = Math.max(60, cRect.height || bRect.height);
+
+        // Kich thuoc Khay bi RANG BUOC HAI PHIA. Sizing o day thuan TRINH BAY: khong
+        // doi maxActive, khong doi thu tu Khay, khong doi luat nhan hang.
+        //
+        //  (1) Chieu cao: vong chay co HAI nhanh xep chong theo chieu doc, nen
+        //      trayH <= (beltH - le) / 2. Bo qua rang buoc nay thi hai nhanh dam vao
+        //      nhau va Khay chong len nhau — dung loi vua thay o ban thu truoc.
+        //  (2) Chu vi: o man 50 maxActive len 6-7; n Khay phai vua chu vi vong chay.
+        const n = Math.max(1, this.slotCount || 4);
+        const margin = 4;
+
+        let trayH = Math.max(36, Math.min(58, Math.floor((beltH - margin * 2 - 4) / 2)));
+        let trayW = Math.round(trayH * 0.94);
+
+        const perim = 2 * Math.max(0, beltW - trayW) + 2 * Math.max(0, beltH - trayH);
+        const need  = n * (trayW + 6);
+        if (need > perim && need > 0) {
+            trayW = Math.max(32, Math.round(trayW * (perim / need)));
+            trayH = Math.round(trayW * 1.06);
+        }
+
+        const cx = W / 2;
+        const cy = beltH / 2;                       // do tu DAY #trays-container len
+
+        const hx = Math.max(20, beltW / 2 - trayW / 2 - margin);
+        const hy = Math.max(16, beltH / 2 - trayH / 2 - margin);
+        const radius = Math.min(18, hx * 0.45, hy * 0.45);
+
+        return {
+            cx, cy, beltW, beltH, hx, hy, r: radius, trayW, trayH,
+            frontY: cy - hy,                        // nhanh chay TRUOC (Khay di phai->trai)
+        };
+    }
+
     getTrackPoint(theta) {
         const g = this.geom;
-        const p = this.getTrackProgress(theta); // 0 = cổng IN, 1 = quay lại IN
-        const xIn  = g.cx + g.beltW / 2 + g.trayW; // ngoài khung bên phải
-        const xOut = g.cx - g.beltW / 2 - g.trayW; // ngoài khung bên trái
-        return { x: xIn + (xOut - xIn) * p, y: g.laneY };
+        const Lx = Math.max(0, 2 * (g.hx - g.r));
+        const Ly = Math.max(0, 2 * (g.hy - g.r));
+        const C = (Math.PI / 2) * g.r;
+        const P = 2 * Lx + 2 * Ly + 4 * C;
+
+        if (P <= 0) return { x: g.cx, y: g.cy };
+
+        // Chuyen doi theta (dang giam dan khi troi) ve khoang cach d tang dan theo chieu kim dong ho
+        let norm = ((-theta) % (2 * Math.PI) + (2 * Math.PI)) % (2 * Math.PI);
+        let d = (norm / (2 * Math.PI)) * P;
+
+        const d1 = Ly / 2;
+        const d2 = d1 + C;
+        const d3 = d2 + Lx;
+        const d4 = d3 + C;
+        const d5 = d4 + Ly;
+        const d6 = d5 + C;
+        const d7 = d6 + Lx;
+        const d8 = d7 + C;
+
+        let x, y;
+
+        if (d < d1) {
+            // Canh phai di xuong tu tam cy den bat dau goc bo duoi
+            x = g.cx + g.hx;
+            y = g.cy - d;
+        } else if (d < d2) {
+            // Goc bo duoi-phai
+            const t = (d - d1) / C;
+            const ang = -t * (Math.PI / 2);
+            x = g.cx + g.hx - g.r + g.r * Math.cos(ang);
+            y = g.cy - g.hy + g.r + g.r * Math.sin(ang);
+        } else if (d < d3) {
+            // Canh day di tu phai sang trai
+            const t = d - d2;
+            x = g.cx + g.hx - g.r - t;
+            y = g.cy - g.hy;
+        } else if (d < d4) {
+            // Goc bo duoi-trai
+            const t = (d - d3) / C;
+            const ang = -Math.PI / 2 - t * (Math.PI / 2);
+            x = g.cx - g.hx + g.r + g.r * Math.cos(ang);
+            y = g.cy - g.hy + g.r + g.r * Math.sin(ang);
+        } else if (d < d5) {
+            // Canh trai di len qua cong OUT den bat dau goc bo tren
+            const t = d - d4;
+            x = g.cx - g.hx;
+            y = g.cy - g.hy + g.r + t;
+        } else if (d < d6) {
+            // Goc bo tren-trai
+            const t = (d - d5) / C;
+            const ang = Math.PI - t * (Math.PI / 2);
+            x = g.cx - g.hx + g.r + g.r * Math.cos(ang);
+            y = g.cy + g.hy - g.r + g.r * Math.sin(ang);
+        } else if (d < d7) {
+            // Canh dinh di tu trai sang phai
+            const t = d - d6;
+            x = g.cx - g.hx + g.r + t;
+            y = g.cy + g.hy;
+        } else if (d < d8) {
+            // Goc bo tren-phai
+            const t = (d - d7) / C;
+            const ang = Math.PI / 2 - t * (Math.PI / 2);
+            x = g.cx + g.hx - g.r + g.r * Math.cos(ang);
+            y = g.cy + g.hy - g.r + g.r * Math.sin(ang);
+        } else {
+            // Canh phai di xuong tu dinh ve lai tam cy (cong IN)
+            const t = d - d8;
+            x = g.cx + g.hx;
+            y = g.cy + g.hy - g.r - t;
+        }
+
+        return { x, y };
     }
+
 
     render(activeTrays, highlightedTrayId = null, rejectTrayId = null) {
         this.highlightedTrayId = highlightedTrayId;
@@ -132,6 +235,10 @@ export class TrayRenderer {
         const prevDelta = (2 * Math.PI) / (this.slotCount || 4);
         const slotCountChanged = slotCount !== this.slotCount;
         this.slotCount = slotCount;
+        // trayW/trayH phu thuoc slotCount -> phai do lai hinh hoc sau khi doi.
+        this.geom = this.readBeltGeometry();
+        this.container.style.setProperty('--tray-w', `${this.geom.trayW}px`);
+        this.container.style.setProperty('--tray-h', `${this.geom.trayH}px`);
 
         const isStartOfLevel = !activeTrays.some(tray => this.trayElements.some(t => t.id === tray.id));
 
