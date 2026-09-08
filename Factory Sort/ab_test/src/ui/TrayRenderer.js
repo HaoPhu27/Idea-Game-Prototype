@@ -38,6 +38,42 @@ export class TrayRenderer {
         requestAnimationFrame(this.animate);
     }
 
+    static get DELIVERY_WINDOW() { return 0.055; }
+
+    /** Tiến độ 0..1 của một Khay trên vòng chạy, 0 tại cổng IN. */
+    getTrackProgress(theta) {
+        return (((-theta) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI);
+    }
+
+    /**
+     * Khay có đang nằm trong cửa sổ giao ứng với ô hàng chờ thứ slotIdx không.
+     */
+    isInDeliveryZone(trayObj, slotIdx, queueLength) {
+        const p = this.getTrackProgress(trayObj.currentTheta);
+        const center = this.deliveryCenterForSlot(slotIdx, queueLength);
+        let d = Math.abs(p - center);
+        if (d > 0.5) d = 1 - d;
+        return d <= TrayRenderer.DELIVERY_WINDOW / 2;
+    }
+
+    deliveryCenterForSlot(slotIdx, queueLength) {
+        const slotEl = document.querySelectorAll('.queue-slot')[slotIdx];
+        if (!slotEl) return 0.5;
+        const rect = slotEl.getBoundingClientRect();
+        return this._progressAtScreenX(rect.left + rect.width / 2);
+    }
+
+    _progressAtScreenX(screenX) {
+        const g = this.geom;
+        const cRect = this.container.getBoundingClientRect();
+        const localX = screenX - cRect.left;
+        const xIn = g.cx + g.beltW / 2 + g.trayW;
+        const xOut = g.cx - g.beltW / 2 - g.trayW;
+        const span = xOut - xIn;
+        if (Math.abs(span) < 1) return 0.5;
+        return Math.max(0, Math.min(1, (localX - xIn) / span));
+    }
+
     readBeltGeometry() {
         const area = this.container.parentElement;
         const cs = getComputedStyle(area);
@@ -46,110 +82,41 @@ export class TrayRenderer {
             return Number.isFinite(v) ? v : fallback;
         };
         const W      = this.container.clientWidth || 600;
-        const inset  = num('--belt-inset', 12);
-        const h      = num('--belt-h', 242);
-        const bottom = num('--belt-bottom', 12);
-        const radius = num('--belt-radius', 28);
+        const inset  = num('--belt-inset', 10);
+        const h      = num('--belt-h', 110);
+        const bottom = num('--belt-bottom', 6);
+        const radius = num('--belt-radius', 18);
 
         const beltW = Math.max(80, W - inset * 2);
         const beltH = Math.max(80, h);
         const cx = W / 2;
         const cy = bottom + h / 2;
 
-        const trayW = 68;
-        const trayH = 72;
-        const margin = 7;
+        const trayW = 62;
+        const trayH = 66;
+        const margin = 6;
 
         // Half-extents of track perimeter so trays are ALWAYS 100% inside the conveyor
         const hx = Math.max(20, beltW / 2 - trayW / 2 - margin);
         const hy = Math.max(20, beltH / 2 - trayH / 2 - margin);
         const r = Math.min(radius, hx * 0.45, hy * 0.45);
+        const laneY = bottom + h / 2;
 
         return {
-            cx, cy, beltW, beltH, hx, hy, r, trayW, trayH, bottom, h
+            cx, cy, beltW, beltH, hx, hy, r, trayW, trayH, bottom, h, laneY
         };
     }
 
     /**
-     * Tinh toa do (x, y) tren duong chay hinh chu nhat bo canh theo goc theta.
-     * Trays di chuyen theo chieu kim dong ho: Cong IN (phai) -> duong chay duoi (phai sang trai)
-     * -> cong OUT (trai) -> duong chay tren (trai sang phai) -> ve lai cong IN.
+     * Quỹ đạo tuyến tính: Khay vào ở cổng IN (phải), trôi sang trái, ra ở cổng OUT.
+     * theta giảm dần -> tiến độ p tăng dần 0..1.
      */
     getTrackPoint(theta) {
         const g = this.geom;
-        const Lx = Math.max(0, 2 * (g.hx - g.r));
-        const Ly = Math.max(0, 2 * (g.hy - g.r));
-        const C = (Math.PI / 2) * g.r;
-        const P = 2 * Lx + 2 * Ly + 4 * C;
-
-        if (P <= 0) return { x: g.cx, y: g.cy };
-
-        // Chuyen doi theta (dang giam dan khi troi) ve khoang cach d tang dan theo chieu kim dong ho
-        let norm = ((-theta) % (2 * Math.PI) + (2 * Math.PI)) % (2 * Math.PI);
-        let d = (norm / (2 * Math.PI)) * P;
-
-        const d1 = Ly / 2;
-        const d2 = d1 + C;
-        const d3 = d2 + Lx;
-        const d4 = d3 + C;
-        const d5 = d4 + Ly;
-        const d6 = d5 + C;
-        const d7 = d6 + Lx;
-        const d8 = d7 + C;
-
-        let x, y;
-
-        if (d < d1) {
-            // Canh phai di xuong tu tam cy den bat dau goc bo duoi
-            x = g.cx + g.hx;
-            y = g.cy - d;
-        } else if (d < d2) {
-            // Goc bo duoi-phai
-            const t = (d - d1) / C;
-            const ang = -t * (Math.PI / 2);
-            x = g.cx + g.hx - g.r + g.r * Math.cos(ang);
-            y = g.cy - g.hy + g.r + g.r * Math.sin(ang);
-        } else if (d < d3) {
-            // Canh day di tu phai sang trai
-            const t = d - d2;
-            x = g.cx + g.hx - g.r - t;
-            y = g.cy - g.hy;
-        } else if (d < d4) {
-            // Goc bo duoi-trai
-            const t = (d - d3) / C;
-            const ang = -Math.PI / 2 - t * (Math.PI / 2);
-            x = g.cx - g.hx + g.r + g.r * Math.cos(ang);
-            y = g.cy - g.hy + g.r + g.r * Math.sin(ang);
-        } else if (d < d5) {
-            // Canh trai di len qua cong OUT den bat dau goc bo tren
-            const t = d - d4;
-            x = g.cx - g.hx;
-            y = g.cy - g.hy + g.r + t;
-        } else if (d < d6) {
-            // Goc bo tren-trai
-            const t = (d - d5) / C;
-            const ang = Math.PI - t * (Math.PI / 2);
-            x = g.cx - g.hx + g.r + g.r * Math.cos(ang);
-            y = g.cy + g.hy - g.r + g.r * Math.sin(ang);
-        } else if (d < d7) {
-            // Canh dinh di tu trai sang phai
-            const t = d - d6;
-            x = g.cx - g.hx + g.r + t;
-            y = g.cy + g.hy;
-        } else if (d < d8) {
-            // Goc bo tren-phai
-            const t = (d - d7) / C;
-            const ang = Math.PI / 2 - t * (Math.PI / 2);
-            x = g.cx + g.hx - g.r + g.r * Math.cos(ang);
-            y = g.cy + g.hy - g.r + g.r * Math.sin(ang);
-        } else {
-            // Canh phai di xuong tu dinh ve lai tam cy (cong IN)
-            const t = d - d8;
-            x = g.cx + g.hx;
-            y = g.cy + g.hy - g.r - t;
-        }
-
-        return { x, y };
+        const p = this.getTrackProgress(theta); // 0 = cổng IN, 1 = quay lại IN
+        const xIn  = g.cx + g.beltW / 2 + g.trayW; // ngoài khung bên phải
+        const xOut = g.cx - g.beltW / 2 - g.trayW; // ngoài khung bên trái
+        return { x: xIn + (xOut - xIn) * p, y: g.laneY };
     }
 
     render(activeTrays, highlightedTrayId = null, rejectTrayId = null) {
@@ -200,9 +167,10 @@ export class TrayRenderer {
                 let spawnStartTime = 0;
 
                 if (isStartOfLevel) {
-                    // Vao man: maxActive Khay xep san deu vong, lan luot lo ra o cong IN.
+                    // Vao man: maxActive Khay xep san deu vong, lo ra ngay lap tuc.
                     slotPos = index;
                     spawnTargetTheta = 0;
+                    hasSpawned = true;
                 } else {
                     // Giao hang xong: Khay thay the VAO NGAY TAI CONG IN.
                     //
@@ -265,6 +233,7 @@ export class TrayRenderer {
             // Only update visuals if it's not exiting (exiting trays manage their own visuals)
             if (!existing.isExiting) {
                 trayEl.classList.remove('highlight-match', 'highlight-reject', 'exiting');
+                trayEl.classList.toggle('tray-strict', tray.matchMode === 'itemType');
                 if (tray.id === highlightedTrayId) trayEl.classList.add('highlight-match');
                 if (tray.id === rejectTrayId) trayEl.classList.add('highlight-reject');
                 
@@ -320,6 +289,20 @@ export class TrayRenderer {
         
         this._respace();
         this.updatePositions(performance.now());
+
+        // Phase 3 §3.6: Chỉ báo "còn lại N đơn"
+        if (window.gameUI && window.gameUI.engine && window.gameUI.engine.conveyor) {
+            const conveyor = window.gameUI.engine.conveyor;
+            const allCount = conveyor.allTrays ? conveyor.allTrays.length : 0;
+            const activeCount = conveyor.getAllActiveTrays ? conveyor.getAllActiveTrays().length : 0;
+            const remain = allCount - activeCount;
+            const remainEl = document.getElementById('tray-remaining');
+            if (remainEl) {
+                remainEl.textContent = remain > 0 ? `còn ${remain}` : 'đơn cuối';
+                remainEl.classList.toggle('is-last', remain === 0);
+            }
+        }
+
         if (this.trayElements.length > 0) this.start();
     }
 
@@ -432,12 +415,7 @@ export class TrayRenderer {
             const x = pt.x;
             const y = pt.y;
             
-            // Depth 3D: 0 o duong chay truoc (cy - hy), 1 o duong chay sau (cy + hy)
-            const depth = g.hy > 0 ? Math.max(0, Math.min(1, (y - (g.cy - g.hy)) / (2 * g.hy))) : 0.5;
-            const baseScale = 1.04 - 0.22 * depth;
-            const dim   = 1.00 - 0.30 * depth;
-            
-            const finalScale = baseScale * spawnScale;
+            const finalScale = spawnScale;
             const finalY = y - riseY;
             
             item.el.style.opacity = spawnOpacity.toFixed(3);
@@ -445,9 +423,8 @@ export class TrayRenderer {
             item.el.style.transform = 
                 `translate3d(${(x - g.trayW / 2).toFixed(1)}px, ${(-finalY + g.trayH / 2).toFixed(1)}px, 0) ` +
                 `scale(calc(${finalScale.toFixed(3)} * var(--hl)))`;
-            item.el.style.filter = `brightness(${dim.toFixed(2)})`;
-            // IN gate o depth = 0.5. Khay truoc co z-index cao hon hang cho (50), khay sau co z-index thap hon hang cho
-            item.el.style.zIndex = Math.round(100 - depth * 90);
+            item.el.style.filter = '';
+            item.el.style.zIndex = '6';
         });
     }
 

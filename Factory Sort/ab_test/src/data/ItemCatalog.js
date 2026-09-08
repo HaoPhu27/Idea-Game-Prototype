@@ -15,7 +15,7 @@ export const ITEM_CATALOG = {
             id: 'stuffed_animals',
             label: 'Thú nhồi bông',
             icon: '🧸',
-            color: '#FFB6C1', // Pink
+            color: '#F26D8C', // Pink
             items: [
                 { id: 'bear', emoji: '🧸', label: 'Gấu bông' },
                 { id: 'duck', emoji: '🦆', label: 'Vịt bông' },
@@ -27,7 +27,7 @@ export const ITEM_CATALOG = {
             id: 'food',
             label: 'Đồ ăn',
             icon: '🍔',
-            color: '#FFDAB9', // Peach
+            color: '#F59E3C', // Peach / Orange
             items: [
                 { id: 'apple', emoji: '🍎', label: 'Táo' },
                 { id: 'pizza', emoji: '🍕', label: 'Pizza' },
@@ -39,7 +39,7 @@ export const ITEM_CATALOG = {
             id: 'stationery',
             label: 'Văn phòng phẩm',
             icon: '✏️',
-            color: '#ADD8E6', // Light Blue
+            color: '#4FA8F5', // Light Blue
             items: [
                 { id: 'pencil', emoji: '✏️', label: 'Bút chì' },
                 { id: 'paperclip', emoji: '📎', label: 'Kẹp giấy' },
@@ -51,7 +51,7 @@ export const ITEM_CATALOG = {
             id: 'sports',
             label: 'Thể thao',
             icon: '🏆',
-            color: '#90EE90', // Light Green
+            color: '#3FBF6F', // Light Green
             items: [
                 { id: 'soccer', emoji: '⚽', label: 'Bóng đá' },
                 { id: 'basketball', emoji: '🏀', label: 'Bóng rổ' },
@@ -63,7 +63,7 @@ export const ITEM_CATALOG = {
             id: 'tools',
             label: 'Dụng cụ',
             icon: '🛠️',
-            color: '#C8B7A6', // Warm grey
+            color: '#9AA6B8', // Steel grey
             items: [
                 { id: 'hammer', emoji: '🔨', label: 'Búa' },
                 { id: 'wrench', emoji: '🔧', label: 'Cờ lê' },
@@ -75,7 +75,7 @@ export const ITEM_CATALOG = {
             id: 'music',
             label: 'Nhạc cụ',
             icon: '🎵',
-            color: '#DDA0DD', // Plum
+            color: '#A96BE8', // Plum / Purple
             items: [
                 { id: 'guitar', emoji: '🎸', label: 'Đàn ghi ta' },
                 { id: 'trumpet', emoji: '🎺', label: 'Kèn trumpet' },
@@ -87,7 +87,7 @@ export const ITEM_CATALOG = {
             id: 'kitchen',
             label: 'Đồ bếp',
             icon: '🍳',
-            color: '#F5E07A', // Soft yellow
+            color: '#EFCB3A', // Soft yellow
             items: [
                 { id: 'pan', emoji: '🍳', label: 'Chảo' },
                 { id: 'cutlery', emoji: '🍴', label: 'Dao dĩa' },
@@ -99,7 +99,7 @@ export const ITEM_CATALOG = {
             id: 'garden',
             label: 'Cây cảnh',
             icon: '🪴',
-            color: '#7FD1C1', // Teal
+            color: '#2FC3AE', // Teal
             items: [
                 { id: 'cactus', emoji: '🌵', label: 'Xương rồng' },
                 { id: 'sunflower', emoji: '🌻', label: 'Hướng dương' },

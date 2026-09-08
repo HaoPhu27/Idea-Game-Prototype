@@ -32,6 +32,7 @@ export class QueueRenderer {
 
                 const catConfig = getCategoryConfig(box.getCategory());
                 const catColor = catConfig ? catConfig.color : '#f59e0b';
+                slotEl.style.setProperty('--cat-color', catColor);
                 const itemType = box.getItemType() || (box.items.length > 0 ? box.items[0] : null);
                 const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
 
@@ -48,6 +49,7 @@ export class QueueRenderer {
                 boxEl.title = catConfig ? catConfig.label : '';
             } else {
                 slotEl.classList.remove('occupied');
+                slotEl.style.removeProperty('--cat-color');
                 delete slotEl.dataset.boxId;
                 slotEl.innerHTML = '';
             }

@@ -88,6 +88,7 @@ export class TutorialManager {
 
     startLevel1Tutorial() {
         this.active = true;
+        document.getElementById('play-area')?.classList.add('is-tutoring');
         this.hideHighlight();
         if (this.overlay) this.overlay.classList.remove('hidden');
         if (this.overlayTutorialWin) this.overlayTutorialWin.classList.add('hidden');
@@ -100,6 +101,7 @@ export class TutorialManager {
 
     skipTutorial() {
         this.active = false;
+        document.getElementById('play-area')?.classList.remove('is-tutoring');
         this.currentStep = null;
         this.currentTargetEl = null;
         this.clearSpotlight();
@@ -285,6 +287,7 @@ export class TutorialManager {
 
             case 'STEP_COMPLETE': {
                 this.active = false;
+                document.getElementById('play-area')?.classList.remove('is-tutoring');
                 this.clearSpotlight();
                 this.hideHighlight();
                 if (this.overlay) this.overlay.classList.add('hidden');

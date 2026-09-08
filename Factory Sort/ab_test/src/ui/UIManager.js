@@ -32,6 +32,7 @@ class UIManager {
         
         // DOM Elements
         this.levelDisplay = document.getElementById('level-display');
+        this.btnHeaderLevel = document.getElementById('btn-header-level');
         this.moveDisplay = document.getElementById('move-display');
         this.btnNewGame = document.getElementById('btn-new-game');
         this.btnSelectLevel = document.getElementById('btn-select-level');
@@ -75,6 +76,7 @@ class UIManager {
         this.GHOST_LIFT = 28;
         this._renderQueued = false;
         this._boLuotFlip = false;
+        this._lastAffectedColIndex = null;
         
         this.bindEvents();
         this.bindEngineCallbacks();
@@ -103,11 +105,18 @@ class UIManager {
             this.startNewLevel();
         });
         
-        this.btnSelectLevel.addEventListener('click', () => {
+        const openLevelMenu = () => {
             this.audio.tap();
             this.renderLevelMenu(); // Re-render to update active level class
             this.overlayLevelSelect.classList.remove('hidden');
-        });
+        };
+
+        if (this.btnSelectLevel) {
+            this.btnSelectLevel.addEventListener('click', openLevelMenu);
+        }
+        if (this.btnHeaderLevel) {
+            this.btnHeaderLevel.addEventListener('click', openLevelMenu);
+        }
 
         this.btnCloseLevelSelect.addEventListener('click', () => {
             this.audio.tap();
@@ -212,7 +221,10 @@ class UIManager {
             } else if (state === 'LOST') {
                 this.audio.lose();
                 if (this.loseReason) {
-                    this.loseReason.textContent = this.engine.loseReason || 'Hàng chờ đã đầy 5/5 thùng, không còn chỗ điều phối.';
+                    const queueFull = this.engine.getQueue().length >= this.engine.maxQueueSize;
+                    this.loseReason.textContent = queueFull
+                        ? `Hàng chờ đầy ${this.engine.maxQueueSize}/${this.engine.maxQueueSize} và không Khay nào đang chạy nhận được các kiện này.`
+                        : 'Mọi Thùng đang hiện đều đã kín 3 ô mà không có Thùng nào gom đủ 3 món cùng loại.';
                 }
                 this.overlayLose.classList.remove('hidden');
             } else {
@@ -383,7 +395,7 @@ class UIManager {
             this.engine.selectedSource,
             validTargets,
             hiddenCounts,
-            this.engine.effectiveRows || this.engine.visibleRows
+            this.engine.visibleRows
         );
             
         this._chayFlip(grid, truoc);
@@ -418,21 +430,30 @@ class UIManager {
         const itMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (itMotion || this._boLuotFlip) return;
 
-        const THOI_LUONG = 260;
-        const NHIP = 'cubic-bezier(.22,.61,.36,1)';
+        const THOI_LUONG = 340;
+        const NHIP = 'cubic-bezier(.16, 1, .3, 1)';
+        const animatedCols = new Set();
 
         for (const el of grid.querySelectorAll('.box[data-box-id]')) {
             if (el.classList.contains('dragging')) continue;
 
             const cu = truoc.get(el.dataset.boxId);
             const moi = el.getBoundingClientRect();
+            const colEl = el.closest('.box-column');
+            const colIndex = colEl && colEl.dataset.colIndex !== undefined ? Number(colEl.dataset.colIndex) : null;
 
             if (!cu) {
+                // Thùng mới từ kho trên đỉnh trượt XUỐNG
                 el.animate(
                     [ { transform: `translateY(${-(moi.height + 14)}px)`, opacity: 0 },
                       { transform: 'none', opacity: 1 } ],
-                    { duration: THOI_LUONG, easing: NHIP, delay: 60, fill: 'backwards' }
+                    { duration: THOI_LUONG, easing: NHIP, delay: 50, fill: 'backwards' }
                 );
+                if (colIndex !== null && !animatedCols.has(colIndex)) {
+                    animatedCols.add(colIndex);
+                    this.boxRenderer.triggerRollAnimation(colIndex);
+                    this.audio.conveyorRoll();
+                }
                 continue;
             }
 
@@ -444,6 +465,22 @@ class UIManager {
                 [ { transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' } ],
                 { duration: THOI_LUONG, easing: NHIP }
             );
+
+            // Thùng trượt xuống theo dây chuyền băng tải
+            if (colIndex !== null && !animatedCols.has(colIndex)) {
+                animatedCols.add(colIndex);
+                this.boxRenderer.triggerRollAnimation(colIndex);
+                this.audio.conveyorRoll();
+            }
+        }
+
+        // Đảm bảo cột có thùng vừa biến mất hoặc bay vào hàng chờ luôn chạy cuộn băng chuyền
+        if (this._lastAffectedColIndex !== null) {
+            if (!animatedCols.has(this._lastAffectedColIndex)) {
+                this.boxRenderer.triggerRollAnimation(this._lastAffectedColIndex);
+                this.audio.conveyorRoll();
+            }
+            this._lastAffectedColIndex = null;
         }
     }
 
@@ -508,6 +545,10 @@ class UIManager {
                                 const currentQueue = this.engine.getQueue();
                                 const nextSlotIdx = currentQueue.length;
                                 const domBoxCurrent = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                                const wrapColEl = domBoxCurrent ? domBoxCurrent.closest('.box-column') : null;
+                                if (wrapColEl && wrapColEl.dataset.colIndex !== undefined) {
+                                    this._lastAffectedColIndex = Number(wrapColEl.dataset.colIndex);
+                                }
 
                                 this.queueRenderer.animateBoxToQueue(targetBox, nextSlotIdx, domBoxCurrent, () => {
                                     targetBox.queueEnteredTime = performance.now();
@@ -526,6 +567,10 @@ class UIManager {
                         // Thung nguon da rong -> hieu ung bien mat nhe nhang truoc khi cot tut xuong
                         const srcDom = document.querySelector(`.box[data-box-id="${sourceId}"]`);
                         if (srcDom) {
+                            const emptyColEl = srcDom.closest('.box-column');
+                            if (emptyColEl && emptyColEl.dataset.colIndex !== undefined) {
+                                this._lastAffectedColIndex = Number(emptyColEl.dataset.colIndex);
+                            }
                             this.vfx.praise(srcDom, 'DỌN GỌN! 🧹', 1);
                             srcDom.classList.add('disappearing');
                             if (navigator.vibrate) navigator.vibrate(20);
@@ -582,6 +627,8 @@ class UIManager {
         // Add dragging class to original box
         const boxEl = document.querySelector(`.box[data-box-id="${boxId}"]`);
         if (boxEl) boxEl.classList.add('dragging');
+        const colEl = boxEl ? boxEl.closest('.box-column') : null;
+        this.dragState.colIndex = (colEl && colEl.dataset.colIndex !== undefined) ? Number(colEl.dataset.colIndex) : null;
         
         document.body.classList.add('is-dragging');
         
@@ -634,10 +681,12 @@ class UIManager {
 
         const boxId = this.dragState.boxId;
         const trayId = this.dragState.targetTrayId;
+        const sourceColIndex = this.dragState.colIndex;
         
         this.dragState.isDragging = false;
         this.dragState.boxId = null;
         this.dragState.targetTrayId = null;
+        this.dragState.colIndex = null;
         
         requestAnimationFrame(() => {
             requestAnimationFrame(() => document.body.classList.remove('is-dragging'));
@@ -670,6 +719,9 @@ class UIManager {
                         this.dragGhost.style.opacity = '';
                         this.dragGhost.style.width = '';
                         this.dragGhost.style.height = '';
+                        if (sourceColIndex !== null) {
+                            this._lastAffectedColIndex = sourceColIndex;
+                        }
                         this.engine.dropOnTray(trayId);
 
                         const catConfig = getCategoryConfig(box.getCategory());
@@ -734,23 +786,11 @@ class UIManager {
             const trayEl = trayObj.el;
             if (!slotEl || !trayEl) continue;
 
-            // Kiem tra khay co dang o tren duong chay truoc (mat truoc cua bang chuyen)
-            const g = this.trayRenderer.geom;
-            const pt = this.trayRenderer.getTrackPoint(trayObj.currentTheta);
-            const isFrontTrack = Math.abs(pt.y - (g.cy - g.hy)) < 22;
-            if (!isFrontTrack) continue;
+            // Phase 1 §1.4: Tách giao hàng khỏi toạ độ hình học
+            if (!this.trayRenderer.isInDeliveryZone(trayObj, slotIdx, queue.length)) continue;
 
-            const slotRect = slotEl.getBoundingClientRect();
-            const trayRect = trayEl.getBoundingClientRect();
-            const slotCenterX = slotRect.left + slotRect.width / 2;
-            const trayCenterX = trayRect.left + trayRect.width / 2;
-
-            // Khay di chuyen tu phai sang trai ngang qua slot.
-            // Khi tam cua khay tien vao tam phu hop cua slot (khoang 28px):
-            if (Math.abs(trayCenterX - slotCenterX) <= 28) {
-                this.triggerQueueDelivery(box, matchingTray, slotEl, trayEl);
-                break; // Giao 1 thung moi lan
-            }
+            this.triggerQueueDelivery(box, matchingTray, slotEl, trayEl);
+            break; // Giao 1 thung moi lan
         }
     }
 

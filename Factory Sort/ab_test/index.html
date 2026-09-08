@@ -3,135 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Factory Sort - Đảo Layout (Theo Ý Jun iKame)</title>
+    <title>Factory Sort - Inverted Mode</title>
     <link rel="stylesheet" href="./style.css">
-
-    <!-- CSS điều chỉnh layout đảo ngược: Băng Chuyền & Order ở Trên - Thùng Hàng ở Dưới -->
-    <style>
-        /* Banner thông báo chế độ đảo layout */
-        #inverted-mode-banner {
-            background: linear-gradient(90deg, #1e3a8a, #0369a1);
-            color: #f8fafc;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 4px 12px;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            z-index: 999;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-            letter-spacing: 0.3px;
-        }
-
-        #inverted-mode-banner .mode-tag {
-            background: #f59e0b;
-            color: #000;
-            font-size: 9px;
-            font-weight: 800;
-            padding: 2px 6px;
-            border-radius: 4px;
-            text-transform: uppercase;
-        }
-
-        #inverted-mode-banner a {
-            color: #38bdf8;
-            text-decoration: none;
-            font-weight: 700;
-            border-bottom: 1px dashed #38bdf8;
-        }
-
-        /* Tinh chỉnh thứ tự hiển thị trong Play Area */
-        #play-area {
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* 1. HEADER GỌN GÀNG */
-        #game-header {
-            margin: 8px 12px 4px 12px !important;
-            margin-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
-            height: 52px !important;
-        }
-
-        /* 2. VÙNG BĂNG CHUYỀN & ORDER (ĐẨY SÁT LÊN TRÊN TIÊU ĐỀ) */
-        #tray-area {
-            flex: 0 0 230px !important;
-            order: 1;
-            position: relative;
-            padding: 0 !important;
-            margin-top: 2px !important;
-            --belt-inset: 12px;
-            --belt-h: 215px !important;
-            --belt-bottom: 6px !important;
-            --belt-radius: 26px;
-            height: 230px !important;
-            min-height: 230px !important;
-            max-height: 230px !important;
-        }
-
-        /* 3. VÙNG THÙNG HÀNG HOÁ (CĂN LỀ TRÊN, ĐẨY LÊN TRÊN GẦN BĂNG CHUYỀN) */
-        #boxes-area {
-            flex: 1 1 auto !important;
-            order: 2;
-            padding: 10px 12px calc(14px + env(safe-area-inset-bottom, 0px)) 12px !important;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start !important; /* Căn lề trên */
-            min-height: 0;
-        }
-
-        #boxes-grid {
-            align-items: flex-start !important; /* Đẩy các cột thùng hàng sát lên trên */
-        }
-
-        /* Thêm viền phân cách nhẹ nhàng giữa 2 khu vực */
-        #boxes-area::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 20px;
-            right: 20px;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.25), transparent);
-            pointer-events: none;
-        }
-
-        /* 4. ĐIỀU CHỈNH BANNER HƯỚNG DẪN: ĐƯA XUỐNG ĐÁY MÀN HÌNH ĐỂ KHÔNG CHE BĂNG CHUYỀN */
-        .tutorial-banner {
-            top: auto !important;
-            bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
-            pointer-events: auto !important;
-            z-index: 550 !important;
-            animation: slide-up-fade 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        }
-
-        @keyframes slide-up-fade {
-            from {
-                opacity: 0;
-                transform: translateY(16px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .tutorial-skip-btn {
-            pointer-events: auto !important;
-            cursor: pointer !important;
-            touch-action: manipulation !important;
-            z-index: 560 !important;
-        }
-
-        /* Nút chuyển đổi nhanh giữa 2 phiên bản */
-        .btn-toggle-layout {
-            background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
-            font-size: 13px !important;
-            padding: 6px 10px !important;
-        }
-    </style>
 
 <script>
 window.addEventListener('error', function(e) {
@@ -149,40 +22,15 @@ window.addEventListener('unhandledrejection', function(e) {
 </script>
 </head>
 
-<body>
-    <!-- Banner ghi rõ bản thử nghiệm theo ý tưởng Jun -->
-    <div id="inverted-mode-banner">
-        <div style="display:flex; align-items:center; gap:6px;">
-            <span class="mode-tag">Ý tưởng Jun iKame</span>
-            <span>Băng Chuyền & Order Ở Trên • Thùng Hàng Ở Dưới</span>
-        </div>
-        <div>
-            <a id="btn-switch-to-standard" href="index.html" title="Chuyển về bản gốc để so sánh">Xem Bản Gốc ➔</a>
-        </div>
-    </div>
-    <script>
-    (function() {
-        var link = document.getElementById('btn-switch-to-standard');
-        if (link) {
-            var path = window.location.pathname.toLowerCase();
-            if (path.indexOf('dist') !== -1 || path.indexOf('delivery') !== -1) {
-                link.href = 'FactorySort_Standard_Delivery.html';
-            } else if (path.indexOf('standalone') !== -1) {
-                link.href = 'FactorySort_Standalone.html';
-            } else {
-                link.href = 'index.html';
-            }
-        }
-    })();
-    </script>
-
+<body data-layout="inverted">
     <div id="game-container">
         <header id="game-header">
             <div class="hud-left">
-                <div class="hud-pill level-pill" title="Màn hiện tại">
+                <div id="btn-header-level" class="hud-pill level-pill" title="Bấm để chọn màn chơi (1 - 50)">
                     <span class="hud-icon">🏭</span>
                     <span class="hud-label">MÀN</span>
                     <span id="level-display" class="hud-value">1</span>
+                    <span class="level-pill-arrow">▼</span>
                 </div>
                 <div id="stat-moves" class="hud-pill moves-pill" title="Số nước đi đã sử dụng">
                     <span class="hud-icon">🎯</span>
@@ -212,12 +60,12 @@ window.addEventListener('unhandledrejection', function(e) {
                         <line x1="12" y1="17" x2="12.01" y2="17"></line>
                     </svg>
                 </button>
-                <button id="btn-select-level" class="round-btn" title="Danh sách các màn chơi" aria-label="Chọn màn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="14" width="7" height="7"></rect>
-                        <rect x="3" y="14" width="7" height="7"></rect>
+                <button id="btn-select-level" class="round-btn" title="Chọn màn chơi (1 - 50)" aria-label="Chọn màn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+                        <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+                        <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+                        <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
                     </svg>
                 </button>
                 <button id="btn-new-game" class="round-btn" title="Chơi lại / Tải lại màn" aria-label="Chơi lại">
@@ -237,7 +85,7 @@ window.addEventListener('unhandledrejection', function(e) {
                     <div class="port-out">⬅ OUT</div>
                 </div>
 
-                <!-- Waiting queue area (5 slots) nestled INSIDE conveyor -->
+                <!-- Waiting queue area (5 slots) -->
                 <section id="queue-area">
                     <div class="queue-header">
                         <div class="queue-hazard-strip"></div>
@@ -253,6 +101,7 @@ window.addEventListener('unhandledrejection', function(e) {
                 </section>
 
                 <div id="trays-container"></div>
+                <div id="tray-remaining" class="tray-remaining">còn 46</div>
             </section>
 
             <!-- 2. KHU VỰC THÙNG HÀNG HOÁ ĐƯỢC CHUYỂN XUỐNG DƯỚI (THUẬN TAY NGƯỜI CHƠI) -->
@@ -268,7 +117,7 @@ window.addEventListener('unhandledrejection', function(e) {
         <div id="overlay-win" class="overlay hidden">
             <div class="overlay-card win-card">
                 <div class="qc-stamp">
-                    <span class="qc-badge">★ QC PASSED • ĐẠT CHUẨN XUẤT XƯỞNG ★</span>
+                    <span class="qc-badge"><b class="qc-mark">★</b> QC PASSED • ĐẠT CHUẨN XUẤT XƯỞNG</span>
                 </div>
                 <h2>XUẤT XƯỞNG THÀNH CÔNG!</h2>
                 <p class="win-sub">Toàn bộ kiện hàng đã được đóng gói và giao đúng hẹn.</p>
@@ -312,13 +161,13 @@ window.addEventListener('unhandledrejection', function(e) {
         
         <div id="overlay-loading" class="overlay hidden">
             <div class="overlay-content transparent loading-bg">
-                <h2>Generating level...</h2>
+                <h2>Đang chuẩn bị ca làm...</h2>
             </div>
         </div>
 
         <div id="overlay-level-select" class="overlay hidden">
             <div class="overlay-content level-select-modal">
-                <h2>Select Level</h2>
+                <h2>CHỌN MÀN CHƠI</h2>
                 <div class="level-legend">
                     <div class="legend-item"><span class="legend-dot tutorial"></span> Hướng dẫn (1-5)</div>
                     <div class="legend-item"><span class="legend-dot acclimation"></span> Làm quen (6-20)</div>
@@ -327,7 +176,7 @@ window.addEventListener('unhandledrejection', function(e) {
                     <div class="legend-item"><span class="legend-dot super-hard"></span> Siêu khó (29, 39, 49)</div>
                 </div>
                 <div id="level-grid" class="level-grid"></div>
-                <button id="btn-close-level-select" class="btn primary" style="margin-top: 10px;">Close</button>
+                <button id="btn-close-level-select" class="btn btn-ghost" style="margin-top: 10px;">Đóng ✕</button>
             </div>
         </div>
 
@@ -394,7 +243,7 @@ window.addEventListener('unhandledrejection', function(e) {
                         </div>
                     </div>
                 </div>
-                <button id="btn-tutorial-next" class="btn primary btn-large">Bắt đầu Level 2 ➔</button>
+                <button id="btn-tutorial-next" class="btn btn-primary-industrial btn-large">Bắt đầu Level 2 ➔</button>
             </div>
         </div>
 
@@ -432,7 +281,7 @@ window.addEventListener('unhandledrejection', function(e) {
                         </div>
                     </div>
                 </div>
-                <button id="btn-close-help" class="btn primary" style="margin-top: 15px;">Đã hiểu</button>
+                <button id="btn-close-help" class="btn btn-ghost" style="margin-top: 15px;">Đã hiểu</button>
             </div>
         </div>
     </div>
