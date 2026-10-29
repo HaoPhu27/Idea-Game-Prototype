@@ -4,6 +4,7 @@ import { IsometricRenderer } from '../renderer/IsometricRenderer.js';
 import { InputHandler } from './InputHandler.js';
 import { CommandHistory } from '../engine/CommandHistory.js';
 import { AudioManager } from '../engine/AudioManager.js';
+import { Tutorial } from './Tutorial.js';
 
 class GameApp {
     constructor() {
@@ -11,6 +12,7 @@ class GameApp {
         this.renderer = null;
         this.inputHandler = null;
         this.history = null;
+        this.tutorial = null;
         this.audio = new AudioManager();
 
         // UI elements
@@ -64,6 +66,7 @@ class GameApp {
         if (this.btnSplashPlay) {
             this.btnSplashPlay.addEventListener('click', () => {
                 this.splashScreen.classList.add('hidden');
+                if (this.tutorial) this.tutorial.start();
             });
         }
         if (this.btnSplashGuide) {
@@ -74,6 +77,7 @@ class GameApp {
         if (this.btnSplashLevels) {
             this.btnSplashLevels.addEventListener('click', () => {
                 this.splashScreen.classList.add('hidden');
+                if (this.tutorial) this.tutorial.start();
                 this.openMenu();
             });
         }
@@ -202,6 +206,8 @@ class GameApp {
             this.renderer.setDecorEnabled(this.decorEnabled);
         }
 
+        this.tutorial = new Tutorial(this);
+
         const hasRendererApi = (name) => this.renderer && typeof this.renderer[name] === 'function';
 
         this.inputHandler = new InputHandler(canvas, {
@@ -263,6 +269,10 @@ class GameApp {
             this.gameOverScreen.classList.add('hidden');
             this.updateHUD();
             this.render();
+            if (this.tutorial) {
+                this.tutorial.stop();
+                this.tutorial.start();
+            }
         }
     }
 
@@ -293,6 +303,7 @@ class GameApp {
     }
 
     handleMove(direction) {
+        if (this.tutorial && this.tutorial.isBlocking) return;
         if (this.renderer && typeof this.renderer.setPreview === 'function') {
             this.renderer.setPreview(null, null, false);
         }
@@ -305,6 +316,8 @@ class GameApp {
         const result = GameRules.applyMove(this.state, direction);
         
         if (result) {
+            if (this.tutorial) this.tutorial.onMove();
+
             // Save history
             this.history.push({ stateBefore: oldState, direction });
             
@@ -393,10 +406,12 @@ class GameApp {
         if (this.state.phase === 'win') {
             this.gameOverTitle.textContent = 'Level Complete!';
             this.gameOverTitle.style.color = '#ffd700';
+            if (this.btnRetry) this.btnRetry.style.display = '';
             this.gameOverScreen.classList.remove('hidden');
         } else if (this.state.phase === 'lose') {
             this.gameOverTitle.textContent = 'Game Over';
             this.gameOverTitle.style.color = '#ff5555';
+            if (this.btnRetry) this.btnRetry.style.display = 'none';
             this.gameOverScreen.classList.remove('hidden');
         }
     }

@@ -727,6 +727,296 @@ button:active {
     display: none !important;
 }
 
+/* =========================================================
+   LEVEL 1 TUTORIAL SYSTEM
+   ========================================================= */
+
+/* 1. Tutorial Hand Pointer & Swipe */
+#tutorial-hand {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+    z-index: 15;
+    animation: hand-swipe 1.6s ease-in-out infinite;
+    will-change: transform, opacity;
+}
+
+@keyframes hand-swipe {
+    0% {
+        transform: translate(calc(var(--hx0, 0px) - 14px), calc(var(--hy0, 0px) - 4px)) scale(1);
+        opacity: 0;
+    }
+    10% {
+        transform: translate(calc(var(--hx0, 0px) - 14px), calc(var(--hy0, 0px) - 4px)) scale(1);
+        opacity: 1;
+    }
+    20% {
+        transform: translate(calc(var(--hx0, 0px) - 14px), calc(var(--hy0, 0px) - 4px)) scale(0.9);
+        opacity: 1;
+    }
+    75% {
+        transform: translate(calc(var(--hx1, 0px) - 14px), calc(var(--hy1, 0px) - 4px)) scale(0.9);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(calc(var(--hx1, 0px) - 14px), calc(var(--hy1, 0px) - 4px)) scale(0.9);
+        opacity: 0;
+    }
+}
+
+.hand-icon {
+    width: 56px;
+    height: 56px;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+}
+
+.hand-icon svg {
+    width: 56px;
+    height: 56px;
+    display: block;
+}
+
+.hand-trail {
+    position: absolute;
+    top: 0px;
+    left: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 14px 6px rgba(255, 255, 255, 0.45);
+    pointer-events: none;
+}
+
+/* 2. Tutorial Tip Floating Bubble */
+#tutorial-tip {
+    position: absolute;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #FFF8EE;
+    color: #2A211B;
+    border: 2px solid #E8772E;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 10px 22px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    z-index: 15;
+    white-space: nowrap;
+    text-align: center;
+    animation: tip-bob 1.8s ease-in-out infinite;
+}
+
+@keyframes tip-bob {
+    0%, 100% {
+        transform: translateX(-50%) translateY(0);
+    }
+    50% {
+        transform: translateX(-50%) translateY(-6px);
+    }
+}
+
+/* 3. Tutorial Steps Modal Overlay */
+#tutorial-steps {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(20, 16, 12, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    pointer-events: auto;
+    transition: opacity 0.3s ease;
+}
+
+.steps-dialog {
+    background-color: #FFF8EE;
+    border-radius: 20px;
+    padding: 20px;
+    max-width: 760px;
+    width: calc(100% - 32px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.steps-dialog h2 {
+    color: #E8772E;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 16px;
+}
+
+.steps-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.step-arrow {
+    font-size: 22px;
+    color: #E8772E;
+    font-weight: bold;
+    flex-shrink: 0;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+}
+
+@media (max-width: 639px) {
+    .steps-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .step-arrow {
+        transform: rotate(90deg);
+    }
+}
+
+.step-card {
+    background-color: #FFFFFF;
+    border-radius: 14px;
+    border: 1px solid #E6DCCF;
+    padding: 8px;
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    box-shadow: 0 2px 8px rgba(42, 33, 27, 0.05);
+    box-sizing: border-box;
+    opacity: 0;
+    transform: translateY(12px);
+}
+
+.step-img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: contain;
+    border-radius: 10px;
+    background-color: #CFE8E4;
+    display: block;
+}
+
+.step-num {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 28px;
+    height: 28px;
+    background-color: #E8772E;
+    color: #FFFFFF;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    box-shadow: 0 2px 6px rgba(232, 119, 46, 0.4);
+    z-index: 2;
+}
+
+.step-card figcaption {
+    font-size: 13px;
+    text-align: center;
+    color: #2A211B;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-top: 8px;
+    padding: 0 4px;
+}
+
+/* Hiệu ứng xuất hiện lần lượt cho các thẻ */
+#tutorial-steps.show .step-card {
+    animation: step-card-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+#tutorial-steps.show .step-card:nth-of-type(1) {
+    animation-delay: 0s;
+}
+
+#tutorial-steps.show .step-card:nth-of-type(2) {
+    animation-delay: 0.45s;
+}
+
+#tutorial-steps.show .step-card:nth-of-type(3) {
+    animation-delay: 0.9s;
+}
+
+@keyframes step-card-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#btn-steps-ok {
+    display: block;
+    margin: 14px auto 0 auto;
+    opacity: 0;
+    transform: translateY(10px);
+    background: linear-gradient(135deg, #E8772E 0%, #D45B12 100%) !important;
+    box-shadow: 0 0 20px rgba(232, 119, 46, 0.5) !important;
+    animation: none;
+}
+
+#tutorial-steps.show #btn-steps-ok {
+    animation: btn-ok-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards 1.3s,
+               pulse-glow-orange 2s infinite ease-in-out 1.8s;
+}
+
+@keyframes btn-ok-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse-glow-orange {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 15px rgba(232, 119, 46, 0.5);
+    }
+    50% {
+        transform: scale(1.04);
+        box-shadow: 0 0 30px rgba(232, 119, 46, 0.85);
+    }
+}
+
+/* 4. Hidden utility for Tutorial elements */
+#tutorial-hand.hidden,
+#tutorial-tip.hidden,
+#tutorial-steps.hidden {
+    display: none !important;
+}
+
+
 
 
 </style>
@@ -860,6 +1150,46 @@ button:active {
                     <div class="guide-footer">
                         <button id="btn-close-guide" class="btn-primary-pulse">ĐÃ HIỂU - CHƠI NGAY</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Level 1 Tutorial Elements -->
+            <div id="tutorial-hand" class="hidden">
+                <div class="hand-trail"></div>
+                <div class="hand-icon">
+                    <svg viewBox="0 0 56 56" width="56" height="56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M 14 4 C 11.5 4, 9.5 6, 9.5 8.5 L 9.5 25 C 8 26, 4.5 29.5, 4.5 35 C 4.5 40, 7.5 43, 11 44 L 11 47 C 11 51, 15 53, 20 53 L 35 53 C 41 53, 45 49, 45 44 L 45 34 C 45 31, 42.5 29, 39.5 29 C 39.1 29, 38.6 29.1, 38.2 29.3 C 37.6 26.8, 35.5 25, 32.8 25 C 32.3 25, 31.8 25.1, 31.3 25.3 C 30.6 22.8, 28.5 21, 25.8 21 C 24.5 21, 23.3 21.4, 22.3 22.2 L 18.5 23 L 18.5 8.5 C 18.5 6, 16.5 4, 14 4 Z" fill="#FFFFFF" stroke="#2A211B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M 11.5 14.5 Q 14 16 16.5 14.5" stroke="#2A211B" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M 23 27 C 23.5 32, 23.5 36, 21 39" stroke="#2A211B" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M 31 29 C 31.5 34, 31 38, 29 41" stroke="#2A211B" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M 10 34 C 13 36, 16 37, 18 36" stroke="#2A211B" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+            </div>
+            <div id="tutorial-tip" class="hidden">Vuốt chéo để cả phố trượt theo</div>
+            <div id="tutorial-steps" class="hidden">
+                <div class="steps-dialog">
+                    <h2>Cách thắng màn 1</h2>
+                    <div class="steps-row">
+                        <figure class="step-card">
+                            <span class="step-num">1</span>
+                            <img class="step-img" alt="Bước 1">
+                            <figcaption>Ô vàng là nơi cần đặt nhà hàng</figcaption>
+                        </figure>
+                        <div class="step-arrow">➔</div>
+                        <figure class="step-card">
+                            <span class="step-num">2</span>
+                            <img class="step-img" alt="Bước 2">
+                            <figcaption>Vuốt ⬊: cả phố trượt 1 ô, nhà hàng cao thêm 1 tầng</figcaption>
+                        </figure>
+                        <div class="step-arrow">➔</div>
+                        <figure class="step-card">
+                            <span class="step-num">3</span>
+                            <img class="step-img" alt="Bước 3">
+                            <figcaption>Vuốt ⬊ lần nữa: khớp ô vàng là thắng!</figcaption>
+                        </figure>
+                    </div>
+                    <button id="btn-steps-ok" class="btn-primary-pulse">Chơi thôi!</button>
                 </div>
             </div>
 
@@ -6113,6 +6443,322 @@ class InputHandler {
 }
 
 
+// --- Tutorial.js ---
+
+// Thời gian tay chỉ dẫn chạy 2 vòng trước khi mở bảng 3 bước.
+const HAND_LOOP_MS = 3200;
+// Chờ ngắn sau khi vẽ đồng bộ trước khi chụp ảnh canvas.
+const TWEEN_SETTLE_MS = 0;
+// Kích thước canvas ảnh thu nhỏ của 3 bước.
+const STEP_W = 400;
+const STEP_H = 300;
+const STEP_COUNT = 3;
+
+/**
+ * Đẩy mọi toà nhà về đúng vị trí đích (bỏ qua tween) để vẽ được ngay trong
+ * một frame, không phụ thuộc requestAnimationFrame.
+ */
+function snapVisualsToTargets(renderer) {
+    const visuals = renderer ? renderer.visualRestaurants : null;
+    if (!visuals || typeof visuals.values !== 'function') return;
+
+    for (const vis of visuals.values()) {
+        if (!vis) continue;
+        if (vis.targetX !== undefined) vis.x = vis.targetX;
+        if (vis.targetY !== undefined) vis.y = vis.targetY;
+        if (vis.targetFloors !== undefined) vis.floors = vis.targetFloors;
+        // startTime rất âm để nếu animationLoop có chạy cũng coi như tween xong.
+        vis.startTime = -1e9;
+    }
+}
+
+/**
+ * Hướng dẫn tương tác cho Level 1: bàn tay chỉ hướng đi + bảng 3 ảnh chụp
+ * trạng thái bàn cờ sau từng nước.
+ *
+ * Mọi phần tử DOM đều có thể không tồn tại (HTML do phần khác chèn vào),
+ * nên toàn bộ truy cập đều qua hàm có kiểm tra null.
+ */
+class Tutorial {
+    constructor(app) {
+        this.app = app;
+
+        this.active = false;
+        this.cancelled = false;
+        this.stepsOpen = false;
+        this.handTimer = null;
+        this.generation = 0;
+        this.okBound = false;
+
+        this._onResize = () => this.updateHandPosition();
+        window.addEventListener('resize', this._onResize);
+
+        this.bindOkButton();
+    }
+
+    /** Chặn nước đi khi bảng 3 bước đang mở. */
+    get isBlocking() {
+        return this.stepsOpen;
+    }
+
+    /** Bắt đầu hướng dẫn — chỉ chạy ở level 1 và khi splash đã ẩn. */
+    start() {
+        this.stop();
+
+        // Splash còn che thì chưa chạy: tay và bảng bước sẽ nằm sau tấm phủ.
+        const splash = this._el('splash-screen');
+        if (splash && !splash.classList.contains('hidden')) return;
+
+        const state = this.app ? this.app.state : null;
+        if (!state) return;
+        if (parseInt(state.id, 10) !== 1) return;
+
+        this.active = true;
+        this.cancelled = false;
+        this.stepsOpen = false;
+        const gen = this.generation;
+
+        // Hiện tay trước rồi mới đo vị trí: updateHandPosition thoát sớm khi tay
+        // còn class 'hidden' nên --hx0/--hy0/--hx1/--hy1 sẽ không được đặt.
+        this._show(this._el('tutorial-hand'));
+        this._show(this._el('tutorial-tip'));
+        this.updateHandPosition();
+        this.bindOkButton();
+
+        this.clearTimer();
+        this.handTimer = setTimeout(() => {
+            this.handTimer = null;
+            if (gen !== this.generation || this.cancelled || !this.active) return;
+            this.showSteps();
+        }, HAND_LOOP_MS);
+    }
+
+    /** Dừng hẳn (đổi màn): ẩn tay, tip, bảng bước và huỷ timer. */
+    stop() {
+        this.generation++;
+        this.active = false;
+        this.cancelled = true;
+        this.stepsOpen = false;
+        this.clearTimer();
+        this._hide(this._el('tutorial-hand'));
+        this._hide(this._el('tutorial-tip'));
+        this.hideSteps();
+    }
+
+    /** Người chơi đã đi nước đầu: ẩn tay + tip, không mở bảng bước nữa. */
+    onMove() {
+        this.cancelled = true;
+        this.clearTimer();
+        this._hide(this._el('tutorial-hand'));
+        this._hide(this._el('tutorial-tip'));
+    }
+
+    /** Cập nhật lại vị trí tay khi cửa sổ đổi kích thước. */
+    updateHandPosition() {
+        if (!this.active) return;
+        const hand = this._el('tutorial-hand');
+        if (!hand || hand.classList.contains('hidden')) return;
+
+        const path = this.computeHandPath();
+        if (!path) return;
+
+        hand.style.setProperty('--hx0', `${path.from.x}px`);
+        hand.style.setProperty('--hy0', `${path.from.y}px`);
+        hand.style.setProperty('--hx1', `${path.to.x}px`);
+        hand.style.setProperty('--hy1', `${path.to.y}px`);
+    }
+
+    /**
+     * Toạ độ tay so với #game-container: điểm bắt đầu là tâm ô của toà đầu tiên,
+     * điểm kết thúc là ô cách nó +2 theo trục x (ô vàng của level 1).
+     */
+    computeHandPath() {
+        const app = this.app;
+        const state = app ? app.state : null;
+        const renderer = app ? app.renderer : null;
+        if (!state || !renderer || typeof renderer.getScreenCoords !== 'function') return null;
+
+        const restaurants = state.restaurants || [];
+        const first = restaurants[0];
+        if (!first) return null;
+
+        let p0;
+        let p1;
+        try {
+            p0 = renderer.getScreenCoords(first.x, first.y);
+            p1 = renderer.getScreenCoords(first.x + 2, first.y);
+        } catch (err) {
+            return null;
+        }
+        if (!p0 || !p1) return null;
+
+        // getScreenCoords trả toạ độ CSS trong canvas; cộng offset canvas so với container.
+        let offsetX = 0;
+        let offsetY = 0;
+        const canvas = renderer.canvas || this._el('game-canvas');
+        const container = this._el('game-container');
+        if (canvas && container && canvas.getBoundingClientRect && container.getBoundingClientRect) {
+            const cRect = canvas.getBoundingClientRect();
+            const kRect = container.getBoundingClientRect();
+            offsetX = cRect.left - kRect.left;
+            offsetY = cRect.top - kRect.top;
+        }
+
+        return {
+            from: { x: p0.x + offsetX, y: p0.y + offsetY },
+            to: { x: p1.x + offsetX, y: p1.y + offsetY }
+        };
+    }
+
+    /**
+     * Chụp 3 trạng thái bàn cờ (ban đầu, sau RIGHT, sau RIGHT nữa) bằng renderer thật
+     * vào 3 thẻ img.step-img rồi mở bảng #tutorial-steps.
+     */
+    async showSteps() {
+        if (!this.active || this.cancelled || this.stepsOpen) return;
+
+        const stepsEl = this._el('tutorial-steps');
+        if (!stepsEl) return;
+
+        const imgs = stepsEl.querySelectorAll('img.step-img');
+        if (!imgs || imgs.length === 0) return;
+
+        this.stepsOpen = true;
+        const gen = this.generation;
+
+        const states = this.buildStepStates();
+        const holder = document.createElement('div');
+        holder.style.position = 'fixed';
+        holder.style.left = '-10000px';
+        holder.style.top = '0';
+        holder.style.width = `${STEP_W}px`;
+        holder.style.height = `${STEP_H}px`;
+        holder.style.overflow = 'hidden';
+        holder.style.pointerEvents = 'none';
+
+        const canvas = document.createElement('canvas');
+        holder.appendChild(canvas);
+        document.body.appendChild(holder);
+
+        let renderer = null;
+        try {
+            renderer = new IsometricRenderer(canvas, holder);
+            // Tắt trang trí khi chụp ảnh để bàn cờ chiếm nhiều khung hơn.
+            if (typeof renderer.setDecorEnabled === 'function') {
+                renderer.setDecorEnabled(false);
+            }
+
+            const count = Math.min(states.length, imgs.length, STEP_COUNT);
+            for (let i = 0; i < count; i++) {
+                if (gen !== this.generation || this.cancelled) break;
+
+                // Chặn renderer tự xếp rAF: nếu rAF bị trình duyệt hoãn (tab nền,
+                // khung bị ẩn) thì canvas sẽ trắng khi chụp.
+                renderer.isAnimating = true;
+                renderer.render(states[i]);
+                snapVisualsToTargets(renderer);
+                if (typeof renderer.drawFrame === 'function') {
+                    renderer.drawFrame();
+                }
+                await this.wait(TWEEN_SETTLE_MS);
+
+                if (gen !== this.generation || this.cancelled) break;
+
+                let dataUrl = '';
+                try {
+                    dataUrl = canvas.toDataURL('image/png');
+                } catch (err) {
+                    dataUrl = '';
+                }
+                if (dataUrl) imgs[i].src = dataUrl;
+            }
+        } catch (err) {
+            // Không chụp được ảnh thì vẫn mở bảng bước với ảnh trống — không ném lỗi.
+        } finally {
+            if (renderer) {
+                if (typeof renderer.setDecorEnabled === 'function') {
+                    // Tắt decor để vòng lặp mây dừng trước khi gỡ div.
+                    renderer.setDecorEnabled(false);
+                }
+                if (typeof renderer.stopCloudLoop === 'function') {
+                    renderer.stopCloudLoop();
+                }
+            }
+            if (holder.parentNode) holder.parentNode.removeChild(holder);
+        }
+
+        if (gen !== this.generation || this.cancelled) {
+            this.stepsOpen = false;
+            return;
+        }
+
+        stepsEl.classList.remove('hidden');
+        // Ép reflow để transition của class 'show' chạy lại từ đầu.
+        void stepsEl.offsetWidth;
+        stepsEl.classList.add('show');
+        this.bindOkButton();
+    }
+
+    /** Ẩn bảng 3 bước; tay và tip vẫn hiện tới khi có nước đi đầu tiên. */
+    hideSteps() {
+        this.stepsOpen = false;
+        const stepsEl = this._el('tutorial-steps');
+        if (!stepsEl) return;
+        stepsEl.classList.remove('show');
+        stepsEl.classList.add('hidden');
+    }
+
+    buildStepStates() {
+        const state = this.app ? this.app.state : null;
+        const states = [];
+        if (!state) return states;
+
+        let current = state.clone();
+        states.push(current);
+
+        for (let i = 1; i < STEP_COUNT; i++) {
+            const result = GameRules.applyMove(current, DIRECTIONS.RIGHT);
+            if (!result || !result.newState) break;
+            current = result.newState;
+            states.push(current);
+        }
+
+        return states;
+    }
+
+    bindOkButton() {
+        if (this.okBound) return;
+        const btn = this._el('btn-steps-ok');
+        if (!btn) return;
+        btn.addEventListener('click', () => this.hideSteps());
+        this.okBound = true;
+    }
+
+    clearTimer() {
+        if (this.handTimer) {
+            clearTimeout(this.handTimer);
+            this.handTimer = null;
+        }
+    }
+
+    wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    _el(id) {
+        return document.getElementById(id);
+    }
+
+    _show(el) {
+        if (el) el.classList.remove('hidden');
+    }
+
+    _hide(el) {
+        if (el) el.classList.add('hidden');
+    }
+}
+
+
 // --- main.js ---
 
 class GameApp {
@@ -6121,6 +6767,7 @@ class GameApp {
         this.renderer = null;
         this.inputHandler = null;
         this.history = null;
+        this.tutorial = null;
         this.audio = new AudioManager();
 
         // UI elements
@@ -6174,6 +6821,7 @@ class GameApp {
         if (this.btnSplashPlay) {
             this.btnSplashPlay.addEventListener('click', () => {
                 this.splashScreen.classList.add('hidden');
+                if (this.tutorial) this.tutorial.start();
             });
         }
         if (this.btnSplashGuide) {
@@ -6184,6 +6832,7 @@ class GameApp {
         if (this.btnSplashLevels) {
             this.btnSplashLevels.addEventListener('click', () => {
                 this.splashScreen.classList.add('hidden');
+                if (this.tutorial) this.tutorial.start();
                 this.openMenu();
             });
         }
@@ -6312,6 +6961,8 @@ class GameApp {
             this.renderer.setDecorEnabled(this.decorEnabled);
         }
 
+        this.tutorial = new Tutorial(this);
+
         const hasRendererApi = (name) => this.renderer && typeof this.renderer[name] === 'function';
 
         this.inputHandler = new InputHandler(canvas, {
@@ -6373,6 +7024,10 @@ class GameApp {
             this.gameOverScreen.classList.add('hidden');
             this.updateHUD();
             this.render();
+            if (this.tutorial) {
+                this.tutorial.stop();
+                this.tutorial.start();
+            }
         }
     }
 
@@ -6403,6 +7058,7 @@ class GameApp {
     }
 
     handleMove(direction) {
+        if (this.tutorial && this.tutorial.isBlocking) return;
         if (this.renderer && typeof this.renderer.setPreview === 'function') {
             this.renderer.setPreview(null, null, false);
         }
@@ -6415,6 +7071,8 @@ class GameApp {
         const result = GameRules.applyMove(this.state, direction);
         
         if (result) {
+            if (this.tutorial) this.tutorial.onMove();
+
             // Save history
             this.history.push({ stateBefore: oldState, direction });
             
@@ -6503,10 +7161,12 @@ class GameApp {
         if (this.state.phase === 'win') {
             this.gameOverTitle.textContent = 'Level Complete!';
             this.gameOverTitle.style.color = '#ffd700';
+            if (this.btnRetry) this.btnRetry.style.display = '';
             this.gameOverScreen.classList.remove('hidden');
         } else if (this.state.phase === 'lose') {
             this.gameOverTitle.textContent = 'Game Over';
             this.gameOverTitle.style.color = '#ff5555';
+            if (this.btnRetry) this.btnRetry.style.display = 'none';
             this.gameOverScreen.classList.remove('hidden');
         }
     }

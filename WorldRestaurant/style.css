@@ -720,4 +720,294 @@ button:active {
     display: none !important;
 }
 
+/* =========================================================
+   LEVEL 1 TUTORIAL SYSTEM
+   ========================================================= */
+
+/* 1. Tutorial Hand Pointer & Swipe */
+#tutorial-hand {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+    z-index: 15;
+    animation: hand-swipe 1.6s ease-in-out infinite;
+    will-change: transform, opacity;
+}
+
+@keyframes hand-swipe {
+    0% {
+        transform: translate(calc(var(--hx0, 0px) - 14px), calc(var(--hy0, 0px) - 4px)) scale(1);
+        opacity: 0;
+    }
+    10% {
+        transform: translate(calc(var(--hx0, 0px) - 14px), calc(var(--hy0, 0px) - 4px)) scale(1);
+        opacity: 1;
+    }
+    20% {
+        transform: translate(calc(var(--hx0, 0px) - 14px), calc(var(--hy0, 0px) - 4px)) scale(0.9);
+        opacity: 1;
+    }
+    75% {
+        transform: translate(calc(var(--hx1, 0px) - 14px), calc(var(--hy1, 0px) - 4px)) scale(0.9);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(calc(var(--hx1, 0px) - 14px), calc(var(--hy1, 0px) - 4px)) scale(0.9);
+        opacity: 0;
+    }
+}
+
+.hand-icon {
+    width: 56px;
+    height: 56px;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+}
+
+.hand-icon svg {
+    width: 56px;
+    height: 56px;
+    display: block;
+}
+
+.hand-trail {
+    position: absolute;
+    top: 0px;
+    left: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 14px 6px rgba(255, 255, 255, 0.45);
+    pointer-events: none;
+}
+
+/* 2. Tutorial Tip Floating Bubble */
+#tutorial-tip {
+    position: absolute;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #FFF8EE;
+    color: #2A211B;
+    border: 2px solid #E8772E;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 10px 22px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    z-index: 15;
+    white-space: nowrap;
+    text-align: center;
+    animation: tip-bob 1.8s ease-in-out infinite;
+}
+
+@keyframes tip-bob {
+    0%, 100% {
+        transform: translateX(-50%) translateY(0);
+    }
+    50% {
+        transform: translateX(-50%) translateY(-6px);
+    }
+}
+
+/* 3. Tutorial Steps Modal Overlay */
+#tutorial-steps {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(20, 16, 12, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    pointer-events: auto;
+    transition: opacity 0.3s ease;
+}
+
+.steps-dialog {
+    background-color: #FFF8EE;
+    border-radius: 20px;
+    padding: 20px;
+    max-width: 760px;
+    width: calc(100% - 32px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.steps-dialog h2 {
+    color: #E8772E;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 16px;
+}
+
+.steps-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.step-arrow {
+    font-size: 22px;
+    color: #E8772E;
+    font-weight: bold;
+    flex-shrink: 0;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+}
+
+@media (max-width: 639px) {
+    .steps-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .step-arrow {
+        transform: rotate(90deg);
+    }
+}
+
+.step-card {
+    background-color: #FFFFFF;
+    border-radius: 14px;
+    border: 1px solid #E6DCCF;
+    padding: 8px;
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    box-shadow: 0 2px 8px rgba(42, 33, 27, 0.05);
+    box-sizing: border-box;
+    opacity: 0;
+    transform: translateY(12px);
+}
+
+.step-img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: contain;
+    border-radius: 10px;
+    background-color: #CFE8E4;
+    display: block;
+}
+
+.step-num {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 28px;
+    height: 28px;
+    background-color: #E8772E;
+    color: #FFFFFF;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    box-shadow: 0 2px 6px rgba(232, 119, 46, 0.4);
+    z-index: 2;
+}
+
+.step-card figcaption {
+    font-size: 13px;
+    text-align: center;
+    color: #2A211B;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-top: 8px;
+    padding: 0 4px;
+}
+
+/* Hiệu ứng xuất hiện lần lượt cho các thẻ */
+#tutorial-steps.show .step-card {
+    animation: step-card-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+#tutorial-steps.show .step-card:nth-of-type(1) {
+    animation-delay: 0s;
+}
+
+#tutorial-steps.show .step-card:nth-of-type(2) {
+    animation-delay: 0.45s;
+}
+
+#tutorial-steps.show .step-card:nth-of-type(3) {
+    animation-delay: 0.9s;
+}
+
+@keyframes step-card-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#btn-steps-ok {
+    display: block;
+    margin: 14px auto 0 auto;
+    opacity: 0;
+    transform: translateY(10px);
+    background: linear-gradient(135deg, #E8772E 0%, #D45B12 100%) !important;
+    box-shadow: 0 0 20px rgba(232, 119, 46, 0.5) !important;
+    animation: none;
+}
+
+#tutorial-steps.show #btn-steps-ok {
+    animation: btn-ok-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards 1.3s,
+               pulse-glow-orange 2s infinite ease-in-out 1.8s;
+}
+
+@keyframes btn-ok-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse-glow-orange {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 15px rgba(232, 119, 46, 0.5);
+    }
+    50% {
+        transform: scale(1.04);
+        box-shadow: 0 0 30px rgba(232, 119, 46, 0.85);
+    }
+}
+
+/* 4. Hidden utility for Tutorial elements */
+#tutorial-hand.hidden,
+#tutorial-tip.hidden,
+#tutorial-steps.hidden {
+    display: none !important;
+}
+
+
 
