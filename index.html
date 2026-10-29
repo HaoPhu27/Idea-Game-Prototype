@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Game Prototypes</title>
+  <link rel="stylesheet" href="launcher/launcher.css">
+  <script src="launcher/games.js" defer></script>
+  <script src="launcher/launcher.js" defer></script>
+</head>
+<body>
+  <header class="lc-header">
+    <h1 class="lc-title">Game Prototypes</h1>
+    <p class="lc-subtitle">Chọn một game để chơi thử</p>
+  </header>
+
+  <main id="menu" class="lc-menu">
+    <div id="game-grid" class="lc-grid"></div>
+  </main>
+
+  <section id="player" class="lc-player" hidden>
+    <div class="lc-toolbar">
+      <button id="btn-back" class="lc-btn lc-btn-back" type="button">← Menu</button>
+      <span id="player-title" class="lc-player-title"></span>
+      <a id="btn-newtab" class="lc-btn lc-btn-ghost" target="_blank" rel="noopener">Mở tab mới ↗</a>
+    </div>
+    <iframe id="game-frame" class="lc-frame" title="Game" allow="autoplay; fullscreen"></iframe>
+  </section>
+</body>
+</html>

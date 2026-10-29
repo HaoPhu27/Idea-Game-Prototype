@@ -1,5 +1,7 @@
 # 🏭 Factory Sort — Game Prototype
 
+> 💡 Có thể mở mọi game trong kho từ menu chung tại [`../index.html`](../index.html).
+
 Dự án nguyên mẫu game **Factory Sort** (Goods Sort với cơ chế Khay & Băng Chuyền). Dự án bao gồm bộ sinh màn chơi luôn giải được (**Solvable Level Generator**), thuật toán giải (**Solver**), và giao diện HTML5 Canvas/DOM tối ưu cho thiết bị di động.
 
 ---
@@ -10,8 +12,8 @@ Các bản game dưới đây là **file HTML độc lập 100% (Standalone)**: 
 
 | Phiên bản | Đường dẫn tệp | Mô tả |
 | :--- | :--- | :--- |
-| **🎮 Bản Chuẩn (Delivery)** | [`dist/FactorySort_Standard_Delivery.html`](file:///d:/Xuong_code/Idea-Game-Prototype/Factory%20Sort/dist/FactorySort_Standard_Delivery.html) | Bản chính thức giao cho người chơi: Thùng hàng ở trên, Băng chuyền ở dưới. |
-| **🧪 Bản A/B Test Đảo Layout** | [`dist/FactorySort_ABTest_Inverted.html`](file:///d:/Xuong_code/Idea-Game-Prototype/Factory%20Sort/dist/FactorySort_ABTest_Inverted.html) | Bản thử nghiệm UX: Đẩy Băng chuyền lên trên, Thùng hàng xuống dưới để dễ với ngón tay cái khi chơi 1 tay (theo ý Jun iKame). |
+| **🎮 Bản Chuẩn (Delivery)** | [`delivery/dist/FactorySort_Standard_Delivery.html`](delivery/dist/FactorySort_Standard_Delivery.html) | Bản chính thức giao cho người chơi: Thùng hàng ở trên, Băng chuyền ở dưới. |
+| **🧪 Bản A/B Test Đảo Layout** | [`ab_test/dist/FactorySort_ABTest_Inverted.html`](ab_test/dist/FactorySort_ABTest_Inverted.html) | Bản thử nghiệm UX: Đẩy Băng chuyền lên trên, Thùng hàng xuống dưới để dễ với ngón tay cái khi chơi 1 tay (theo ý Jun iKame). |
 
 ---
 
@@ -20,17 +22,23 @@ Các bản game dưới đây là **file HTML độc lập 100% (Standalone)**: 
 ```text
 Factory Sort/
 │
-├── 📁 dist/                                     # Các bản game thành phẩm xuất xưởng (Standalone - Giao người chơi)
-│   ├── FactorySort_Standard_Delivery.html       # Bản game chuẩn giao cho người chơi / QA
-│   ├── FactorySort_ABTest_Inverted.html         # Bản game A/B test layout đảo ngược
-│   ├── bundle.js                                # Bundle mã nguồn JS đóng gói
-│   └── README.md                                # Hướng dẫn chi tiết cho tester & người nhận file
+├── 📁 delivery/                                 # BẢN CHUẨN (Standard) — bản đang dùng
+│   ├── index.html                               # Trang dev giao diện chuẩn (cần server)
+│   ├── src/                                     # Mã nguồn chính (core/, generator/, ui/, data/)
+│   ├── style.css                                # Định kiểu CSS của bản chuẩn
+│   └── 📁 dist/                                 # Bản thành phẩm standalone
+│       ├── FactorySort_Standard_Delivery.html   # Bản game chuẩn giao cho người chơi / QA
+│       └── bundle.js                            # Bundle mã nguồn JS đóng gói
 │
-├── 📁 dev/                                      # Môi trường chạy và debug cục bộ (Local Dev)
-│   ├── index.html                               # Trang dev giao diện chuẩn (Standard)
-│   └── index_inverted.html                      # Trang dev giao diện đảo ngược (A/B Test)
+├── 📁 ab_test/                                  # BẢN A/B TEST (Inverted) — bản đang dùng
+│   ├── index.html                               # Trang dev layout đảo ngược (cần server)
+│   ├── src/                                     # Mã nguồn riêng của bản A/B
+│   ├── style.css                                # Định kiểu CSS của bản A/B
+│   └── 📁 dist/                                 # Bản thành phẩm standalone
+│       ├── FactorySort_ABTest_Inverted.html     # Bản game A/B test layout đảo ngược
+│       └── bundle.js                            # Bundle mã nguồn JS đóng gói
 │
-├── 📁 src/                                      # Mã nguồn chính (ES Modules)
+├── 📁 src/                                      # ⚠️ BẢN CŨ — không dùng nữa (xem ghi chú dưới)
 │   ├── core/                                    # Engine logic (GameEngine, Box, Tray, Conveyor)
 │   ├── generator/                               # Thuật toán sinh màn solvable (SolvableLevelGenerator, Solver)
 │   ├── ui/                                      # Giao diện & Renderers (UIManager, TutorialManager, TrayRenderer...)
@@ -54,9 +62,13 @@ Factory Sort/
 ├── 📁 assets/                                   # Tài nguyên đồ họa, âm thanh, font chữ nhúng
 ├── 📁 archive/                                  # Lưu trữ các bản zip và file cũ
 │
-├── style.css                                    # Toàn bộ mã định kiểu CSS
+├── style.css                                    # ⚠️ BẢN CŨ — không dùng nữa
 └── package.json                                 # Cấu hình scripts & npm package
 ```
+
+> ⚠️ **Lưu ý:** `src/` và `style.css` ở gốc `Factory Sort/` là **bản cũ**, không còn được dùng.
+> Bản đang dùng nằm trong [`delivery/`](delivery/) và [`ab_test/`](ab_test/) — mỗi thư mục có
+> `index.html`, `src/`, `style.css` và `dist/` riêng.
 
 ---
 

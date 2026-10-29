@@ -2,3 +2,6 @@
 *.rar
 *.zip
 *.7z
+
+# Log cua cac AI worker (khong commit)
+.ai-logs/

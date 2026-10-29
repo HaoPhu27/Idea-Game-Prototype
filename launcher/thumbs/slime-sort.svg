@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="ss-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="45%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#db2777"/>
+    </linearGradient>
+
+    <!-- Tray Gradient -->
+    <linearGradient id="ss-tray" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fde68a"/>
+      <stop offset="40%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+
+    <!-- Slime Gradients -->
+    <!-- Green Slime -->
+    <radialGradient id="slime-green" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#86efac"/>
+      <stop offset="40%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#15803d"/>
+    </radialGradient>
+
+    <!-- Pink Slime -->
+    <radialGradient id="slime-pink" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#fbcfe8"/>
+      <stop offset="40%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#be185d"/>
+    </radialGradient>
+
+    <!-- Orange Slime -->
+    <radialGradient id="slime-orange" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#fed7aa"/>
+      <stop offset="40%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#c2410c"/>
+    </radialGradient>
+
+    <!-- Cyan Slime -->
+    <radialGradient id="slime-cyan" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#a5f3fc"/>
+      <stop offset="40%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#0e7490"/>
+    </radialGradient>
+
+    <!-- Glass Liquid Fill -->
+    <linearGradient id="glass-inner" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.16"/>
+    </linearGradient>
+
+    <!-- Soft Drop Shadow Filter -->
+    <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="320" height="200" rx="16" fill="url(#ss-bg)"/>
+
+  <!-- Background Decorative Bubbles & Glows -->
+  <circle cx="50" cy="36" r="16" fill="#ffffff" opacity="0.08"/>
+  <circle cx="280" cy="46" r="22" fill="#ffffff" opacity="0.08"/>
+  <circle cx="160" cy="22" r="10" fill="#ffffff" opacity="0.06"/>
+  <circle cx="115" cy="180" r="14" fill="#ffffff" opacity="0.05"/>
+  <circle cx="215" cy="182" r="10" fill="#ffffff" opacity="0.05"/>
+
+  <!-- ==================== BOTTOM: TRAY (KHAY NHỎ) ==================== -->
+  <!-- Floor Shadow Under Tray -->
+  <ellipse cx="160" cy="188" rx="136" ry="6" fill="#000000" opacity="0.35"/>
+
+  <!-- Wooden / Rounded Stand Tray -->
+  <rect x="24" y="166" width="272" height="18" rx="9" fill="url(#ss-tray)" stroke="#fef08a" stroke-width="1.5" filter="url(#soft-shadow)"/>
+  <!-- Tray Top Highlight -->
+  <rect x="32" y="168" width="256" height="3" rx="1.5" fill="#ffffff" opacity="0.45"/>
+
+  <!-- Sockets/Indentations on Tray for the 4 Tubes -->
+  <ellipse cx="60" cy="168" rx="18" ry="3" fill="#78350f" opacity="0.6"/>
+  <ellipse cx="127" cy="168" rx="18" ry="3" fill="#78350f" opacity="0.6"/>
+  <ellipse cx="193" cy="168" rx="18" ry="3" fill="#78350f" opacity="0.6"/>
+  <ellipse cx="260" cy="168" rx="18" ry="3" fill="#78350f" opacity="0.6"/>
+
+  <!-- ==================== TUBE 1: SOLVED (ALL GREEN) ==================== -->
+  <g>
+    <!-- Tube Glass Back & Glow -->
+    <path d="M 39 50 L 39 146 A 21 21 0 0 0 81 146 L 81 50 Z" fill="url(#glass-inner)"/>
+
+    <!-- Slimes Inside Tube 1 -->
+    <!-- Slime 1 (Bottom) -->
+    <rect x="42" y="137" width="36" height="26" rx="13" fill="url(#slime-green)"/>
+    <ellipse cx="50" cy="142" rx="4" ry="2" fill="#ffffff" opacity="0.7"/>
+
+    <!-- Slime 2 (Middle) -->
+    <rect x="42" y="112" width="36" height="26" rx="13" fill="url(#slime-green)"/>
+    <ellipse cx="50" cy="117" rx="4" ry="2" fill="#ffffff" opacity="0.7"/>
+
+    <!-- Slime 3 (Top - Happy Face!) -->
+    <rect x="42" y="87" width="36" height="26" rx="13" fill="url(#slime-green)"/>
+    <ellipse cx="50" cy="92" rx="4" ry="2" fill="#ffffff" opacity="0.7"/>
+    <!-- Cute Eyes ^ ^ -->
+    <path d="M 54 98 Q 57 95 60 98" stroke="#064e3b" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M 64 98 Q 67 95 70 98" stroke="#064e3b" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <!-- Cute Smile -->
+    <path d="M 60 103 Q 62 106 64 103" stroke="#064e3b" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+
+    <!-- Tube Glass Outer Contour & Lip -->
+    <path d="M 39 50 L 39 146 A 21 21 0 0 0 81 146 L 81 50 Z" stroke="#ffffff" stroke-width="2" stroke-opacity="0.65" fill="none"/>
+    <rect x="36" y="46" width="48" height="6" rx="3" fill="#ffffff" opacity="0.75"/>
+    <!-- Glass Left Sheen Reflection -->
+    <path d="M 43 54 L 43 140 A 17 17 0 0 0 53 158" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+
+    <!-- Solved Celebration Sparkles Around Tube 1 ✨ -->
+    <path d="M 32 60 L 34 65 L 39 67 L 34 69 L 32 74 L 30 69 L 25 67 L 30 65 Z" fill="#fef08a"/>
+    <path d="M 88 52 L 89.5 56 L 93.5 57.5 L 89.5 59 L 88 63 L 86.5 59 L 82.5 57.5 L 86.5 56 Z" fill="#fef08a"/>
+    <path d="M 36 102 L 37 105 L 40 106 L 37 107 L 36 110 L 35 107 L 32 106 L 35 105 Z" fill="#fef08a"/>
+  </g>
+
+  <!-- ==================== TUBE 2: PINK & ORANGE ==================== -->
+  <g>
+    <!-- Tube Glass Back -->
+    <path d="M 106 50 L 106 146 A 21 21 0 0 0 148 146 L 148 50 Z" fill="url(#glass-inner)"/>
+
+    <!-- Slime 1 (Bottom: Pink) -->
+    <rect x="109" y="137" width="36" height="26" rx="13" fill="url(#slime-pink)"/>
+    <ellipse cx="117" cy="142" rx="4" ry="2" fill="#ffffff" opacity="0.7"/>
+
+    <!-- Slime 2 (Middle: Orange) -->
+    <rect x="109" y="112" width="36" height="26" rx="13" fill="url(#slime-orange)"/>
+    <ellipse cx="117" cy="117" rx="4" ry="2" fill="#ffffff" opacity="0.7"/>
+
+    <!-- Slime 3 (Top: Pink - Cute Face) -->
+    <rect x="109" y="87" width="36" height="26" rx="13" fill="url(#slime-pink)"/>
+    <ellipse cx="117" cy="92" rx="4" ry="2" fill="#ffffff" opacity="0.7"/>
+    <!-- Cute Eyes • • -->
+    <circle cx="122" cy="98" r="2" fill="#831843"/>
+    <circle cx="132" cy="98" r="2" fill="#831843"/>
+    <path d="M 125 102 Q 127 105 129 102" stroke="#831843" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+
+    <!-- Tube Glass Outer Contour & Lip -->
+    <path d="M 106 50 L 106 146 A 21 21 0 0 0 148 146 L 148 50 Z" stroke="#ffffff" stroke-width="2" stroke-opacity="0.65" fill="none"/>
+    <rect x="103" y="46" width="48" height="6" rx="3" fill="#ffffff" opacity="0.75"/>
+    <!-- Glass Sheen -->
+    <path d="M 110 54 L 110 140 A 17 17 0 0 0 120 158" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+  </g>
+
+  <!-- ==================== TUBE 3: ORANGE & PINK ==================== -->
+  <g>
+    <!-- Tube Glass Back -->
+    <path d="M 172 50 L 172 146 A 21 21 0 0 0 214 146 L 214 50 Z" fill="url(#glass-inner)"/>
+
+    <!-- Slime 1 (Bottom: Orange) -->
+    <rect x="175" y="137" width="36" height="26" rx="13" fill="url(#slime-orange)"/>
+    <ellipse cx="183" cy="142" rx="4" ry="2" fill="#ffffff" opacity="0.7"/>
+
+    <!-- Slime 2 (Middle: Pink) -->
+    <rect x="175" y="112" width="36" height="26" rx="13" fill="url(#slime-pink)"/>
+    <ellipse cx="183" cy="117" rx="4" ry="2" fill="#ffffff" opacity="0.7"/>
+
+    <!-- Slime 3 (Top: Orange - Cute Face) -->
+    <rect x="175" y="87" width="36" height="26" rx="13" fill="url(#slime-orange)"/>
+    <ellipse cx="183" cy="92" rx="4" ry="2" fill="#ffffff" opacity="0.7"/>
+    <!-- Cute Eyes • • -->
+    <circle cx="188" cy="98" r="2" fill="#7c2d12"/>
+    <circle cx="198" cy="98" r="2" fill="#7c2d12"/>
+    <path d="M 191 102 Q 193 105 195 102" stroke="#7c2d12" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+
+    <!-- Tube Glass Outer Contour & Lip -->
+    <path d="M 172 50 L 172 146 A 21 21 0 0 0 214 146 L 214 50 Z" stroke="#ffffff" stroke-width="2" stroke-opacity="0.65" fill="none"/>
+    <rect x="169" y="46" width="48" height="6" rx="3" fill="#ffffff" opacity="0.75"/>
+    <!-- Glass Sheen -->
+    <path d="M 176 54 L 176 140 A 17 17 0 0 0 186 158" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+  </g>
+
+  <!-- ==================== TUBE 4: CYAN WITH JUMPING SLIME ==================== -->
+  <g>
+    <!-- Tube Glass Back -->
+    <path d="M 239 50 L 239 146 A 21 21 0 0 0 281 146 L 281 50 Z" fill="url(#glass-inner)"/>
+
+    <!-- Slime 1 (Bottom: Cyan) -->
+    <rect x="242" y="137" width="36" height="26" rx="13" fill="url(#slime-cyan)"/>
+    <ellipse cx="250" cy="142" rx="4" ry="2" fill="#ffffff" opacity="0.7"/>
+
+    <!-- Tube Glass Outer Contour & Lip -->
+    <path d="M 239 50 L 239 146 A 21 21 0 0 0 281 146 L 281 50 Z" stroke="#ffffff" stroke-width="2" stroke-opacity="0.65" fill="none"/>
+    <rect x="236" y="46" width="48" height="6" rx="3" fill="#ffffff" opacity="0.75"/>
+    <!-- Glass Sheen -->
+    <path d="M 243 54 L 243 140 A 17 17 0 0 0 253 158" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+  </g>
+
+  <!-- ==================== ACTION: JUMPING CYAN SLIME ==================== -->
+  <!-- Arc Motion Dotted Line from Tube 4 -->
+  <path d="M 260 76 C 260 38, 235 24, 218 36" stroke="#67e8f9" stroke-width="3" stroke-dasharray="4 3" stroke-linecap="round" fill="none"/>
+
+  <!-- Tiny liquid droplet particles -->
+  <circle cx="252" cy="46" r="3" fill="#38bdf8" opacity="0.8"/>
+  <circle cx="236" cy="38" r="2.5" fill="#a5f3fc" opacity="0.9"/>
+
+  <!-- The Hopping Cyan Slime in Mid-Air! -->
+  <g filter="url(#soft-shadow)">
+    <!-- Squishy tilted body -->
+    <ellipse cx="206" cy="34" rx="18" ry="14" fill="url(#slime-cyan)" transform="rotate(-12 206 34)"/>
+    <!-- Glossy Highlight -->
+    <ellipse cx="200" cy="28" rx="5" ry="3" fill="#ffffff" opacity="0.8" transform="rotate(-12 200 28)"/>
+    <!-- Big Excited Eyes -->
+    <circle cx="202" cy="35" r="2.5" fill="#083344"/>
+    <circle cx="203" cy="34" r="0.8" fill="#ffffff"/>
+    <circle cx="212" cy="33" r="2.5" fill="#083344"/>
+    <circle cx="213" cy="32" r="0.8" fill="#ffffff"/>
+    <!-- Cute Open Mouth :o -->
+    <ellipse cx="207" cy="40" rx="2" ry="3" fill="#083344"/>
+  </g>
+</svg>

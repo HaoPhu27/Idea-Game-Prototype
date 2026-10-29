@@ -1,0 +1,498 @@
+/* ==========================================================================
+   LAUNCHER.CSS - Menu chọn game Casual Mobile Prototype
+   Hợp đồng DOM & Thiết kế chuẩn hiện đại
+   ========================================================================== */
+
+/* 1. Biến CSS & Giao diện (Theme Variables) */
+:root {
+  /* Bảng màu sáng (Light Theme) */
+  --lc-bg: #f8fafc;
+  --lc-bg-gradient-start: rgba(99, 102, 241, 0.04);
+  --lc-bg-gradient-end: rgba(244, 63, 94, 0.04);
+  --lc-surface: #ffffff;
+  --lc-surface-hover: #ffffff;
+  --lc-surface-subtle: #f1f5f9;
+  --lc-border: #e2e8f0;
+  --lc-border-hover: #cbd5e1;
+
+  /* Màu chữ */
+  --lc-text: #0f172a;
+  --lc-text-muted: #64748b;
+
+  /* Màu chủ đạo (Accent Casual) */
+  --lc-accent: #6366f1;
+  --lc-accent-hover: #4f46e5;
+  --lc-accent-active: #4338ca;
+  --lc-accent-text: #ffffff;
+  --lc-accent-glow: rgba(99, 102, 241, 0.25);
+
+  /* Màu Badge Prototype (Cam ấm) */
+  --lc-badge-proto-bg: #fef3c7;
+  --lc-badge-proto-text: #b45309;
+  --lc-badge-proto-border: #fde68a;
+
+  /* Màu Badge A/B Testing (Tím chàm) */
+  --lc-badge-ab-bg: #ede9fe;
+  --lc-badge-ab-text: #6d28d9;
+  --lc-badge-ab-border: #ddd6fe;
+
+  /* Màu ảnh đại diện bị lỗi (Fallback 16:10) */
+  --lc-thumb-fallback-1: #cbd5e1;
+  --lc-thumb-fallback-2: #94a3b8;
+
+  /* Bóng đổ mềm & viền tập trung */
+  --lc-shadow-card: 0 10px 25px -5px rgba(15, 23, 42, 0.06), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  --lc-shadow-hover: 0 20px 30px -8px rgba(99, 102, 241, 0.16), 0 10px 15px -5px rgba(15, 23, 42, 0.05);
+  --lc-focus-ring: #6366f1;
+
+  /* Màn chơi game */
+  --lc-player-bg: #000000;
+  --lc-toolbar-bg: rgba(15, 23, 42, 0.88);
+}
+
+/* Chế độ tối (Dark Theme) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --lc-bg: #0b0f19;
+    --lc-bg-gradient-start: rgba(99, 102, 241, 0.1);
+    --lc-bg-gradient-end: rgba(236, 72, 153, 0.06);
+    --lc-surface: #151d2e;
+    --lc-surface-hover: #1c273e;
+    --lc-surface-subtle: #1e293b;
+    --lc-border: #232e42;
+    --lc-border-hover: #374768;
+
+    --lc-text: #f8fafc;
+    --lc-text-muted: #94a3b8;
+
+    --lc-accent: #818cf8;
+    --lc-accent-hover: #6366f1;
+    --lc-accent-active: #4f46e5;
+    --lc-accent-text: #ffffff;
+    --lc-accent-glow: rgba(129, 140, 248, 0.35);
+
+    --lc-badge-proto-bg: rgba(245, 158, 11, 0.18);
+    --lc-badge-proto-text: #fbbf24;
+    --lc-badge-proto-border: rgba(245, 158, 11, 0.35);
+
+    --lc-badge-ab-bg: rgba(167, 139, 250, 0.18);
+    --lc-badge-ab-text: #c4b5fd;
+    --lc-badge-ab-border: rgba(167, 139, 250, 0.35);
+
+    --lc-thumb-fallback-1: #1e293b;
+    --lc-thumb-fallback-2: #334155;
+
+    --lc-shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.45);
+    --lc-shadow-hover: 0 20px 35px -8px rgba(0, 0, 0, 0.65), 0 0 20px rgba(129, 140, 248, 0.15);
+    --lc-focus-ring: #818cf8;
+
+    --lc-toolbar-bg: rgba(11, 15, 25, 0.92);
+  }
+}
+
+/* 2. Thiết lập cơ bản & Reset (Base & Reset) */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+  color: var(--lc-text);
+  background-color: var(--lc-bg);
+  background-image:
+    radial-gradient(at 0% 0%, var(--lc-bg-gradient-start) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, var(--lc-bg-gradient-end) 0px, transparent 50%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Trạng thái khi mở màn chơi */
+body.lc-playing {
+  overflow: hidden;
+}
+
+/* 3. Phần đầu trang (Header) */
+.lc-header {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 36px 16px 20px;
+  text-align: center;
+}
+
+.lc-title {
+  margin: 0 0 8px;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--lc-text);
+  line-height: 1.2;
+}
+
+.lc-subtitle {
+  margin: 0 auto;
+  max-width: 640px;
+  font-size: clamp(0.95rem, 2vw, 1.05rem);
+  color: var(--lc-text-muted);
+  line-height: 1.5;
+}
+
+/* 4. Menu & Lưới danh sách game (Menu & Grid) */
+.lc-menu {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.lc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
+}
+
+/* 5. Thẻ game (Game Card) */
+.lc-card {
+  background: var(--lc-surface);
+  border: 1px solid var(--lc-border);
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--lc-shadow-card);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.lc-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--lc-shadow-hover);
+  border-color: var(--lc-border-hover);
+}
+
+/* 6. Ảnh đại diện & Ảnh lỗi (Thumbnail & Fallback) */
+.lc-thumb-btn {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: linear-gradient(135deg, var(--lc-thumb-fallback-1) 0%, var(--lc-thumb-fallback-2) 100%);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.lc-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.lc-card:hover .lc-thumb {
+  transform: scale(1.05);
+}
+
+/* Ảnh lỗi hiển thị ô màu tỉ lệ 16:10 */
+.lc-thumb.lc-thumb--missing {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 10;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.15) 0%, transparent 65%),
+    linear-gradient(135deg, var(--lc-thumb-fallback-1) 0%, var(--lc-thumb-fallback-2) 100%);
+}
+
+/* 7. Thông tin thẻ (Card Body, Badges & Meta) */
+.lc-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 18px 20px 20px;
+  gap: 12px;
+}
+
+.lc-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Badge dạng viên thuốc */
+.lc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  border: 1px solid transparent;
+}
+
+.lc-badge--prototype {
+  background-color: var(--lc-badge-proto-bg);
+  color: var(--lc-badge-proto-text);
+  border-color: var(--lc-badge-proto-border);
+}
+
+.lc-badge--ab {
+  background-color: var(--lc-badge-ab-bg);
+  color: var(--lc-badge-ab-text);
+  border-color: var(--lc-badge-ab-border);
+}
+
+.lc-genre {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--lc-text-muted);
+}
+
+.lc-card-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--lc-text);
+  line-height: 1.3;
+}
+
+.lc-desc {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--lc-text-muted);
+  flex: 1;
+}
+
+.lc-updated {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--lc-text-muted);
+  margin-top: 2px;
+}
+
+/* 8. Nút bấm tương tác (Actions & Buttons) */
+.lc-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.lc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  user-select: none;
+}
+
+/* Nút Chơi nổi bật với màu Accent */
+.lc-btn-play {
+  flex: 1;
+  background-color: var(--lc-accent);
+  color: var(--lc-accent-text);
+  box-shadow: 0 4px 12px var(--lc-accent-glow);
+}
+
+.lc-btn-play:hover {
+  background-color: var(--lc-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--lc-accent-glow);
+}
+
+.lc-btn-play:active {
+  background-color: var(--lc-accent-active);
+  transform: translateY(0);
+}
+
+/* Nút Ghost / Dev */
+.lc-btn-ghost {
+  background-color: transparent;
+  color: var(--lc-text);
+  border-color: var(--lc-border);
+}
+
+.lc-btn-ghost:hover {
+  background-color: var(--lc-surface-subtle);
+  border-color: var(--lc-border-hover);
+  color: var(--lc-text);
+}
+
+.lc-btn-ghost:active {
+  transform: translateY(0);
+}
+
+.lc-btn-dev {
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+/* 9. Màn hình chơi game (Game Player) */
+.lc-player {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  background-color: var(--lc-player-bg);
+}
+
+/* Thanh công cụ toolbar trên màn chơi */
+.lc-toolbar {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background-color: var(--lc-toolbar-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: max(4px, env(safe-area-inset-top));
+  padding-bottom: 4px;
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+}
+
+.lc-toolbar .lc-btn-back {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  padding: 0 14px;
+  flex-shrink: 0;
+}
+
+.lc-toolbar .lc-btn-back:hover {
+  background-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+.lc-player-title {
+  flex: 1;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 8px;
+}
+
+.lc-toolbar .lc-btn-ghost {
+  color: #f1f5f9;
+  border-color: rgba(255, 255, 255, 0.2);
+  background-color: transparent;
+  flex-shrink: 0;
+}
+
+.lc-toolbar .lc-btn-ghost:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+/* Khung iframe chứa game */
+.lc-frame {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background-color: var(--lc-player-bg);
+  display: block;
+}
+
+/* 10. Trợ năng & Hiệu ứng chuyển động (Accessibility & Motion) */
+:focus-visible {
+  outline: 2px solid var(--lc-focus-ring);
+  outline-offset: 2px;
+}
+
+.lc-thumb-btn:focus-visible {
+  outline: 2px solid var(--lc-focus-ring);
+  outline-offset: -2px;
+}
+
+.lc-toolbar :focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Giảm chuyển động cho người dùng nhạy cảm */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    scroll-behavior: auto;
+  }
+
+  .lc-card:hover {
+    transform: none;
+  }
+
+  .lc-card:hover .lc-thumb {
+    transform: none;
+  }
+
+  .lc-btn:hover,
+  .lc-btn:active {
+    transform: none;
+  }
+}
+
+/* 11. Tối ưu cho thiết bị di động nhỏ (360px) */
+@media (max-width: 480px) {
+  .lc-header {
+    padding: 24px 16px 16px;
+  }
+
+  .lc-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 0 16px 36px;
+  }
+
+  .lc-card-body {
+    padding: 16px;
+  }
+}

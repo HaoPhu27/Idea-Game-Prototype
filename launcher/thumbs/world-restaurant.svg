@@ -1,0 +1,243 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="100%" height="100%">
+  <defs>
+    <!-- Sunny Sky Gradient -->
+    <linearGradient id="wr-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="55%" stop-color="#7dd3fc"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+
+    <!-- Grass Tile Gradient -->
+    <linearGradient id="tile-grass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+    <linearGradient id="tile-grass-alt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#86efac"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+
+    <!-- Path / Cobblestone Tile Gradient -->
+    <linearGradient id="tile-path" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f1f5f9"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+
+    <!-- Island Dirt Strata Gradients -->
+    <linearGradient id="dirt-left" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#78350f"/>
+      <stop offset="100%" stop-color="#451a03"/>
+    </linearGradient>
+    <linearGradient id="dirt-right" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#92400e"/>
+      <stop offset="100%" stop-color="#78350f"/>
+    </linearGradient>
+
+    <!-- Roof Gradient -->
+    <linearGradient id="roof-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#b91c1c"/>
+    </linearGradient>
+
+    <!-- Soft Drop Shadow Filter -->
+    <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="320" height="200" rx="16" fill="url(#wr-sky)"/>
+
+  <!-- Background Fluffy White Clouds -->
+  <!-- Cloud 1 (Left) -->
+  <g fill="#ffffff" opacity="0.85">
+    <circle cx="45" cy="38" r="14"/>
+    <circle cx="62" cy="34" r="18"/>
+    <circle cx="78" cy="38" r="13"/>
+    <rect x="42" y="38" width="40" height="14" rx="7"/>
+  </g>
+  <!-- Cloud 2 (Right) -->
+  <g fill="#ffffff" opacity="0.8">
+    <circle cx="265" cy="46" r="12"/>
+    <circle cx="280" cy="42" r="16"/>
+    <circle cx="295" cy="46" r="11"/>
+    <rect x="262" y="46" width="36" height="12" rx="6"/>
+  </g>
+
+  <!-- Distant Birds -->
+  <path d="M 145 28 Q 149 24 153 28 Q 157 24 161 28" stroke="#0284c7" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <path d="M 166 34 Q 169 31 172 34 Q 175 31 178 34" stroke="#0284c7" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.5"/>
+
+  <!-- Floating Island Shadow on Air -->
+  <ellipse cx="160" cy="192" rx="112" ry="7" fill="#0284c7" opacity="0.25"/>
+
+  <!-- ==================== ISOMETRIC ISLAND BASE (CLIFF & DIRT) ==================== -->
+  <!-- Left Cliff Face (Shaded) -->
+  <polygon points="46,114 160,171 160,188 46,131" fill="url(#dirt-left)"/>
+  <!-- Right Cliff Face (Lit) -->
+  <polygon points="160,171 274,114 274,131 160,188" fill="url(#dirt-right)"/>
+  <!-- Bedrock & Grass Edge Strata Lines -->
+  <path d="M 46 119 L 160 176 L 274 119" stroke="#15803d" stroke-width="3" fill="none"/>
+  <path d="M 46 125 L 160 182 L 274 125" stroke="#451a03" stroke-width="1.5" opacity="0.6" fill="none"/>
+
+  <!-- ==================== ISOMETRIC 3x3 CHESSBOARD TILES ==================== -->
+  <!--
+    Row j = -1:
+      Tile (-1, -1) Top: center (160, 76) -> Grass
+      Tile (0, -1) Top-Right: center (198, 95) -> Grass
+      Tile (1, -1) Far-Right: center (236, 114) -> Path
+    Row j = 0:
+      Tile (-1, 0) Top-Left: center (122, 95) -> Restaurant Footprint
+      Tile (0, 0) Center: center (160, 114) -> Path
+      Tile (1, 0) Center-Right: center (198, 133) -> Path
+    Row j = 1:
+      Tile (-1, 1) Far-Left: center (84, 114) -> Grass Patio
+      Tile (0, 1) Bottom-Left: center (122, 133) -> Path
+      Tile (1, 1) Bottom: center (160, 152) -> Grass
+  -->
+
+  <!-- Tile (-1, -1) [Top]: Grass -->
+  <polygon points="160,57 198,76 160,95 122,76" fill="url(#tile-grass-alt)" stroke="#16a34a" stroke-width="0.8"/>
+
+  <!-- Tile (0, -1) [Top-Right]: Grass -->
+  <polygon points="198,76 236,95 198,114 160,95" fill="url(#tile-grass)" stroke="#16a34a" stroke-width="0.8"/>
+  <!-- Tiny flowers on tile (0, -1) -->
+  <circle cx="204" cy="94" r="2" fill="#ffffff"/>
+  <circle cx="204" cy="94" r="0.8" fill="#facc15"/>
+  <circle cx="218" cy="98" r="2" fill="#f43f5e"/>
+
+  <!-- Tile (1, -1) [Far-Right]: Path/Road -->
+  <polygon points="236,95 274,114 236,133 198,114" fill="url(#tile-path)" stroke="#94a3b8" stroke-width="0.8"/>
+  <!-- Cobblestone details -->
+  <path d="M 230 112 Q 236 109 242 112 M 244 117 Q 250 114 256 117 M 224 118 Q 230 115 236 118" stroke="#94a3b8" stroke-width="1" fill="none" opacity="0.6"/>
+
+  <!-- Tile (-1, 0) [Top-Left]: Grass Base under Restaurant -->
+  <polygon points="122,76 160,95 122,114 84,95" fill="url(#tile-grass)" stroke="#16a34a" stroke-width="0.8"/>
+
+  <!-- Tile (0, 0) [Center Plaza]: Path/Road -->
+  <polygon points="160,95 198,114 160,133 122,114" fill="url(#tile-path)" stroke="#94a3b8" stroke-width="0.8"/>
+  <path d="M 152 112 Q 160 108 168 112 M 144 118 Q 152 114 160 118 M 162 122 Q 170 118 178 122" stroke="#94a3b8" stroke-width="1.2" fill="none" opacity="0.7"/>
+
+  <!-- Tile (1, 0) [Center-Right]: Path/Road -->
+  <polygon points="198,114 236,133 198,152 160,133" fill="url(#tile-path)" stroke="#94a3b8" stroke-width="0.8"/>
+  <path d="M 190 131 Q 198 127 206 131 M 198 138 Q 206 134 214 138" stroke="#94a3b8" stroke-width="1" fill="none" opacity="0.6"/>
+
+  <!-- Tile (-1, 1) [Far-Left]: Grass (Dining Patio) -->
+  <polygon points="84,95 122,114 84,133 46,114" fill="url(#tile-grass-alt)" stroke="#16a34a" stroke-width="0.8"/>
+
+  <!-- Tile (0, 1) [Bottom-Left]: Path/Road -->
+  <polygon points="122,114 160,133 122,152 84,133" fill="url(#tile-path)" stroke="#94a3b8" stroke-width="0.8"/>
+  <path d="M 114 131 Q 122 127 130 131 M 122 138 Q 130 134 138 138" stroke="#94a3b8" stroke-width="1" fill="none" opacity="0.6"/>
+
+  <!-- Tile (1, 1) [Bottom]: Grass -->
+  <polygon points="160,133 198,152 160,171 122,152" fill="url(#tile-grass)" stroke="#16a34a" stroke-width="0.8"/>
+  <!-- Flower Bed on Bottom Grass -->
+  <circle cx="152" cy="151" r="2.5" fill="#f43f5e"/>
+  <circle cx="160" cy="155" r="2.5" fill="#facc15"/>
+  <circle cx="168" cy="151" r="2.5" fill="#ffffff"/>
+
+  <!-- ==================== TOP TILE (-1, -1): ISOMETRIC TREE ==================== -->
+  <g>
+    <!-- Trunk -->
+    <rect x="158" y="65" width="4" height="12" rx="1.5" fill="#78350f"/>
+    <!-- Foliage Layers -->
+    <ellipse cx="160" cy="62" rx="14" ry="9" fill="#15803d"/>
+    <ellipse cx="160" cy="54" rx="11" ry="7" fill="#22c55e"/>
+    <ellipse cx="158" cy="52" rx="5" ry="3" fill="#86efac" opacity="0.6"/>
+    <!-- Apples -->
+    <circle cx="155" cy="58" r="2" fill="#ef4444"/>
+    <circle cx="165" cy="61" r="2" fill="#ef4444"/>
+  </g>
+
+  <!-- ==================== FAR-LEFT TILE: CAFÉ UMBRELLA & TABLE ==================== -->
+  <g>
+    <!-- Table -->
+    <ellipse cx="80" cy="118" rx="8" ry="4" fill="#78350f"/>
+    <rect x="79" y="118" width="2" height="6" fill="#451a03"/>
+    <!-- Umbrella Pole -->
+    <line x1="80" y1="96" x2="80" y2="120" stroke="#475569" stroke-width="2"/>
+    <!-- Striped Parasol (Red & White) -->
+    <path d="M 64 96 Q 80 82 96 96 Z" fill="#ef4444"/>
+    <path d="M 72 91 Q 80 82 88 91 L 86 96 L 74 96 Z" fill="#ffffff"/>
+    <circle cx="80" cy="84" r="2" fill="#facc15"/>
+  </g>
+
+  <!-- ==================== HERO: THE ISOMETRIC RESTAURANT ==================== -->
+  <g filter="url(#soft-shadow)">
+    <!-- Building Drop Shadow on Grass -->
+    <polygon points="90,95 122,111 156,95 124,79" fill="#000000" opacity="0.25"/>
+
+    <!-- Left Wall (Shaded, facing South-West) -->
+    <polygon points="94,92 124,107 124,73 94,58" fill="#fed7aa"/>
+    <!-- Window on Left Wall -->
+    <polygon points="101,80 114,86 114,76 101,70" fill="#78350f"/>
+    <polygon points="102,79 113,84 113,77 102,72" fill="#fef08a"/>
+    <line x1="107.5" y1="75.5" x2="107.5" y2="81.5" stroke="#78350f" stroke-width="1"/>
+
+    <!-- Right Wall (Front Entrance, Sunlit, facing South-East) -->
+    <polygon points="124,107 154,92 154,58 124,73" fill="#fff7ed"/>
+
+    <!-- Front Entrance Door -->
+    <polygon points="137,84 147,79 147,95 137,100" fill="#78350f"/>
+    <polygon points="138,85 146,81 146,94 138,98" fill="#38bdf8" opacity="0.8"/>
+    <!-- Door Knob -->
+    <circle cx="140" cy="91" r="1" fill="#facc15"/>
+
+    <!-- Front Display Window (Pastry/Menu) -->
+    <polygon points="126,89 133,85.5 133,77 126,80.5" fill="#78350f"/>
+    <polygon points="127,88 132,85.5 132,78 127,80.5" fill="#fef08a"/>
+    <!-- Croissant/Food Silhouette -->
+    <ellipse cx="129.5" cy="84" rx="2" ry="1.2" fill="#ea580c"/>
+
+    <!-- ==================== THE STRIPED AWNING (MÁI HIÊN SỌC) ==================== -->
+    <!--
+      Awning slopes out from front wall over the entrance door and window.
+      Top wall hinge: from (122, 70) to (154, 54).
+      Bottom eaves edge: from (116, 78) to (148, 62).
+      5 Alternating Isometric Stripes: Red and White!
+    -->
+    <!-- Stripe 1 (Red) -->
+    <polygon points="122,70 128,67 122,75 116,78" fill="#ef4444"/>
+    <path d="M 116 78 Q 119 81 122 75" fill="#dc2626"/>
+
+    <!-- Stripe 2 (White) -->
+    <polygon points="128,67 134,64 128,72 122,75" fill="#ffffff"/>
+    <path d="M 122 75 Q 125 78 128 72" fill="#e2e8f0"/>
+
+    <!-- Stripe 3 (Red) -->
+    <polygon points="134,64 141,60.5 135,68.5 128,72" fill="#ef4444"/>
+    <path d="M 128 72 Q 131.5 75.5 135 68.5" fill="#dc2626"/>
+
+    <!-- Stripe 4 (White) -->
+    <polygon points="141,60.5 147,57.5 141,65.5 135,68.5" fill="#ffffff"/>
+    <path d="M 135 68.5 Q 138 72 141 65.5" fill="#e2e8f0"/>
+
+    <!-- Stripe 5 (Red) -->
+    <polygon points="147,57.5 154,54 148,62 141,65.5" fill="#ef4444"/>
+    <path d="M 141 65.5 Q 144.5 69 148 62" fill="#dc2626"/>
+
+    <!-- ==================== ROOF & CHIMNEY ==================== -->
+    <!-- Roof Peak at (124, 38) -->
+    <!-- Left Roof Face (Shaded) -->
+    <polygon points="92,57 124,72 124,38 92,43" fill="#b91c1c"/>
+    <!-- Right Roof Face (Sunlit) -->
+    <polygon points="124,72 156,57 124,38" fill="url(#roof-grad)"/>
+    <!-- Roof Ridge Highlight -->
+    <line x1="92" y1="43" x2="124" y2="38" stroke="#fca5a5" stroke-width="1.5"/>
+
+    <!-- Brick Chimney -->
+    <polygon points="104,46 110,49 110,38 104,35" fill="#991b1b"/>
+    <polygon points="110,49 114,47 114,36 110,38" fill="#dc2626"/>
+    <polygon points="104,35 110,38 114,36 108,33" fill="#fca5a5"/>
+
+    <!-- Puffy Smoke Clouds Floating from Chimney ☁ -->
+    <circle cx="106" cy="27" r="4" fill="#ffffff" opacity="0.85"/>
+    <circle cx="101" cy="20" r="5" fill="#ffffff" opacity="0.7"/>
+    <circle cx="95" cy="12" r="6.5" fill="#ffffff" opacity="0.5"/>
+
+    <!-- Welcoming Planter Box near Door -->
+    <rect x="149" y="93" width="6" height="5" rx="1" fill="#78350f"/>
+    <circle cx="152" cy="91" r="3.5" fill="#22c55e"/>
+    <circle cx="152" cy="90" r="1.5" fill="#fbbf24"/>
+  </g>
+</svg>

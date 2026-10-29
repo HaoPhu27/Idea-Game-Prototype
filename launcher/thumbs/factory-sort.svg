@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="fs-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="55%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- Crates Gradients -->
+    <linearGradient id="crate-red" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f87171"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <linearGradient id="crate-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="crate-green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+
+    <!-- Item Gradients -->
+    <radialGradient id="item-red" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#fecaca"/>
+      <stop offset="30%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#991b1b"/>
+    </radialGradient>
+    <radialGradient id="item-gold" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="30%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </radialGradient>
+    <radialGradient id="item-green" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#bbf7d0"/>
+      <stop offset="30%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#14532d"/>
+    </radialGradient>
+
+    <!-- Conveyor Roller Metal Gradient -->
+    <linearGradient id="metal-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cbd5e1"/>
+      <stop offset="50%" stop-color="#94a3b8"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+
+    <!-- Soft Drop Shadow Filter -->
+    <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="320" height="200" rx="16" fill="url(#fs-bg)"/>
+
+  <!-- Factory Background Wall Stripes & Glow -->
+  <circle cx="160" cy="50" r="110" fill="#ffffff" opacity="0.08"/>
+  <rect x="0" y="148" width="320" height="52" fill="#090d16" opacity="0.45"/>
+
+  <!-- ==================== TOP: 3 SORTING CRATES ==================== -->
+  <!-- CRATE 1: RED (Left: x=24) -->
+  <g filter="url(#soft-shadow)">
+    <!-- Back Interior -->
+    <rect x="24" y="26" width="76" height="64" rx="10" fill="#7f1d1d"/>
+    <!-- Items Inside -->
+    <circle cx="46" cy="46" r="12" fill="url(#item-red)"/>
+    <circle cx="43" cy="42" r="3.5" fill="#ffffff" opacity="0.65"/>
+    <circle cx="78" cy="46" r="12" fill="url(#item-red)"/>
+    <circle cx="75" cy="42" r="3.5" fill="#ffffff" opacity="0.65"/>
+    <circle cx="62" cy="38" r="11" fill="url(#item-red)"/>
+    <circle cx="59" cy="35" r="3" fill="#ffffff" opacity="0.65"/>
+    <!-- Front Crate Wall -->
+    <rect x="24" y="50" width="76" height="40" rx="8" fill="url(#crate-red)" stroke="#fca5a5" stroke-width="1.5"/>
+    <line x1="28" y1="70" x2="96" y2="70" stroke="#991b1b" stroke-width="1.5"/>
+    <circle cx="62" cy="70" r="8" fill="#ffffff"/>
+    <polygon points="62,65 65,70 62,75 59,70" fill="#ef4444"/>
+  </g>
+
+  <!-- CRATE 2: GOLD (Center: x=122) -->
+  <g filter="url(#soft-shadow)">
+    <!-- Back Interior -->
+    <rect x="122" y="26" width="76" height="64" rx="10" fill="#78350f"/>
+    <!-- Items Inside -->
+    <circle cx="144" cy="46" r="12" fill="url(#item-gold)"/>
+    <circle cx="141" cy="42" r="3.5" fill="#ffffff" opacity="0.7"/>
+    <circle cx="176" cy="46" r="12" fill="url(#item-gold)"/>
+    <circle cx="173" cy="42" r="3.5" fill="#ffffff" opacity="0.7"/>
+    <circle cx="160" cy="38" r="11" fill="url(#item-gold)"/>
+    <circle cx="157" cy="35" r="3" fill="#ffffff" opacity="0.7"/>
+    <!-- Front Crate Wall -->
+    <rect x="122" y="50" width="76" height="40" rx="8" fill="url(#crate-gold)" stroke="#fef08a" stroke-width="1.5"/>
+    <line x1="126" y1="70" x2="194" y2="70" stroke="#92400e" stroke-width="1.5"/>
+    <circle cx="160" cy="70" r="8" fill="#ffffff"/>
+    <polygon points="160,65 162,69 166,69 163,72 164,76 160,73 156,76 157,72 154,69 158,69" fill="#f59e0b"/>
+  </g>
+
+  <!-- CRATE 3: GREEN (Right: x=220) -->
+  <g filter="url(#soft-shadow)">
+    <!-- Back Interior -->
+    <rect x="220" y="26" width="76" height="64" rx="10" fill="#064e3b"/>
+    <!-- Items Inside -->
+    <circle cx="242" cy="46" r="12" fill="url(#item-green)"/>
+    <circle cx="239" cy="42" r="3.5" fill="#ffffff" opacity="0.7"/>
+    <circle cx="274" cy="46" r="12" fill="url(#item-green)"/>
+    <circle cx="271" cy="42" r="3.5" fill="#ffffff" opacity="0.7"/>
+    <circle cx="258" cy="38" r="11" fill="url(#item-green)"/>
+    <circle cx="255" cy="35" r="3" fill="#ffffff" opacity="0.7"/>
+    <!-- Front Crate Wall -->
+    <rect x="220" y="50" width="76" height="40" rx="8" fill="url(#crate-green)" stroke="#bbf7d0" stroke-width="1.5"/>
+    <line x1="224" y1="70" x2="292" y2="70" stroke="#166534" stroke-width="1.5"/>
+    <circle cx="258" cy="70" r="8" fill="#ffffff"/>
+    <rect x="254" y="66" width="8" height="8" rx="2" fill="#10b981"/>
+  </g>
+
+  <!-- ==================== SORTING MOTION TRAILS ==================== -->
+  <!-- Dynamic upward sorting curve to Red crate -->
+  <path d="M 62 120 C 62 106, 62 102, 62 96" stroke="#fca5a5" stroke-width="3" stroke-dasharray="4 3" stroke-linecap="round" fill="none"/>
+  <polygon points="62,91 58,97 66,97" fill="#fca5a5"/>
+
+  <!-- Dynamic upward sorting curve to Gold crate -->
+  <path d="M 160 120 C 160 106, 160 102, 160 96" stroke="#fde047" stroke-width="3" stroke-dasharray="4 3" stroke-linecap="round" fill="none"/>
+  <polygon points="160,91 156,97 164,97" fill="#fde047"/>
+
+  <!-- Sparkles -->
+  <path d="M 178 106 L 180 110 L 184 112 L 180 114 L 178 118 L 176 114 L 172 112 L 176 110 Z" fill="#ffffff" opacity="0.85"/>
+  <path d="M 80 102 L 81.5 105 L 84.5 106.5 L 81.5 108 L 80 111 L 78.5 108 L 75.5 106.5 L 78.5 105 Z" fill="#ffffff" opacity="0.85"/>
+
+  <!-- ==================== BOTTOM: CONVEYOR BELT ==================== -->
+  <!-- Floor Shadow Under Conveyor -->
+  <ellipse cx="160" cy="188" rx="135" ry="7" fill="#000000" opacity="0.3"/>
+
+  <!-- Support Legs -->
+  <g fill="#1e293b">
+    <rect x="52" y="162" width="16" height="22" rx="3"/>
+    <rect x="46" y="182" width="28" height="5" rx="2.5" fill="#334155"/>
+
+    <rect x="152" y="162" width="16" height="22" rx="3"/>
+    <rect x="146" y="182" width="28" height="5" rx="2.5" fill="#334155"/>
+
+    <rect x="252" y="162" width="16" height="22" rx="3"/>
+    <rect x="246" y="182" width="28" height="5" rx="2.5" fill="#334155"/>
+  </g>
+
+  <!-- Conveyor Belt Main Body -->
+  <rect x="18" y="136" width="284" height="28" rx="14" fill="#334155" stroke="#475569" stroke-width="2"/>
+  <!-- Rubber Belt Track -->
+  <rect x="24" y="139" width="272" height="22" rx="11" fill="#0f172a"/>
+
+  <!-- Conveyor Directional Chevron Arrows >>> -->
+  <path d="M 45 144 L 53 150 L 45 156
+           M 85 144 L 93 150 L 85 156
+           M 125 144 L 133 150 L 125 156
+           M 165 144 L 173 150 L 165 156
+           M 205 144 L 213 150 L 205 156
+           M 245 144 L 253 150 L 245 156
+           M 275 144 L 283 150 L 275 156"
+        stroke="#facc15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.85"/>
+
+  <!-- Metallic End Rollers -->
+  <g>
+    <circle cx="32" cy="150" r="11" fill="url(#metal-grad)" stroke="#64748b" stroke-width="1.5"/>
+    <circle cx="32" cy="150" r="4" fill="#1e293b"/>
+    <circle cx="288" cy="150" r="11" fill="url(#metal-grad)" stroke="#64748b" stroke-width="1.5"/>
+    <circle cx="288" cy="150" r="4" fill="#1e293b"/>
+  </g>
+
+  <!-- Items on the Conveyor Belt -->
+  <!-- Item 1 (Red, sorting up): x=62 -->
+  <circle cx="62" cy="130" r="13" fill="url(#item-red)" filter="url(#soft-shadow)"/>
+  <circle cx="58" cy="126" r="4" fill="#ffffff" opacity="0.75"/>
+
+  <!-- Item 2 (Gold, sorting up): x=160 -->
+  <circle cx="160" cy="130" r="13" fill="url(#item-gold)" filter="url(#soft-shadow)"/>
+  <circle cx="156" cy="126" r="4" fill="#ffffff" opacity="0.8"/>
+
+  <!-- Item 3 (Green, arriving on belt): x=258 -->
+  <circle cx="258" cy="130" r="13" fill="url(#item-green)" filter="url(#soft-shadow)"/>
+  <circle cx="254" cy="126" r="4" fill="#ffffff" opacity="0.75"/>
+</svg>
