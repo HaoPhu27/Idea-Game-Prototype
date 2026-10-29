@@ -1,7 +1,5 @@
 import { CELL_TYPES } from '../engine/GameState.js';
 
-const BUILDING_PALETTE = ['#3FA968', '#4F86E8', '#E07A3F', '#9B6BD6', '#D9534F', '#2BB3A3'];
-
 /**
  * Adjust hex color brightness. Positive percent lightens towards white; negative darkens towards black.
  * Always returns a hex string '#rrggbb' with 2-digit channels.
@@ -29,6 +27,201 @@ function adjustBrightness(hex, percent) {
 
     const toHex = (v) => v.toString(16).padStart(2, '0');
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/**
+ * 6 Handcrafted Restaurant Types (Diorama flat style, no external images, no emoji).
+ */
+const RESTAURANT_TYPES = [
+    {
+        key: 'pho',
+        wall: '#F3E3C3',
+        wallDark: adjustBrightness('#F3E3C3', -0.22),
+        trim: '#7C4A32',
+        awningA: '#C9432F',
+        awningB: '#F5B324',
+        prop: 'lantern'
+    },
+    {
+        key: 'sushi',
+        wall: '#F7F4EE',
+        wallDark: adjustBrightness('#F7F4EE', -0.22),
+        trim: '#6B4A35',
+        awningA: '#2F4C8C',
+        awningB: '#FFFFFF',
+        prop: 'noren'
+    },
+    {
+        key: 'pizza',
+        wall: '#E9C9A0',
+        wallDark: adjustBrightness('#E9C9A0', -0.22),
+        trim: '#7A482F',
+        awningA: '#3FA968',
+        awningB: '#FFFFFF',
+        awningC: '#D9534F',
+        prop: 'chimney'
+    },
+    {
+        key: 'cafe',
+        wall: '#D9B99B',
+        wallDark: adjustBrightness('#D9B99B', -0.22),
+        trim: '#5A3E2B',
+        awningA: '#8A5A3B',
+        awningB: '#F3E3C3',
+        prop: 'coffee'
+    },
+    {
+        key: 'burger',
+        wall: '#FFD36E',
+        wallDark: adjustBrightness('#FFD36E', -0.22),
+        trim: '#8B5A2B',
+        awningA: '#D9534F',
+        awningB: '#FFFFFF',
+        prop: 'burger'
+    },
+    {
+        key: 'taco',
+        wall: '#F2A65A',
+        wallDark: adjustBrightness('#F2A65A', -0.22),
+        trim: '#6E4028',
+        awningA: '#9B6BD6',
+        awningB: '#F5B324',
+        prop: 'cactus'
+    }
+];
+
+/**
+ * Project coordinates on the isometric Left face to pixel coordinates.
+ * Left face runs horizontally from Left corner (u=0) to Bottom corner (u=1).
+ * v runs vertically from floor bottom (v=0) to floor top (v=1).
+ */
+function faceLeft(p, u, v, elev = 0, bW = p.bW, bH = p.bH, floorH = p.floorH) {
+    const width = bW !== undefined ? bW : (p.bW || 0);
+    const height = bH !== undefined ? bH : (p.bH || 0);
+    const flH = floorH !== undefined ? floorH : (p.floorH || 0);
+    return {
+        x: p.x - (1 - u) * (width / 2),
+        y: (p.y - elev) + u * (height / 2) - v * flH
+    };
+}
+
+/**
+ * Project coordinates on the isometric Right face to pixel coordinates.
+ * Right face runs horizontally from Bottom corner (u=0) to Right corner (u=1).
+ * v runs vertically from floor bottom (v=0) to floor top (v=1).
+ */
+function faceRight(p, u, v, elev = 0, bW = p.bW, bH = p.bH, floorH = p.floorH) {
+    const width = bW !== undefined ? bW : (p.bW || 0);
+    const height = bH !== undefined ? bH : (p.bH || 0);
+    const flH = floorH !== undefined ? floorH : (p.floorH || 0);
+    return {
+        x: p.x + u * (width / 2),
+        y: (p.y - elev) + (1 - u) * (height / 2) - v * flH
+    };
+}
+
+/**
+ * Draw a filled and stroked 4-point isometric polygon.
+ */
+function drawFaceQuad(ctx, p1, p2, p3, p4, fillStyle, strokeStyle, lineWidth = 1) {
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.lineTo(p3.x, p3.y);
+    ctx.lineTo(p4.x, p4.y);
+    ctx.closePath();
+    if (fillStyle) {
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+    }
+    if (strokeStyle) {
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+    }
+}
+
+/**
+ * Draw a rectangular region on Left face in isometric perspective.
+ */
+function drawLeftRect(ctx, p, bW, bH, floorH, u1, u2, v1, v2, elev, fill, stroke, lineWidth = 1) {
+    const p1 = faceLeft(p, u1, v1, elev, bW, bH, floorH);
+    const p2 = faceLeft(p, u2, v1, elev, bW, bH, floorH);
+    const p3 = faceLeft(p, u2, v2, elev, bW, bH, floorH);
+    const p4 = faceLeft(p, u1, v2, elev, bW, bH, floorH);
+    drawFaceQuad(ctx, p1, p2, p3, p4, fill, stroke, lineWidth);
+}
+
+/**
+ * Draw a rectangular region on Right face in isometric perspective.
+ */
+function drawRightRect(ctx, p, bW, bH, floorH, u1, u2, v1, v2, elev, fill, stroke, lineWidth = 1) {
+    const p1 = faceRight(p, u1, v1, elev, bW, bH, floorH);
+    const p2 = faceRight(p, u2, v1, elev, bW, bH, floorH);
+    const p3 = faceRight(p, u2, v2, elev, bW, bH, floorH);
+    const p4 = faceRight(p, u1, v2, elev, bW, bH, floorH);
+    drawFaceQuad(ctx, p1, p2, p3, p4, fill, stroke, lineWidth);
+}
+
+/**
+ * Draw an overhanging striped awning with small bottom teeth or solid LOD block.
+ */
+function drawAwning(ctx, pTop1, pTop2, pBot1, pBot2, type, isLOD) {
+    if (isLOD) {
+        drawFaceQuad(ctx, pTop1, pTop2, pBot2, pBot1, type.awningA, '#2A211B', 1);
+        return;
+    }
+
+    const stripes = 6;
+    for (let s = 0; s < stripes; s++) {
+        const t1 = s / stripes;
+        const t2 = (s + 1) / stripes;
+        const pt1 = { x: pTop1.x + (pTop2.x - pTop1.x) * t1, y: pTop1.y + (pTop2.y - pTop1.y) * t1 };
+        const pt2 = { x: pTop1.x + (pTop2.x - pTop1.x) * t2, y: pTop1.y + (pTop2.y - pTop1.y) * t2 };
+        const pb1 = { x: pBot1.x + (pBot2.x - pBot1.x) * t1, y: pBot1.y + (pBot2.y - pBot1.y) * t1 };
+        const pb2 = { x: pBot1.x + (pBot2.x - pBot1.x) * t2, y: pBot1.y + (pBot2.y - pBot1.y) * t2 };
+
+        let color;
+        if (type.key === 'pizza') {
+            const pizzaColors = [type.awningA, type.awningB, type.awningC || '#D9534F'];
+            color = pizzaColors[s % 3];
+        } else {
+            color = (s % 2 === 0) ? type.awningA : type.awningB;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(pt1.x, pt1.y);
+        ctx.lineTo(pt2.x, pt2.y);
+        ctx.lineTo(pb2.x, pb2.y);
+        ctx.lineTo(pb1.x, pb1.y);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        // Small bottom tooth / scallop
+        const pMid = {
+            x: (pb1.x + pb2.x) / 2,
+            y: (pb1.y + pb2.y) / 2 + 2
+        };
+        ctx.beginPath();
+        ctx.moveTo(pb1.x, pb1.y);
+        ctx.lineTo(pb2.x, pb2.y);
+        ctx.lineTo(pMid.x, pMid.y);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+
+    // Outer 1px perimeter outline
+    ctx.beginPath();
+    ctx.moveTo(pTop1.x, pTop1.y);
+    ctx.lineTo(pTop2.x, pTop2.y);
+    ctx.lineTo(pBot2.x, pBot2.y);
+    ctx.lineTo(pBot1.x, pBot1.y);
+    ctx.closePath();
+    ctx.strokeStyle = '#2A211B';
+    ctx.lineWidth = 1;
+    ctx.stroke();
 }
 
 /**
@@ -81,13 +274,18 @@ export class IsometricRenderer {
         this.bgCtx = this.bgCanvas.getContext('2d');
         this.lastBgKey = null;
 
-        // Offscreen building canvas cache
+        // Offscreen building canvas cache (used for occlusion pass)
         this.bldCanvas = document.createElement('canvas');
         this.bldCtx = this.bldCanvas.getContext('2d');
 
-        // Palette assignment by order of appearance
-        this.buildingColorMap = new Map();
+        // Restaurant type assignment by order of appearance
+        this.buildingTypeMap = new Map();
         this.currentLevelId = null;
+
+        // Sprite cache: Map<key, {canvas, anchorX, anchorY, w, h}>
+        this.spriteCache = new Map();
+        this.lastCacheCellSize = null;
+        this.lastCacheDpr = null;
 
         // Restaurant tweening
         this.visualRestaurants = new Map();
@@ -104,7 +302,13 @@ export class IsometricRenderer {
     resize() {
         this.viewW = this.container.clientWidth;
         this.viewH = this.container.clientHeight;
-        this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const newDpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        if (this.lastCacheDpr !== newDpr) {
+            this.spriteCache.clear();
+            this.lastCacheDpr = newDpr;
+        }
+        this.dpr = newDpr;
 
         this.canvas.width = Math.round(this.viewW * this.dpr);
         this.canvas.height = Math.round(this.viewH * this.dpr);
@@ -145,7 +349,7 @@ export class IsometricRenderer {
 
         // Base thickness (18px) + badge margin
         const baseThickness = 18;
-        const badgeMargin = 24;
+        const badgeMargin = 26;
 
         // Horizontal constraint: (W + H) * cellSize / 2 <= availW
         const cellFromW = (2 * availW) / (W + H);
@@ -153,8 +357,12 @@ export class IsometricRenderer {
         // Vertical constraint: (W + H + maxFloors) * (cellSize / 4) + (baseThickness + badgeMargin) <= availH
         const cellFromH = (4 * (availH - baseThickness - badgeMargin)) / (W + H + maxFloors);
 
-        this.cellSize = Math.min(Math.floor(cellFromW), Math.floor(cellFromH), 96);
-        this.cellSize = Math.max(24, this.cellSize);
+        const newCellSize = Math.max(24, Math.min(Math.floor(cellFromW), Math.floor(cellFromH), 96));
+        if (this.lastCacheCellSize !== newCellSize) {
+            this.spriteCache.clear();
+            this.lastCacheCellSize = newCellSize;
+        }
+        this.cellSize = newCellSize;
 
         const tileW = this.cellSize;
         const tileH = this.cellSize / 2;
@@ -178,25 +386,35 @@ export class IsometricRenderer {
         return { x: sx, y: sy };
     }
 
-    getBuildingColor(id) {
-        if (!this.buildingColorMap.has(id)) {
-            const idx = this.buildingColorMap.size % BUILDING_PALETTE.length;
-            this.buildingColorMap.set(id, BUILDING_PALETTE[idx]);
+    /**
+     * Get restaurant type object by restaurant ID (assigned by order of appearance).
+     */
+    getBuildingType(id) {
+        if (!this.buildingTypeMap.has(id)) {
+            const idx = this.buildingTypeMap.size % RESTAURANT_TYPES.length;
+            this.buildingTypeMap.set(id, RESTAURANT_TYPES[idx]);
         }
-        return this.buildingColorMap.get(id);
+        return this.buildingTypeMap.get(id);
+    }
+
+    /**
+     * Public API compatibility: returns wall base color for restaurant ID.
+     */
+    getBuildingColor(id) {
+        return this.getBuildingType(id).wall;
     }
 
     render(state) {
         if (!this.lastState || this.lastState.id !== state.id) {
-            this.buildingColorMap.clear();
+            this.buildingTypeMap.clear();
         }
 
         this.lastState = state;
         this.computeDimensions(state);
 
-        // Register colors for initial restaurants in order of appearance
+        // Register restaurant types for initial restaurants in order of appearance
         for (const rest of state.restaurants) {
-            this.getBuildingColor(rest.id);
+            this.getBuildingType(rest.id);
         }
 
         const now = performance.now();
@@ -486,8 +704,12 @@ export class IsometricRenderer {
         const bH = tileH * 0.7;
         const floorH = tileH * 0.5;
 
+        const typeA = this.getBuildingType(buildingA.id);
+        const hasRoofProp = (typeA.prop === 'chimney' || typeA.prop === 'coffee' || typeA.prop === 'burger');
+        const propHA = hasRoofProp ? 0.6 * floorH : 0;
+
         const floorsA = Math.max(1, Math.round(buildingA.floors));
-        const totalHA = floorsA * floorH;
+        const totalHA = floorsA * floorH + propHA;
         const p = this.getScreenCoords(buildingA.x, buildingA.y);
 
         const polyA = getBuildingSilhouette(p, bW, bH, totalHA);
@@ -545,7 +767,7 @@ export class IsometricRenderer {
         const totalFloors = Math.max(1, Math.round(vis.floors));
 
         if (occluding) {
-            // Draw body + awning into shared offscreen canvas
+            // Draw body into shared offscreen canvas
             this.bldCtx.clearRect(0, 0, this.viewW, this.viewH);
             this.drawBuildingBody(this.bldCtx, vis, p, bW, bH, floorH, totalFloors);
 
@@ -556,7 +778,11 @@ export class IsometricRenderer {
             this.ctx.restore();
 
             // Draw outer silhouette (white outline, alpha 0.6, lineWidth 1.5)
-            const poly = getBuildingSilhouette(p, bW, bH, totalFloors * floorH);
+            const type = this.getBuildingType(vis.id);
+            const hasRoofProp = (type.prop === 'chimney' || type.prop === 'coffee' || type.prop === 'burger');
+            const propH = hasRoofProp ? 0.6 * floorH : 0;
+            const poly = getBuildingSilhouette(p, bW, bH, totalFloors * floorH + propH);
+
             this.ctx.save();
             this.ctx.beginPath();
             this.ctx.moveTo(poly[0].x, poly[0].y);
@@ -574,106 +800,423 @@ export class IsometricRenderer {
         }
     }
 
+    /**
+     * Draw building body via offscreen sprite cache.
+     */
     drawBuildingBody(ctx, vis, p, bW, bH, floorH, totalFloors) {
-        const baseColor = this.getBuildingColor(vis.id);
+        const type = this.getBuildingType(vis.id);
+        const sprite = this.getBuildingSprite(type, totalFloors);
+        ctx.drawImage(sprite.canvas, p.x - sprite.anchorX, p.y - sprite.anchorY, sprite.w, sprite.h);
+    }
 
+    /**
+     * Retrieve or generate cached offscreen sprite for (typeKey, floors, cellSize, dpr).
+     */
+    getBuildingSprite(type, floors) {
+        const cacheKey = `${type.key}_${floors}_${this.cellSize}_${this.dpr}`;
+        let cached = this.spriteCache.get(cacheKey);
+        if (cached) return cached;
+
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const bW = tileW * 0.7;
+        const bH = tileH * 0.7;
+        const floorH = tileH * 0.5;
+
+        const hasRoofProp = (type.prop === 'chimney' || type.prop === 'coffee' || type.prop === 'burger');
+        const propH = hasRoofProp ? 0.6 * floorH : 0;
+
+        const padX = 14;
+        const padY = 14;
+
+        const w = Math.ceil(bW + padX * 2);
+        const h = Math.ceil(floors * floorH + bH + propH + padY * 2);
+        const anchorX = Math.round(padX + bW / 2);
+        const anchorY = Math.round(h - padY - bH / 2);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(w * this.dpr);
+        canvas.height = Math.ceil(h * this.dpr);
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+
+        const p = { x: anchorX, y: anchorY };
+        const isLOD = this.cellSize < 40;
+
+        this.renderBuildingToContext(ctx, type, p, bW, bH, floorH, floors, isLOD);
+
+        cached = { canvas, anchorX, anchorY, w, h };
+        this.spriteCache.set(cacheKey, cached);
+        return cached;
+    }
+
+    /**
+     * Render complete diorama restaurant structure onto given context.
+     */
+    renderBuildingToContext(ctx, type, p, bW, bH, floorH, totalFloors, isLOD) {
+        const strokeColor = '#2A211B';
+        const topColor = adjustBrightness(type.wall, 0.15);
+
+        // 1. Draw floors from ground up
         for (let f = 0; f < totalFloors; f++) {
-            const isOdd = (f % 2 === 1);
-            const floorBase = isOdd ? adjustBrightness(baseColor, -0.12) : baseColor;
-            const leftColor = adjustBrightness(floorBase, 0.0);
-            const rightColor = adjustBrightness(floorBase, -0.25);
-            const topColor = adjustBrightness(floorBase, 0.22);
-            const strokeColor = adjustBrightness(floorBase, -0.35);
+            const elev = f * floorH;
 
-            const elevBottom = f * floorH;
-            const elevTop = (f + 1) * floorH;
+            // Left face (wall)
+            drawLeftRect(ctx, p, bW, bH, floorH, 0, 1, 0, 1, elev, type.wall, strokeColor, 1);
 
-            // Left face (medium)
-            ctx.beginPath();
-            ctx.moveTo(p.x - bW / 2, p.y - elevBottom);
-            ctx.lineTo(p.x, p.y - elevBottom + bH / 2);
-            ctx.lineTo(p.x, p.y - elevTop + bH / 2);
-            ctx.lineTo(p.x - bW / 2, p.y - elevTop);
-            ctx.closePath();
-            ctx.fillStyle = leftColor;
-            ctx.fill();
-            ctx.strokeStyle = strokeColor;
-            ctx.lineWidth = 1;
-            ctx.stroke();
+            // Right face (dark wall = -22%)
+            drawRightRect(ctx, p, bW, bH, floorH, 0, 1, 0, 1, elev, type.wallDark, strokeColor, 1);
 
-            // Right face (dark)
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y - elevBottom + bH / 2);
-            ctx.lineTo(p.x + bW / 2, p.y - elevBottom);
-            ctx.lineTo(p.x + bW / 2, p.y - elevTop);
-            ctx.lineTo(p.x, p.y - elevTop + bH / 2);
-            ctx.closePath();
-            ctx.fillStyle = rightColor;
-            ctx.fill();
-            ctx.strokeStyle = strokeColor;
-            ctx.lineWidth = 1;
-            ctx.stroke();
-
-            // Top face (light)
-            const T = { x: p.x, y: p.y - elevTop - bH / 2 };
-            const R = { x: p.x + bW / 2, y: p.y - elevTop };
-            const B = { x: p.x, y: p.y - elevTop + bH / 2 };
-            const L = { x: p.x - bW / 2, y: p.y - elevTop };
-
-            if (f === totalFloors - 1) {
-                // Top roof: striped French awning (#C9432F & #FFFFFF)
-                ctx.save();
+            // Floor horizontal trim divider (f >= 1)
+            if (f >= 1) {
+                ctx.strokeStyle = type.trim;
+                ctx.lineWidth = 1.5;
+                const l1 = faceLeft(p, 0, 0, elev, bW, bH, floorH);
+                const l2 = faceLeft(p, 1, 0, elev, bW, bH, floorH);
                 ctx.beginPath();
-                ctx.moveTo(T.x, T.y);
-                ctx.lineTo(R.x, R.y);
-                ctx.lineTo(B.x, B.y);
-                ctx.lineTo(L.x, L.y);
-                ctx.closePath();
-                ctx.clip();
+                ctx.moveTo(l1.x, l1.y);
+                ctx.lineTo(l2.x, l2.y);
+                ctx.stroke();
 
-                ctx.fillStyle = '#FFFFFF';
-                ctx.fill();
+                const r1 = faceRight(p, 0, 0, elev, bW, bH, floorH);
+                const r2 = faceRight(p, 1, 0, elev, bW, bH, floorH);
+                ctx.beginPath();
+                ctx.moveTo(r1.x, r1.y);
+                ctx.lineTo(r2.x, r2.y);
+                ctx.stroke();
+            }
+
+            // Ground floor details (f = 0)
+            if (f === 0) {
+                // Entrance door on left face (dark #2A211B, width ~30%, height ~75%)
+                drawLeftRect(ctx, p, bW, bH, floorH, 0.35, 0.65, 0.0, 0.75, elev, '#2A211B', type.trim, 1);
+
+                if (!isLOD) {
+                    // Door knob
+                    const knob = faceLeft(p, 0.60, 0.40, elev, bW, bH, floorH);
+                    ctx.fillStyle = '#F5B324';
+                    ctx.beginPath();
+                    ctx.arc(knob.x, knob.y, 1.2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Large glass window on right face (#9FD3E6 framed with trim)
+                    drawRightRect(ctx, p, bW, bH, floorH, 0.15, 0.85, 0.20, 0.78, elev, '#9FD3E6', type.trim, 1.5);
+                    const wmTop = faceRight(p, 0.50, 0.78, elev, bW, bH, floorH);
+                    const wmBot = faceRight(p, 0.50, 0.20, elev, bW, bH, floorH);
+                    ctx.beginPath();
+                    ctx.moveTo(wmTop.x, wmTop.y);
+                    ctx.lineTo(wmBot.x, wmBot.y);
+                    ctx.strokeStyle = type.trim;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+
+                // Striped Awnings above ground floor
+                const overhang = Math.max(4, Math.min(6, Math.round(this.cellSize * 0.1)));
+                const dx = overhang * 0.55;
+                const dy = overhang;
+
+                // Left awning
+                const lTop1 = faceLeft(p, 0.12, 0.86, elev, bW, bH, floorH);
+                const lTop2 = faceLeft(p, 0.88, 0.86, elev, bW, bH, floorH);
+                const lBot1 = { x: lTop1.x - dx, y: lTop1.y + dy };
+                const lBot2 = { x: lTop2.x - dx, y: lTop2.y + dy };
+                drawAwning(ctx, lTop1, lTop2, lBot1, lBot2, type, isLOD);
+
+                // Right awning
+                const rTop1 = faceRight(p, 0.12, 0.86, elev, bW, bH, floorH);
+                const rTop2 = faceRight(p, 0.88, 0.86, elev, bW, bH, floorH);
+                const rBot1 = { x: rTop1.x + dx, y: rTop1.y + dy };
+                const rBot2 = { x: rTop2.x + dx, y: rTop2.y + dy };
+                drawAwning(ctx, rTop1, rTop2, rBot1, rBot2, type, isLOD);
+
+            } else {
+                // Upper floors (f >= 1): 2 small windows on each face
+                if (!isLOD) {
+                    const strokeTrim = type.trim;
+                    const glassColor = '#9FD3E6';
+                    // Left face windows
+                    drawLeftRect(ctx, p, bW, bH, floorH, 0.15, 0.45, 0.25, 0.75, elev, glassColor, strokeTrim, 1);
+                    drawLeftRect(ctx, p, bW, bH, floorH, 0.55, 0.85, 0.25, 0.75, elev, glassColor, strokeTrim, 1);
+
+                    // Right face windows
+                    drawRightRect(ctx, p, bW, bH, floorH, 0.15, 0.45, 0.25, 0.75, elev, glassColor, strokeTrim, 1);
+                    drawRightRect(ctx, p, bW, bH, floorH, 0.55, 0.85, 0.25, 0.75, elev, glassColor, strokeTrim, 1);
+                }
+            }
+        }
+
+        // 2. Roof face (light wall color +15%)
+        const roofElev = totalFloors * floorH;
+        const T = { x: p.x, y: p.y - roofElev - bH / 2 };
+        const R = { x: p.x + bW / 2, y: p.y - roofElev };
+        const B = { x: p.x, y: p.y - roofElev + bH / 2 };
+        const L = { x: p.x - bW / 2, y: p.y - roofElev };
+
+        ctx.beginPath();
+        ctx.moveTo(T.x, T.y);
+        ctx.lineTo(R.x, R.y);
+        ctx.lineTo(B.x, B.y);
+        ctx.lineTo(L.x, L.y);
+        ctx.closePath();
+        ctx.fillStyle = topColor;
+        ctx.fill();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Parapet railing rim in trim color
+        ctx.beginPath();
+        ctx.moveTo(T.x, T.y);
+        ctx.lineTo(R.x, R.y);
+        ctx.lineTo(B.x, B.y);
+        ctx.lineTo(L.x, L.y);
+        ctx.closePath();
+        ctx.strokeStyle = type.trim;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 3. Ground and Roof Props
+        this.drawProps(ctx, type, p, bW, bH, floorH, totalFloors, isLOD);
+    }
+
+    /**
+     * Draw distinctive restaurant prop (lanterns, noren, chimney, cafe sign, burger sign, cactus).
+     */
+    drawProps(ctx, type, p, bW, bH, floorH, totalFloors, isLOD) {
+        if (type.prop === 'lantern') {
+            // Pho: red lanterns hung on both sides of entrance door
+            if (isLOD) return;
+            const uList = [0.20, 0.80];
+            for (const u of uList) {
+                const pHang = faceLeft(p, u, 0.82, 0, bW, bH, floorH);
+                const pLantern = faceLeft(p, u, 0.65, 0, bW, bH, floorH);
+
+                ctx.beginPath();
+                ctx.moveTo(pHang.x, pHang.y);
+                ctx.lineTo(pLantern.x, pLantern.y);
+                ctx.strokeStyle = '#2A211B';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                const rw = Math.max(2, Math.round(bW * 0.05));
+                const rh = Math.max(3, Math.round(floorH * 0.22));
 
                 ctx.fillStyle = '#C9432F';
-                const stripes = 6;
-                for (let s = 0; s < stripes; s += 2) {
-                    const t0 = s / stripes;
-                    const t1 = (s + 1) / stripes;
-                    const p1 = { x: L.x + (T.x - L.x) * t0, y: L.y + (T.y - L.y) * t0 };
-                    const p2 = { x: L.x + (T.x - L.x) * t1, y: L.y + (T.y - L.y) * t1 };
-                    const p3 = { x: B.x + (R.x - B.x) * t1, y: B.y + (R.y - B.y) * t1 };
-                    const p4 = { x: B.x + (R.x - B.x) * t0, y: B.y + (R.y - B.y) * t0 };
+                ctx.strokeStyle = '#2A211B';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.rect(pLantern.x - rw, pLantern.y, rw * 2, rh);
+                ctx.fill();
+                ctx.stroke();
 
+                ctx.fillStyle = '#F5B324';
+                ctx.fillRect(pLantern.x - rw, pLantern.y, rw * 2, 1.5);
+                ctx.fillRect(pLantern.x - rw, pLantern.y + rh - 1.5, rw * 2, 1.5);
+
+                ctx.beginPath();
+                ctx.moveTo(pLantern.x, pLantern.y + rh);
+                ctx.lineTo(pLantern.x, pLantern.y + rh + 2.5);
+                ctx.strokeStyle = '#F5B324';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+        } else if (type.prop === 'noren') {
+            // Sushi: 3 blue fabric noren strips across door entrance
+            const rodP1 = faceLeft(p, 0.32, 0.77, 0, bW, bH, floorH);
+            const rodP2 = faceLeft(p, 0.68, 0.77, 0, bW, bH, floorH);
+            ctx.beginPath();
+            ctx.moveTo(rodP1.x, rodP1.y);
+            ctx.lineTo(rodP2.x, rodP2.y);
+            ctx.strokeStyle = type.trim;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            const uStrips = [
+                [0.35, 0.43],
+                [0.46, 0.54],
+                [0.57, 0.65]
+            ];
+            for (const [u1, u2] of uStrips) {
+                drawLeftRect(ctx, p, bW, bH, floorH, u1, u2, 0.46, 0.75, 0, '#2F4C8C', '#1D2E54', 1);
+                if (!isLOD) {
+                    const center = faceLeft(p, (u1 + u2) / 2, 0.60, 0, bW, bH, floorH);
+                    ctx.fillStyle = '#FFFFFF';
                     ctx.beginPath();
-                    ctx.moveTo(p1.x, p1.y);
-                    ctx.lineTo(p2.x, p2.y);
-                    ctx.lineTo(p3.x, p3.y);
-                    ctx.lineTo(p4.x, p4.y);
-                    ctx.closePath();
+                    ctx.arc(center.x, center.y, 1.2, 0, Math.PI * 2);
                     ctx.fill();
                 }
-                ctx.restore();
+            }
+
+        } else if (type.prop === 'chimney') {
+            // Pizza: brick chimney on roof (max height 0.6 * floorH)
+            const roofElev = totalFloors * floorH;
+            const chimH = 0.6 * floorH;
+            const chimW = bW * 0.20;
+            const chimD = bH * 0.20;
+            const chimP = {
+                x: p.x - bW * 0.12,
+                y: p.y - roofElev - bH * 0.10
+            };
+
+            // Left face
+            ctx.beginPath();
+            ctx.moveTo(chimP.x - chimW / 2, chimP.y);
+            ctx.lineTo(chimP.x, chimP.y + chimD / 2);
+            ctx.lineTo(chimP.x, chimP.y + chimD / 2 - chimH);
+            ctx.lineTo(chimP.x - chimW / 2, chimP.y - chimH);
+            ctx.closePath();
+            ctx.fillStyle = '#C2593F';
+            ctx.fill();
+            ctx.strokeStyle = '#2A211B';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Right face
+            ctx.beginPath();
+            ctx.moveTo(chimP.x, chimP.y + chimD / 2);
+            ctx.lineTo(chimP.x + chimW / 2, chimP.y);
+            ctx.lineTo(chimP.x + chimW / 2, chimP.y - chimH);
+            ctx.lineTo(chimP.x, chimP.y + chimD / 2 - chimH);
+            ctx.closePath();
+            ctx.fillStyle = '#9B3D28';
+            ctx.fill();
+            ctx.strokeStyle = '#2A211B';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Top flue opening
+            ctx.beginPath();
+            ctx.moveTo(chimP.x, chimP.y - chimH - chimD / 2);
+            ctx.lineTo(chimP.x + chimW / 2, chimP.y - chimH);
+            ctx.lineTo(chimP.x, chimP.y - chimH + chimD / 2);
+            ctx.lineTo(chimP.x - chimW / 2, chimP.y - chimH);
+            ctx.closePath();
+            ctx.fillStyle = '#2A211B';
+            ctx.fill();
+            ctx.strokeStyle = '#D67055';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+        } else if (type.prop === 'coffee') {
+            // Cafe: circular coffee cup sign on roof (max height 0.6 * floorH)
+            const roofElev = totalFloors * floorH;
+            const signTotalH = 0.6 * floorH;
+            const baseP = { x: p.x, y: p.y - roofElev };
+
+            // Stand pole
+            ctx.beginPath();
+            ctx.moveTo(baseP.x, baseP.y);
+            ctx.lineTo(baseP.x, baseP.y - signTotalH * 0.4);
+            ctx.strokeStyle = type.trim;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Circular sign disc
+            const signCenterY = baseP.y - signTotalH * 0.65;
+            const signR = Math.max(5, signTotalH * 0.35);
+            ctx.beginPath();
+            ctx.arc(baseP.x, signCenterY, signR, 0, Math.PI * 2);
+            ctx.fillStyle = '#F3E3C3';
+            ctx.fill();
+            ctx.strokeStyle = type.trim;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            if (!isLOD) {
+                const cw = signR * 0.9;
+                const ch = signR * 0.6;
+                ctx.fillStyle = '#5A3E2B';
+                ctx.beginPath();
+                ctx.moveTo(baseP.x - cw / 2, signCenterY - ch / 3);
+                ctx.lineTo(baseP.x + cw / 2, signCenterY - ch / 3);
+                ctx.lineTo(baseP.x + cw * 0.35, signCenterY + ch / 2);
+                ctx.lineTo(baseP.x - cw * 0.35, signCenterY + ch / 2);
+                ctx.closePath();
+                ctx.fill();
 
                 ctx.beginPath();
-                ctx.moveTo(T.x, T.y);
-                ctx.lineTo(R.x, R.y);
-                ctx.lineTo(B.x, B.y);
-                ctx.lineTo(L.x, L.y);
-                ctx.closePath();
-                ctx.strokeStyle = '#8E2819';
-                ctx.lineWidth = 1.2;
-                ctx.stroke();
-            } else {
-                ctx.beginPath();
-                ctx.moveTo(T.x, T.y);
-                ctx.lineTo(R.x, R.y);
-                ctx.lineTo(B.x, B.y);
-                ctx.lineTo(L.x, L.y);
-                ctx.closePath();
-                ctx.fillStyle = topColor;
-                ctx.fill();
-                ctx.strokeStyle = strokeColor;
+                ctx.arc(baseP.x + cw * 0.45, signCenterY + ch * 0.05, ch * 0.25, 0, Math.PI * 2);
+                ctx.strokeStyle = '#5A3E2B';
                 ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+        } else if (type.prop === 'burger') {
+            // Burger: 3-layer burger sign on roof (max height 0.6 * floorH)
+            const roofElev = totalFloors * floorH;
+            const signTotalH = 0.6 * floorH;
+            const baseP = { x: p.x, y: p.y - roofElev };
+
+            // Stand pole
+            ctx.beginPath();
+            ctx.moveTo(baseP.x, baseP.y);
+            ctx.lineTo(baseP.x, baseP.y - signTotalH * 0.3);
+            ctx.strokeStyle = type.trim;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            const signY = baseP.y - signTotalH * 0.38;
+            const bw = Math.max(10, bW * 0.26);
+            const bh = Math.max(2, signTotalH * 0.16);
+
+            // Bottom bun (brown)
+            ctx.fillStyle = '#B5651D';
+            ctx.strokeStyle = '#2A211B';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.rect(baseP.x - bw / 2, signY - bh, bw, bh);
+            ctx.fill();
+            ctx.stroke();
+
+            // Middle layer (lettuce & patty)
+            ctx.fillStyle = '#3FA968';
+            ctx.beginPath();
+            ctx.rect(baseP.x - bw * 0.55, signY - bh * 2, bw * 1.1, bh);
+            ctx.fill();
+            ctx.stroke();
+
+            // Top bun dome (golden bun)
+            ctx.fillStyle = '#D97724';
+            ctx.beginPath();
+            ctx.arc(baseP.x, signY - bh * 2, bw / 2, Math.PI, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+        } else if (type.prop === 'cactus') {
+            // Taco: small potted cactus beside entrance on ground floor
+            const potPos = faceLeft(p, 0.18, 0, 0, bW, bH, floorH);
+            const potW = Math.max(4, Math.round(bW * 0.08));
+            const potH = Math.max(4, Math.round(floorH * 0.25));
+
+            ctx.beginPath();
+            ctx.moveTo(potPos.x - potW / 2, potPos.y);
+            ctx.lineTo(potPos.x + potW / 2, potPos.y);
+            ctx.lineTo(potPos.x + potW * 0.4, potPos.y + potH);
+            ctx.lineTo(potPos.x - potW * 0.4, potPos.y + potH);
+            ctx.closePath();
+            ctx.fillStyle = '#D96B43';
+            ctx.fill();
+            ctx.strokeStyle = '#2A211B';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            const cactH = Math.max(6, Math.round(floorH * 0.45));
+            const cactW = Math.max(3, Math.round(potW * 0.5));
+            ctx.fillStyle = '#4E9B48';
+            ctx.strokeStyle = '#2A211B';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.rect(potPos.x - cactW / 2, potPos.y - cactH, cactW, cactH);
+            ctx.fill();
+            ctx.stroke();
+
+            if (!isLOD) {
+                ctx.beginPath();
+                ctx.rect(potPos.x + cactW / 2, potPos.y - cactH * 0.75, cactW * 0.8, cactH * 0.4);
+                ctx.fill();
                 ctx.stroke();
             }
         }
@@ -717,10 +1260,13 @@ export class IsometricRenderer {
         for (const vis of sortedRestaurants) {
             const floorsCount = Math.max(1, Math.round(vis.floors));
             const totalHeight = floorsCount * floorH;
+            const type = this.getBuildingType(vis.id);
+            const hasRoofProp = (type.prop === 'chimney' || type.prop === 'coffee' || type.prop === 'burger');
+            const propH = hasRoofProp ? 0.6 * floorH : 0;
             const p = this.getScreenCoords(vis.x, vis.y);
 
             const badgeX = p.x;
-            const badgeY = p.y - totalHeight;
+            const badgeY = p.y - totalHeight - propH;
 
             // White circular badge
             ctx.beginPath();
