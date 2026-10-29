@@ -1246,11 +1246,15 @@ export class IsometricRenderer {
 
     drawFloorBadges(sortedRestaurants) {
         const ctx = this.ctx;
+        const tileW = this.cellSize;
         const tileH = this.cellSize / 2;
         const floorH = tileH * 0.5;
+        const bW = tileW * 0.7;
 
         const radius = Math.max(10, this.cellSize * 0.16);
         const fontSize = Math.max(14, Math.round(this.cellSize * 0.22));
+        const r = radius;
+        const viewW = this.viewW;
 
         ctx.save();
         ctx.font = `bold ${fontSize}px sans-serif`;
@@ -1259,14 +1263,28 @@ export class IsometricRenderer {
 
         for (const vis of sortedRestaurants) {
             const floorsCount = Math.max(1, Math.round(vis.floors));
-            const totalHeight = floorsCount * floorH;
-            const type = this.getBuildingType(vis.id);
-            const hasRoofProp = (type.prop === 'chimney' || type.prop === 'coffee' || type.prop === 'burger');
-            const propH = hasRoofProp ? 0.6 * floorH : 0;
+            const H = floorsCount * floorH;
             const p = this.getScreenCoords(vis.x, vis.y);
 
-            const badgeX = p.x;
-            const badgeY = p.y - totalHeight - propH;
+            // Right corner of roof: x = p.x + bW/2, y = p.y - H
+            let cornerX = p.x + bW / 2;
+            const cornerY = p.y - H;
+            let badgeX = cornerX;
+            const badgeY = cornerY - r * 0.6;
+
+            // Ensure badge stays within canvas: if x + r > viewW - 4, place at left corner of roof
+            if (badgeX + r > viewW - 4) {
+                cornerX = p.x - bW / 2;
+                badgeX = cornerX;
+            }
+
+            // 1px connecting line in #2A211B alpha 0.4 from badge down to roof corner (like a pin)
+            ctx.beginPath();
+            ctx.moveTo(badgeX, badgeY);
+            ctx.lineTo(cornerX, cornerY);
+            ctx.strokeStyle = 'rgba(42, 33, 27, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
 
             // White circular badge
             ctx.beginPath();
