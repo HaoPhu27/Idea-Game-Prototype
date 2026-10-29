@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Isometric Art Direction</title>
+<style>
+:root{--bg:#f7f2ea;--card:#fff;--ink:#2a211b;--mute:#76685b;--line:#e6dccf;--accent:#e8772e;--ok:#2f9e5a;--bad:#c9432f;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16120e;--card:#211b16;--ink:#f2eae0;--mute:#a6978a;--line:#392f27;}}
+:root[data-theme="dark"]{--bg:#16120e;--card:#211b16;--ink:#f2eae0;--mute:#a6978a;--line:#392f27;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;padding:28px 16px 64px}
+.wrap{max-width:960px;margin:0 auto}
+h1{font-size:28px;margin:0 0 6px}h2{font-size:20px;margin:36px 0 10px}h3{font-size:16px;margin:0 0 6px}
+.lead{color:var(--mute);margin:0 0 20px;max-width:720px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600}
+.pick{border:2px solid var(--accent)}
+.k{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--accent);color:#fff}
+.ok{color:var(--ok);font-weight:700}.bad{color:var(--bad);font-weight:700}
+code{background:rgba(127,127,127,.15);padding:1px 5px;border-radius:4px;font-size:13px}
+.sw{display:flex;gap:8px;flex-wrap:wrap}.sw div{width:96px;border-radius:10px;overflow:hidden;border:1px solid var(--line);font-size:12px}
+.sw i{display:block;height:44px}.sw span{display:block;padding:4px 6px}
+svg{max-width:100%;height:auto;display:block}
+ol li,ul li{margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Hướng đồ họa 2D isometric cho World Restaurant</h1>
+<p class="lead">Tổng hợp các phong cách đồ họa phổ biến trong game puzzle mobile, chọn một hướng isometric phù hợp và đặt ra quy tắc để đồ họa không làm khó việc đọc bàn chơi. Phần cuối là các việc cần làm trên <code>IsometricRenderer.js</code>.</p>
+
+<h2>1. Các phong cách phổ biến trong game puzzle mobile</h2>
+<table>
+<tr><th>Phong cách</th><th>Đặc điểm</th><th>Game tiêu biểu (tham khảo)</th><th>Hợp với game này?</th></tr>
+<tr><td>Hình học tối giản, isometric</td><td>Khối phẳng, màu pastel, ít chi tiết, đổ bóng theo khối</td><td>Monument Valley, Assemble with Care</td><td class="ok">Hợp. Dễ đọc, nhẹ máy</td></tr>
+<tr><td>Diorama isometric, dễ thương</td><td>Đảo/bàn cờ nổi, nhà bo tròn, nhiều đồ trang trí nhỏ</td><td>Townscaper, Pocket City, Merge Mansion</td><td class="ok">Hợp nhất với chủ đề nhà hàng/phố</td></tr>
+<tr><td>Top-down bóng bẩy (match-3)</td><td>Icon to, viền dày, gradient mạnh, hiệu ứng nổ</td><td>Royal Match, Candy Crush</td><td>Dễ đọc nhưng mất chiều cao. Mà chiều cao (số tầng) là cơ chế chính</td></tr>
+<tr><td>Phẳng tối giản 2D</td><td>Màu khối, không bóng, chữ số to</td><td>Two Dots, Threes!</td><td>Rất rõ nhưng khô, không có cảm giác "nhà hàng"</td></tr>
+<tr><td>Pixel art isometric</td><td>Pixel, tile nhỏ, hoài cổ</td><td>Tiny Tower, Pocket Plane</td><td class="bad">Khó đọc trên ô nhỏ, khó scale nhiều kích thước màn</td></tr>
+</table>
+<p class="lead" style="margin-top:12px">Điểm chung của các game puzzle bán chạy: bảng màu ít (5 đến 7 màu chính), hình khối đơn giản, bóng mềm hướng cố định, và <b>thông tin gameplay luôn nằm trên lớp trang trí</b>.</p>
+
+<h2>2. Đề xuất: "Diorama tối giản"</h2>
+<div class="grid">
+<div class="card pick"><span class="k">Đề xuất</span><h3 style="margin-top:6px">Lai giữa nhóm 1 và nhóm 2</h3>
+<p>Bàn chơi là một khối đất nổi kiểu diorama. Tòa nhà là các khối isometric bo góc, mỗi tầng là một lát chồng lên nhau, có mái hiên và biển hiệu quán. Ít chi tiết, nhiều mảng màu. Trang trí (cây, đèn, người) chỉ đặt <b>ở ngoài bàn chơi</b>.</p></div>
+<div class="card pick"><span class="k">Đã chốt: C</span><h3 style="margin-top:6px">Isometric 2:1 và xuyên thấu</h3>
+<p>Giữ isometric thật (tile 2:1). Để tòa cao không che ô phía sau:</p>
+<ul><li>Tòa nào che một ô vàng, một ô có tòa khác hoặc ô có gợi ý tách thì vẽ mờ còn 35%.</li>
+<li>Viền ô vàng, huy hiệu số tầng và ô gợi ý được vẽ ở lớp trên cùng, sau tất cả tòa nhà.</li>
+<li>Mỗi tầng vẽ thấp (khoảng 0,25 ô) để giảm số ô bị che.</li></ul></div>
+</div>
+
+<svg viewBox="0 0 900 340" role="img" aria-label="So sánh hai góc nhìn">
+<style>.lb{font:600 15px system-ui;fill:var(--ink)}.sm{font:13px system-ui;fill:var(--mute)}</style>
+<text x="10" y="26" class="lb">A. Isometric 2:1, tòa cao (lỗi)</text>
+<text x="310" y="26" class="lb">C. Isometric 2:1 + xuyên thấu</text>
+<text x="610" y="26" class="lb">B. Góc cao, giới hạn chiều cao</text>
+<g transform="translate(150,170)">
+ <g fill="#8fbf5a" stroke="#6d9a40"><polygon points="0,20 40,40 0,60 -40,40"/><polygon points="40,0 80,20 40,40 0,20"/><polygon points="-40,0 0,20 -40,40 -80,20"/><polygon points="40,40 80,60 40,80 0,60"/></g>
+ <polygon points="-40,0 0,-20 40,0 0,20" fill="#f5b324" stroke="#d48f0c"/>
+ <polygon points="-40,40 0,60 0,-50 -40,-70" fill="#3fa968"/><polygon points="0,60 40,40 40,-70 0,-50" fill="#2c8a52"/><polygon points="-40,-70 0,-90 40,-70 0,-50" fill="#6fd08f"/>
+ <text x="-120" y="120" class="sm">Ô vàng nằm sau tòa nhà, không thấy</text>
+</g>
+<g transform="translate(450,170)">
+ <g fill="#8fbf5a" stroke="#6d9a40"><polygon points="0,20 40,40 0,60 -40,40"/><polygon points="40,0 80,20 40,40 0,20"/><polygon points="-40,0 0,20 -40,40 -80,20"/><polygon points="40,40 80,60 40,80 0,60"/></g>
+ <polygon points="-40,0 0,-20 40,0 0,20" fill="#f5b324" stroke="#d48f0c"/>
+ <g opacity=".35"><polygon points="-40,40 0,60 0,-50 -40,-70" fill="#3fa968"/><polygon points="0,60 40,40 40,-70 0,-50" fill="#2c8a52"/><polygon points="-40,-70 0,-90 40,-70 0,-50" fill="#6fd08f"/></g>
+ <polygon points="-40,0 0,-20 40,0 0,20" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="6 4"/>
+ <text x="-130" y="120" class="sm">Tòa che ô quan trọng thì mờ đi,</text>
+ <text x="-130" y="138" class="sm">viền ô vàng vẽ đè lên trên cùng</text>
+</g>
+<g transform="translate(750,90)">
+ <g fill="#8fbf5a" stroke="#6d9a40">
+  <polygon points="-60,40 0,40 0,90 -60,90"/><polygon points="0,40 60,40 60,90 0,90"/><polygon points="-60,90 0,90 0,140 -60,140"/></g>
+ <polygon points="0,90 60,90 60,140 0,140" fill="#f5b324" stroke="#d48f0c"/>
+ <polygon points="0,90 60,90 60,140 0,140" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="6 4"/>
+ <g><rect x="-56" y="0" width="52" height="16" rx="4" fill="#2c8a52"/><rect x="-56" y="12" width="52" height="16" rx="4" fill="#3fa968"/><rect x="-56" y="24" width="52" height="16" rx="4" fill="#2c8a52"/><rect x="-56" y="36" width="52" height="16" rx="4" fill="#3fa968"/>
+ <rect x="-60" y="-8" width="60" height="12" rx="3" fill="#c9432f"/>
+ <circle cx="-30" cy="-22" r="13" fill="#fff" stroke="#2a211b" stroke-width="2"/><text x="-30" y="-17" text-anchor="middle" font="700 14px system-ui" style="font:800 14px system-ui">4</text></g>
+ <text x="-120" y="200" class="sm">Tòa nằm gọn trong ô,</text><text x="-120" y="218" class="sm">số tầng ghi trên huy hiệu</text>
+</g>
+</svg>
+
+<h2>3. Quy tắc để đồ họa không ảnh hưởng gameplay</h2>
+<div class="grid">
+<div class="card"><h3>Không bị che</h3><ul>
+<li>Chiều cao hiển thị tối đa khoảng 0,8 ô. Tòa cao hơn Limit thì nén lại, số thật ghi trên huy hiệu.</li>
+<li>Ô mục tiêu có viền nét đứt vẽ <b>trên cùng</b>, sau khi đã vẽ tòa nhà.</li>
+<li>Tòa đứng trước ô vàng thì giảm độ đậm còn 50%.</li></ul></div>
+<div class="card"><h3>Đọc nhanh trong 1 giây</h3><ul>
+<li>Mỗi loại ô có một hình dạng riêng, không chỉ khác màu (để người mù màu vẫn chơi được).</li>
+<li>Số tầng dùng chữ ≥ 14px trên nền tròn trắng.</li>
+<li>Độ tương phản giữa nền và tòa nhà ≥ 3:1. Không dùng texture trên ô đất.</li></ul></div>
+<div class="card"><h3>Chuyển động có ích</h3><ul>
+<li>Trượt 120 đến 160ms, có easing. Tách tòa có một nhịp nảy 200ms.</li>
+<li>Cho phép nhập lệnh tiếp theo khi animation còn chạy (đưa vào hàng đợi), không khóa input.</li>
+<li>Hiệu ứng trang trí (khói bếp, mây) có tùy chọn tắt.</li></ul></div>
+<div class="card"><h3>Màu sắc</h3>
+<div class="sw"><div><i style="background:#8fbf5a"></i><span>Đất #8FBF5A</span></div><div><i style="background:#5b6577"></i><span>Đường #5B6577</span></div><div><i style="background:#f5b324"></i><span>Mục tiêu #F5B324</span></div><div><i style="background:#3fa968"></i><span>Tòa A</span></div><div><i style="background:#4f86e8"></i><span>Tòa B</span></div><div><i style="background:#c9432f"></i><span>Mái/biển hiệu</span></div></div>
+<p class="sm" style="color:var(--mute);margin-top:8px">Màu vàng chỉ dùng cho ô mục tiêu, không dùng cho trang trí.</p></div>
+</div>
+
+<h2>4. Tối ưu hiệu năng trên mobile</h2>
+<table>
+<tr><th>Việc</th><th>Hiện tại</th><th>Đề xuất</th></tr>
+<tr><td>Độ nét màn Retina</td><td>Canvas không nhân với <code>devicePixelRatio</code>, nên bị mờ trên điện thoại</td><td>Nhân kích thước canvas với DPR (tối đa 2) và <code>ctx.scale</code></td></tr>
+<tr><td>Nền bàn chơi</td><td>Vẽ lại gradient và ô đất ở mọi frame</td><td>Vẽ một lần vào canvas phụ (offscreen) khi load level, mỗi frame chỉ <code>drawImage</code></td></tr>
+<tr><td>Tòa nhà</td><td>Vẽ bằng path, gradient, <code>shadowBlur</code> ở mỗi frame</td><td>Vẽ sẵn sprite từng tầng một lần rồi dùng lại. Bỏ <code>shadowBlur</code>, thay bằng ảnh bóng vẽ sẵn</td></tr>
+<tr><td>Vòng lặp vẽ</td><td>Chỉ chạy khi có animation (đã tốt)</td><td>Giữ nguyên. Thêm giới hạn 30fps cho hiệu ứng trang trí khi đứng yên</td></tr>
+<tr><td>Thứ tự vẽ</td><td>Theo danh sách</td><td>Sắp theo <code>x + y</code> (painter's algorithm) khi chuyển sang isometric thật</td></tr>
+<tr><td>Asset</td><td>Không có</td><td>Một sprite atlas PNG/WebP ≤ 512KB, hoặc SVG chuyển thành bitmap lúc load</td></tr>
+</table>
+
+<h2>5. Các bước làm</h2>
+<ol>
+<li>Sửa DPR và cache nền bàn chơi. Không đổi hình, chỉ nét hơn và nhẹ hơn.</li>
+<li>Đổi phép chiếu trong <code>getScreenCoords</code> sang isometric 2:1 (tile 64×32), sắp thứ tự vẽ theo <code>x + y</code>. Thêm hàm kiểm tra tòa nào che ô quan trọng để vẽ mờ, và lớp overlay vẽ cuối cùng (viền ô vàng, huy hiệu số tầng).</li>
+<li>Vẽ sprite tòa nhà theo lát tầng, thêm mái hiên và biển hiệu theo loại quán.</li>
+<li>Vẽ lớp ô mục tiêu và lớp gợi ý tách (mockup 2) lên trên cùng.</li>
+<li>Trang trí ngoài viền bàn chơi, có nút tắt.</li>
+</ol>
+<p class="lead">Các bước 1 và 2 tách riêng được và nên làm trước. Bước 3 cần chốt art (emoji hay sprite vẽ tay).</p>
+</div>
+</body>
+</html>

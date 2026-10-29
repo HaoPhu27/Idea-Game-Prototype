@@ -71,10 +71,14 @@ export class InputHandler {
         }
 
         let direction = null;
-        if (Math.abs(dx) > Math.abs(dy)) {
-            direction = dx > 0 ? DIRECTIONS.RIGHT : DIRECTIONS.LEFT;
-        } else {
-            direction = dy > 0 ? DIRECTIONS.DOWN : DIRECTIONS.UP;
+        if (dx >= 0 && dy < 0) {
+            direction = DIRECTIONS.UP;
+        } else if (dx >= 0 && dy >= 0) {
+            direction = DIRECTIONS.RIGHT;
+        } else if (dx < 0 && dy >= 0) {
+            direction = DIRECTIONS.DOWN;
+        } else if (dx < 0 && dy < 0) {
+            direction = DIRECTIONS.LEFT;
         }
 
         if (direction) {

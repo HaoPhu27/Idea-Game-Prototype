@@ -707,4 +707,12 @@ button:active {
     }
 }
 
+#virtual-dpad {
+    transform: rotate(45deg);
+}
+
+#virtual-dpad .dpad-center {
+    transform: rotate(-45deg);
+}
+
 

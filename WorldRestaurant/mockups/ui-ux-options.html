@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>World Restaurant UI</title>
+<style>
+:root{--bg:#f6f1ea;--card:#fff;--ink:#2a211b;--mute:#7a6a5c;--line:#e4d9cc;--accent:#e8772e;--gold:#f5b324;--green:#3fbf6a;--road:#5b6577;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17130f;--card:#221c17;--ink:#f3ebe2;--mute:#a8998a;--line:#3a3028;}}
+:root[data-theme="dark"]{--bg:#17130f;--card:#221c17;--ink:#f3ebe2;--mute:#a8998a;--line:#3a3028;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:24px 16px 60px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:26px;margin:0 0 4px}
+.sub{color:var(--mute);margin:0 0 20px}
+.issues{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:28px}
+.issues h2{font-size:15px;margin:0 0 6px}
+.issues ul{margin:0;padding-left:18px;color:var(--mute)}
+.opt{display:grid;grid-template-columns:300px 1fr;gap:28px;align-items:start;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:22px}
+@media(max-width:720px){.opt{grid-template-columns:1fr;justify-items:center}}
+.opt h2{margin:0 0 4px;font-size:20px}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--accent);color:#fff;margin-bottom:8px}
+.desc ul{padding-left:18px;margin:8px 0}
+.meta{font-size:13px;color:var(--mute)}
+/* phone */
+.phone{width:280px;height:560px;border-radius:34px;border:8px solid #111;overflow:hidden;position:relative;font-size:12px;color:#fff;flex:none}
+.board{display:grid;gap:3px;margin:0 auto;padding:8px;border-radius:12px;background:#3e2723;width:max-content}
+.t{width:28px;height:28px;border-radius:5px;background:#5d4a3f;position:relative;display:grid;place-items:center;font-weight:700;font-size:11px}
+.t.r{background:var(--road)}
+.t.g{background:linear-gradient(#fbbf24,#d97706);box-shadow:inset 0 0 0 2px #fef08a}
+.t.b{background:linear-gradient(#4ade80,#16a34a);box-shadow:0 3px 0 #0f6b32}
+.t.b2{background:linear-gradient(#60a5fa,#2563eb);box-shadow:0 3px 0 #1e3a8a}
+.t.ghost{background:transparent;outline:2px dashed #c4b5fd;color:#c4b5fd}
+.t.next{outline:2px solid #fff;animation:p 1s infinite}
+@keyframes p{50%{outline-color:transparent}}
+.btn{border:none;border-radius:12px;padding:9px 12px;font-weight:700;color:#fff;font-size:12px}
+.ico{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:17px;background:rgba(255,255,255,.14);position:relative}
+.badge{position:absolute;top:-4px;right:-4px;background:var(--accent);border-radius:99px;font-size:10px;padding:0 5px;font-weight:700}
+.pill{background:rgba(0,0,0,.35);border-radius:99px;padding:5px 11px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>World Restaurant: 5 hướng cải thiện UI/UX</h1>
+<p class="sub">Mockup tĩnh để chọn hướng. Có thể chọn một bản hoặc ghép nhiều bản.</p>
+
+<div class="issues"><h2>Vấn đề trong bản hiện tại (index.html, main.js)</h2><ul>
+<li>HUD chỉ có chữ "Level: … / Stage Limit: …". Không thấy tòa nào đang cao bao nhiêu tầng hay sắp chạm Limit chưa.</li>
+<li>Nút Undo được chèn bằng JS vào giữa HUD, nằm cạnh "Levels" và "Guide", dễ bấm nhầm. Không có nút chơi lại (Restart).</li>
+<li>D-pad 🎮 che bàn chơi. Trên điện thoại đã có vuốt nên D-pad là thừa.</li>
+<li>Không có gợi ý tòa con sẽ mọc ở đâu. Đây là luật khó hiểu nhất (Guide mục 3).</li>
+<li>Màn thắng chỉ có 4 nút xếp dọc, không có sao, số bước hay cảm giác phần thưởng. Màn chọn level chỉ là lưới số.</li>
+<li>Guide dài như một bức tường chữ và phải đọc trước khi chơi. Chủ đề "nhà hàng" gần như không xuất hiện trong UI.</li>
+</ul></div>
+
+<!-- 1 -->
+<div class="opt">
+<div class="phone" style="background:#1e1b18">
+ <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 12px 6px">
+  <span class="ico">☰</span><span class="pill">Màn 5</span><span class="ico">?</span></div>
+ <div style="margin:4px 14px 0;background:rgba(255,255,255,.08);border-radius:12px;padding:8px 10px">
+  <div style="display:flex;justify-content:space-between;font-weight:700"><span>🏢 Tòa #1</span><span>3 / 4 tầng</span></div>
+  <div style="display:flex;gap:4px;margin-top:6px">
+   <i style="flex:1;height:8px;border-radius:4px;background:var(--green)"></i><i style="flex:1;height:8px;border-radius:4px;background:var(--green)"></i><i style="flex:1;height:8px;border-radius:4px;background:var(--green)"></i><i style="flex:1;height:8px;border-radius:4px;background:#555"></i></div>
+  <div style="color:#fbbf24;margin-top:4px">Thêm 1 bước nữa là đủ tầng → lần đi kế tiếp sẽ tách tòa</div></div>
+ <div style="margin-top:56px">
+ <div class="board" style="grid-template-columns:repeat(8,28px)">
+  <i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i>
+  <i class="t"></i><i class="t b">3</i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t g"></i><i class="t g"></i><i class="t"></i>
+  <i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i>
+ </div></div>
+ <div style="position:absolute;bottom:22px;left:0;right:0;display:flex;justify-content:center;gap:22px">
+  <span class="ico">↶<span class="badge">3</span></span><span class="ico">⟲</span><span class="ico">💡</span></div>
+</div>
+<div class="desc"><span class="tag">Ít công, hiệu quả cao</span><h2>1. HUD gọn và thanh đo tầng</h2>
+<p>Dọn HUD về 3 nút tròn ở trên. Thêm thanh đo tầng của tòa đang lớn để người chơi biết khi nào sẽ tách.</p>
+<ul><li>Thanh đo chia đúng số ô bằng Limit, dòng nhắc chuyển sang màu vàng khi còn 1 bước.</li>
+<li>Undo (có số lượt còn lại), Restart, Gợi ý gom xuống đáy màn hình, trong tầm ngón cái.</li>
+<li>Bỏ D-pad, chỉ giữ vuốt và phím.</li></ul>
+<p class="meta">Sửa: index.html (HUD), style.css, main.js (bỏ đoạn chèn nút Undo, cập nhật thanh đo mỗi bước).</p></div>
+</div>
+
+<!-- 2 -->
+<div class="opt">
+<div class="phone" style="background:#1e1b18">
+ <div style="display:flex;justify-content:space-between;padding:14px 12px"><span class="pill">Màn 7</span><span class="pill">Limit 4</span></div>
+ <div style="margin-top:70px">
+ <div class="board" style="grid-template-columns:repeat(7,28px)">
+  <i class="t"></i><i class="t"></i><i class="t ghost">2</i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t g"></i>
+  <i class="t"></i><i class="t ghost">2</i><i class="t b next">4</i><i class="t ghost">2</i><i class="t r"></i><i class="t r"></i><i class="t g"></i>
+  <i class="t"></i><i class="t"></i><i class="t ghost">2</i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i>
+ </div></div>
+ <div style="margin:18px 16px 0;background:rgba(196,181,253,.15);border:1px solid #c4b5fd;border-radius:12px;padding:8px 10px;color:#ddd6fe">
+  ⚡ Tòa #1 đã đủ tầng. Ô viền tím là nơi tòa con sẽ mọc ra theo từng hướng vuốt.</div>
+ <div style="margin:10px 16px 0;display:flex;gap:6px;align-items:center;color:#ccc">Tòa lớn tiếp theo: <span class="t b" style="width:20px;height:20px">1</span>→<span class="t b2" style="width:20px;height:20px;opacity:.6">2</span></div>
+ <div style="position:absolute;bottom:22px;left:0;right:0;display:flex;justify-content:center;gap:22px"><span class="ico">↶<span class="badge">3</span></span><span class="ico">⟲</span></div>
+</div>
+<div class="desc"><span class="tag">Giảm bối rối về luật</span><h2>2. Báo trước chỗ tòa con mọc</h2>
+<p>Khi một tòa đủ tầng, vẽ ô viền nét đứt màu tím ở các vị trí tòa con có thể mọc, kèm số tầng sau khi chia đôi. Người chơi không cần nhớ luật "kịch tường thì nảy sang bên đối diện".</p>
+<ul><li>Tòa sẽ lớn ở bước tiếp theo được viền trắng nhấp nháy.</li>
+<li>Có dòng chỉ thứ tự tòa lớn (#1 → #2).</li>
+<li>Có thể bật/tắt trong cài đặt cho các màn khó.</li></ul>
+<p class="meta">Sửa: IsometricRenderer.js (vẽ ô ghost), GameRules.js (thêm hàm dự đoán vị trí tách, chạy thử mà không thay đổi state).</p></div>
+</div>
+
+<!-- 3 -->
+<div class="opt">
+<div class="phone" style="background:linear-gradient(#2b1d14,#1a120d)">
+ <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 12px"><span class="ico">‹</span>
+  <div style="text-align:center"><div style="font-weight:800">Màn 12</div><div style="color:#fbbf24">★★★ trong ≤ 9 bước</div></div><span class="ico">⚙</span></div>
+ <div style="text-align:center;margin-top:8px"><span class="pill">Bước 6 / 9</span></div>
+ <div style="margin-top:40px">
+ <div class="board" style="grid-template-columns:repeat(6,30px)">
+  <i class="t"></i><i class="t g"></i><i class="t g"></i><i class="t"></i><i class="t"></i><i class="t"></i>
+  <i class="t r"></i><i class="t r"></i><i class="t b">2</i><i class="t b2">2</i><i class="t"></i><i class="t"></i>
+  <i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i>
+  <i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i>
+ </div></div>
+ <div style="text-align:center;margin-top:28px;color:#aaa;font-size:22px;letter-spacing:6px">☝ ⇆</div>
+ <div style="text-align:center;color:#aaa">Vuốt bất kỳ đâu để di chuyển</div>
+ <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.45);padding:12px 18px 18px;display:flex;justify-content:space-between">
+  <span class="ico">↶<span class="badge">2</span></span><span class="ico">⟲</span><span class="ico">💡</span><span class="ico">📖</span></div>
+</div>
+<div class="desc"><span class="tag">Mobile-first, có mục tiêu</span><h2>3. Chỉ vuốt, thêm số bước và sao</h2>
+<p>Bỏ D-pad, dùng toàn màn hình để vuốt. Mỗi màn có số bước tối ưu (bộ giải trong tools/ đã tính được). Đi đúng số bước đó được 3 sao.</p>
+<ul><li>Bộ đếm bước giúp người chơi có lý do chơi lại một màn.</li>
+<li>Thanh công cụ dính đáy màn hình: Undo, Restart, Gợi ý, Guide.</li>
+<li>Hiện gợi ý vuốt trong 3 màn đầu rồi tự ẩn.</li></ul>
+<p class="meta">Sửa: InputHandler.js (vùng vuốt toàn màn hình), levels/*.json (thêm trường par), main.js (đếm bước và tính sao).</p></div>
+</div>
+
+<!-- 4 -->
+<div class="opt">
+<div class="phone" style="background:#1e1b18">
+ <div style="position:absolute;inset:0;padding:14px 12px;opacity:.35">
+  <div class="board" style="grid-template-columns:repeat(6,28px);margin-top:100px"><i class="t"></i><i class="t g">2</i><i class="t g">2</i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i></div></div>
+ <div style="position:absolute;left:18px;right:18px;top:90px;background:#fff8ee;color:#2a211b;border-radius:20px;padding:20px 16px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.5)">
+  <div style="margin-top:-46px;font-size:40px">🍜</div>
+  <div style="font-size:20px;font-weight:900;color:var(--accent)">KHAI TRƯƠNG!</div>
+  <div style="font-size:28px;letter-spacing:4px;color:var(--gold)">★★<span style="color:#ddd">★</span></div>
+  <div style="display:flex;justify-content:space-around;margin:10px 0;background:#f3e6d6;border-radius:12px;padding:8px">
+   <div><b style="font-size:16px">11</b><br>bước</div><div><b style="font-size:16px">9</b><br>tối ưu</div><div><b style="font-size:16px">1</b><br>undo</div></div>
+  <button class="btn" style="width:100%;background:var(--green);font-size:15px;padding:12px">Màn tiếp ▶</button>
+  <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" style="flex:1;background:#b8a898">⟲ Chơi lại</button><button class="btn" style="flex:1;background:#b8a898">👁 Xem bàn</button></div>
+ </div>
+ <div style="position:absolute;bottom:18px;left:12px;right:12px;display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+  <span class="btn" style="background:var(--gold);text-align:center">1★★★</span><span class="btn" style="background:var(--gold);text-align:center">2★★</span><span class="btn" style="background:var(--accent);text-align:center;outline:2px solid #fff">3</span><span class="btn" style="background:#444;text-align:center">🔒</span><span class="btn" style="background:#444;text-align:center">🔒</span></div>
+</div>
+<div class="desc"><span class="tag">Cảm giác thắng, động lực chơi tiếp</span><h2>4. Màn thắng có phần thưởng và bản đồ level</h2>
+<p>Thay 4 nút xếp dọc bằng một thẻ kết quả: số sao, số bước so với tối ưu, nút chính "Màn tiếp" to và nổi bật. "Xem bàn" vẫn giữ.</p>
+<ul><li>Màn chọn level hiện số sao đã đạt, các màn chưa mở bị khóa, màn hiện tại được làm nổi bật.</li>
+<li>Lưu tiến độ vào localStorage.</li>
+<li>Có hiệu ứng confetti và âm thanh playWin như hiện tại.</li></ul>
+<p class="meta">Sửa: index.html (#game-over-screen, #level-menu), style.css, main.js (lưu tiến độ). Nên làm cùng bản 3 để có dữ liệu sao.</p></div>
+</div>
+
+<!-- 5 -->
+<div class="opt">
+<div class="phone" style="background:linear-gradient(#ffe7c7,#f6c890);color:#3b2414">
+ <div style="background:repeating-linear-gradient(90deg,#d9412b 0 18px,#fff 18px 36px);height:18px;border-radius:0 0 10px 10px"></div>
+ <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px">
+  <span class="ico" style="background:#fff6">☰</span><b style="font-size:15px">🏮 Phố Ẩm Thực · 5</b><span class="ico" style="background:#fff6">?</span></div>
+ <div style="margin:2px 14px;background:#fffdf7;border-radius:4px;padding:8px 10px;box-shadow:0 2px 0 #d9c3a3;font-family:ui-monospace,monospace;transform:rotate(-1deg)">
+  <b>PHIẾU ORDER #05</b><br>Mở 1 nhà hàng 4 tầng<br>tại 2 ô đất vàng 🟨🟨<br>— Bếp trưởng: tối đa 4 tầng —</div>
+ <div style="margin-top:20px">
+ <div class="board" style="grid-template-columns:repeat(7,28px);background:#8b5a3c">
+  <i class="t" style="background:#a7d26b"></i><i class="t" style="background:#a7d26b"></i><i class="t" style="background:#a7d26b"></i><i class="t" style="background:#a7d26b"></i><i class="t" style="background:#a7d26b"></i><i class="t" style="background:#a7d26b"></i><i class="t" style="background:#a7d26b"></i>
+  <i class="t" style="background:#a7d26b"></i><i class="t" style="background:#fff;font-size:15px;box-shadow:0 3px 0 #c43">🍜</i><i class="t" style="background:#a7d26b"></i><i class="t" style="background:#a7d26b"></i><i class="t g"></i><i class="t g"></i><i class="t" style="background:#a7d26b"></i>
+  <i class="t r"></i><i class="t r"></i><i class="t r"></i><i class="t r"></i><i class="t r"></i><i class="t r"></i><i class="t r"></i>
+ </div></div>
+ <div style="text-align:center;margin-top:10px">🍜 Quán Phở · <b>3 tầng</b> · <span style="color:#c43">còn 1 tầng nữa</span></div>
+ <div style="position:absolute;bottom:20px;left:0;right:0;display:flex;justify-content:center;gap:22px">
+  <span class="ico" style="background:#fff8">↶<span class="badge">3</span></span><span class="ico" style="background:#fff8">⟲</span></div>
+</div>
+<div class="desc"><span class="tag">Đổi theme, nặng nhất</span><h2>5. Đưa chủ đề nhà hàng vào UI</h2>
+<p>Giữ nguyên luật chơi, chỉ thay lớp vỏ. Tòa nhà thành quán ăn (phở, sushi, pizza...), ô vàng thành "đất cho thuê", mục tiêu được viết như một phiếu order.</p>
+<ul><li>Bảng màu sáng, ấm, hợp với game casual.</li>
+<li>Khi tách tòa thì "mở chi nhánh", tòa con mang icon món ăn khác.</li>
+<li>Guide được kể bằng lời bếp trưởng, hiện từng câu ngay trong màn chơi thay vì một modal dài.</li></ul>
+<p class="meta">Sửa: IsometricRenderer.js (bảng màu, sprite/emoji), style.css, index.html (splash, guide). Cần art direction nếu đi xa hơn emoji.</p></div>
+</div>
+
+</div>
+</body>
+</html>

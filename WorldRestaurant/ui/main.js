@@ -1,5 +1,5 @@
 import { LevelLoader } from '../engine/LevelLoader.js';
-import { GameRules } from '../engine/GameRules.js';
+import { GameRules, DIRECTIONS } from '../engine/GameRules.js';
 import { IsometricRenderer } from '../renderer/IsometricRenderer.js';
 import { InputHandler } from './InputHandler.js';
 import { CommandHistory } from '../engine/CommandHistory.js';
