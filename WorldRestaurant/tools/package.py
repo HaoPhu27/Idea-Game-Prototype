@@ -35,6 +35,7 @@ def build_standalone_html():
         os.path.join(ROOT_DIR, 'engine', 'GameState.js'),
         os.path.join(ROOT_DIR, 'engine', 'GameRules.js'),
         os.path.join(ROOT_DIR, 'engine', 'CommandHistory.js'),
+        os.path.join(ROOT_DIR, 'engine', 'AudioManager.js'),
         os.path.join(ROOT_DIR, 'engine', 'LevelLoader.js'),
         os.path.join(ROOT_DIR, 'renderer', 'IsometricRenderer.js'),
         os.path.join(ROOT_DIR, 'ui', 'InputHandler.js'),
@@ -104,8 +105,8 @@ CÁCH CHƠI / HƯỚNG DẪN:
    - Hoặc click đúp file "Run_Game.bat" nếu bạn dùng Windows.
 
 2. PHÍM ĐIỀU KHIỂN:
-   - Máy tính: Dùng các phím Mũi tên (Arrow Keys) hoặc W, A, S, D để di chuyển.
-   - Điện thoại / Cảm ứng: Vuốt ngón tay (Swipe) lên / xuống / trái / phải trên màn hình.
+   - Máy tính: Phím mũi tên hoặc W A S D. Lên/W = đi chéo lên-phải, Phải/D = chéo xuống-phải, Xuống/S = chéo xuống-trái, Trái/A = chéo lên-trái.
+   - Điện thoại: Vuốt chéo theo hướng muốn đi, hoặc bấm D-pad chéo ở góc màn hình.
    - Nút "Undo": Quay lại tối đa 3 nước đi trước đó.
    - Nút "Levels": Mở menu chọn nhanh từ Level 1 đến Level 20.
    - Nút "View Board": Xem lại bàn cờ khi thua/thắng để tìm hiểu nguyên nhân.

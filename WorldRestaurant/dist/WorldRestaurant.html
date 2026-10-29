@@ -589,6 +589,141 @@ button:active {
     width: 100%;
 }
 
+/* =========================================================
+   VIRTUAL DIAMOND D-PAD CONTROLLER
+   ========================================================= */
+#virtual-dpad {
+    position: absolute;
+    bottom: 25px;
+    right: 25px;
+    width: 120px;
+    height: 120px;
+    pointer-events: auto;
+    z-index: 15;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.dpad-btn {
+    position: absolute;
+    width: 38px;
+    height: 38px;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    border-radius: 8px !important;
+    color: #f8fafc !important;
+    font-size: 16px !important;
+    font-weight: 900 !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3) !important;
+    transition: transform 0.1s, background-color 0.15s, border-color 0.15s;
+    user-select: none;
+}
+
+.dpad-btn:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+    border-color: #ffd700 !important;
+    transform: scale(1.1);
+}
+
+.dpad-btn:active {
+    background: #3b82f6 !important;
+    transform: scale(0.92);
+}
+
+.dpad-up {
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.dpad-left {
+    top: 50%;
+    left: 6px;
+    transform: translateY(-50%);
+}
+
+.dpad-down {
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.dpad-right {
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+}
+
+.dpad-center {
+    font-size: 14px;
+    color: #64748b;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* =========================================================
+   GAME FEEL & ANIMATIONS
+   ========================================================= */
+@keyframes bumpShake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-6px) rotate(-1deg); }
+    50% { transform: translateX(6px) rotate(1deg); }
+    75% { transform: translateX(-3px); }
+    100% { transform: translateX(0); }
+}
+
+.bump-shake {
+    animation: bumpShake 0.2s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+.floating-text {
+    position: absolute;
+    pointer-events: none;
+    z-index: 100;
+    font-weight: 900;
+    font-size: 18px;
+    color: #ffffff;
+    text-shadow: 0px 2px 4px rgba(0,0,0,0.8), 0px 0px 8px currentColor;
+    animation: floatUp 1s ease-out forwards;
+}
+
+@keyframes floatUp {
+    0% {
+        opacity: 0;
+        transform: translateY(10px) scale(0.8);
+    }
+    10% {
+        opacity: 1;
+        transform: translateY(0px) scale(1.2);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-40px) scale(1);
+    }
+}
+
+#virtual-dpad {
+    transform: rotate(45deg);
+}
+
+#virtual-dpad .dpad-center {
+    transform: rotate(-45deg);
+}
+
+
+
 </style>
 </head>
 <body>
@@ -597,11 +732,20 @@ button:active {
         <div id="ui-layer">
             <div id="hud">
                 <div class="hud-item">Level: <span id="level-name">---</span></div>
-                <div style="display: flex; gap: 8px; pointer-events: auto;">
-                    <button id="btn-open-menu" style="padding: 6px 12px; font-size: 14px; margin: 0;">Levels</button>
-                    <button id="btn-open-guide" style="padding: 6px 12px; font-size: 14px; margin: 0; background-color: #ff9800;">📖 Guide</button>
+                <div style="display: flex; gap: 8px; pointer-events: auto; align-items: center;">
+                    <button id="btn-open-menu" style="padding: 6px 12px; font-size: 13px; margin: 0;">Levels</button>
+                    <button id="btn-open-guide" style="padding: 6px 12px; font-size: 13px; margin: 0; background-color: #ff9800;">📖 Guide</button>
                 </div>
                 <div class="hud-item">Stage Limit: <span id="cloud-limit">---</span></div>
+            </div>
+
+            <!-- Virtual 4-Way D-Pad Controller -->
+            <div id="virtual-dpad">
+                <button class="dpad-btn dpad-up" data-dir="UP" title="Lên (W / ⬆)">⬆</button>
+                <button class="dpad-btn dpad-left" data-dir="LEFT" title="Trái (A / ⬅)">⬅</button>
+                <button class="dpad-btn dpad-down" data-dir="DOWN" title="Xuống (S / ⬇)">⬇</button>
+                <button class="dpad-btn dpad-right" data-dir="RIGHT" title="Phải (D / ➡)">➡</button>
+                <div class="dpad-center">🎮</div>
             </div>
             
             <!-- Loading / Splash Screen -->
@@ -769,28 +913,28 @@ button:active {
 const EMBEDDED_LEVELS = {
   "001": {
     "id": "001",
-    "name": "Level 1 - First Steps",
-    "cloudLimit": 4,
+    "name": "Level 1 - First Steps [TUTORIAL]",
+    "cloudLimit": 10,
     "grid": [
       [
         "L",
         "L",
-        "T",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
         "L",
         "L",
         "L"
       ],
       [
         "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
         "L",
         "S",
         "L",
+        "T",
         "L"
       ],
       [
@@ -809,251 +953,13 @@ const EMBEDDED_LEVELS = {
       ]
     ],
     "spawnPosition": {
-      "x": 2,
+      "x": 1,
       "y": 2
     }
   },
   "002": {
     "id": "002",
-    "name": "Level 2 - Follow the Road",
-    "cloudLimit": 6,
-    "grid": [
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "R",
-        "T",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "R",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "S",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ]
-    ],
-    "spawnPosition": {
-      "x": 2,
-      "y": 3
-    }
-  },
-  "003": {
-    "id": "003",
-    "name": "Level 3 - The First Split",
-    "cloudLimit": 2,
-    "grid": [
-      [
-        "L",
-        "L",
-        "T",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "T",
-        "R",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "R",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "S",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ]
-    ],
-    "spawnPosition": {
-      "x": 2,
-      "y": 3
-    }
-  },
-  "004": {
-    "id": "004",
-    "name": "Level 4 - Road Guide",
-    "cloudLimit": 2,
-    "grid": [
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "R",
-        "T",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "R",
-        "T",
-        "R",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "R",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "S",
-        "L",
-        "L",
-        "L"
-      ]
-    ],
-    "spawnPosition": {
-      "x": 2,
-      "y": 5
-    }
-  },
-  "005": {
-    "id": "005",
-    "name": "Level 5 - Four In A Row",
-    "cloudLimit": 4,
-    "grid": [
-      [
-        "L",
-        "T",
-        "T",
-        "T",
-        "T",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "S",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ]
-    ],
-    "spawnPosition": {
-      "x": 3,
-      "y": 3
-    }
-  },
-  "006": {
-    "id": "006",
-    "name": "Level 6 - Street Front",
+    "name": "Level 2 - Split Horizontal [TUTORIAL]",
     "cloudLimit": 2,
     "grid": [
       [
@@ -1074,23 +980,15 @@ const EMBEDDED_LEVELS = {
       ],
       [
         "L",
-        "R",
-        "T",
-        "T",
-        "R",
-        "L"
-      ],
-      [
-        "L",
-        "R",
-        "L",
-        "L",
-        "R",
-        "L"
-      ],
-      [
-        "L",
         "S",
+        "L",
+        "T",
+        "T",
+        "L"
+      ],
+      [
+        "L",
+        "L",
         "L",
         "L",
         "L",
@@ -1107,40 +1005,15 @@ const EMBEDDED_LEVELS = {
     ],
     "spawnPosition": {
       "x": 1,
-      "y": 4
+      "y": 2
     }
   },
-  "007": {
-    "id": "007",
-    "name": "Level 7 - Left Wall",
+  "003": {
+    "id": "003",
+    "name": "Level 3 - Split Vertical [TUTORIAL]",
     "cloudLimit": 2,
     "grid": [
       [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "T",
-        "R",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "T",
-        "R",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
         "L",
         "L",
         "L",
@@ -1152,6 +1025,84 @@ const EMBEDDED_LEVELS = {
         "L",
         "S",
         "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "T",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "T",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ]
+    ],
+    "spawnPosition": {
+      "x": 2,
+      "y": 1
+    }
+  },
+  "004": {
+    "id": "004",
+    "name": "Level 4 - The 2x2 Square [TUTORIAL]",
+    "cloudLimit": 2,
+    "grid": [
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "S",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "T",
+        "T",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "T",
+        "T",
         "L",
         "L"
       ],
@@ -1165,13 +1116,13 @@ const EMBEDDED_LEVELS = {
       ]
     ],
     "spawnPosition": {
-      "x": 2,
-      "y": 4
+      "x": 1,
+      "y": 1
     }
   },
-  "008": {
-    "id": "008",
-    "name": "Level 8 - The Square",
+  "005": {
+    "id": "005",
+    "name": "Level 5 - Grow Taller [TUTORIAL]",
     "cloudLimit": 4,
     "grid": [
       [
@@ -1181,6 +1132,27 @@ const EMBEDDED_LEVELS = {
         "L",
         "L",
         "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "S",
+        "L",
+        "L",
+        "L",
+        "T",
+        "T",
         "L"
       ],
       [
@@ -1190,11 +1162,169 @@ const EMBEDDED_LEVELS = {
         "L",
         "L",
         "L",
+        "L",
         "L"
       ],
       [
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ]
+    ],
+    "spawnPosition": {
+      "x": 1,
+      "y": 2
+    }
+  },
+  "006": {
+    "id": "006",
+    "name": "Level 6 - Street Front [BEGINNER]",
+    "cloudLimit": 2,
+    "grid": [
+      [
+        "L",
+        "L",
         "L",
         "R",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "R",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "T",
+        "R",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "T",
+        "R",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "S",
+        "L",
+        "L",
+        "L",
+        "L"
+      ]
+    ],
+    "spawnPosition": {
+      "x": 1,
+      "y": 5
+    }
+  },
+  "007": {
+    "id": "007",
+    "name": "Level 7 - Left Wall [BEGINNER]",
+    "cloudLimit": 2,
+    "grid": [
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "T",
+        "T",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "R",
+        "R",
+        "R",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "S",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "L",
+        "L"
+      ]
+    ],
+    "spawnPosition": {
+      "x": 4,
+      "y": 4
+    }
+  },
+  "008": {
+    "id": "008",
+    "name": "Level 8 - The Square [BEGINNER]",
+    "cloudLimit": 4,
+    "grid": [
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "R",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "R",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
         "T",
         "T",
         "R",
@@ -1203,7 +1333,7 @@ const EMBEDDED_LEVELS = {
       ],
       [
         "L",
-        "R",
+        "L",
         "T",
         "T",
         "R",
@@ -1245,81 +1375,7 @@ const EMBEDDED_LEVELS = {
   },
   "009": {
     "id": "009",
-    "name": "Level 9 - Right Side",
-    "cloudLimit": 4,
-    "grid": [
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "T"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "T"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "T"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "T"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "S",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ]
-    ],
-    "spawnPosition": {
-      "x": 2,
-      "y": 5
-    }
-  },
-  "010": {
-    "id": "010",
-    "name": "Level 10 - Bottom Corner",
+    "name": "Level 9 - Right Side [BEGINNER]",
     "cloudLimit": 4,
     "grid": [
       [
@@ -1345,7 +1401,34 @@ const EMBEDDED_LEVELS = {
         "L",
         "L",
         "L",
+        "R",
+        "T",
+        "T"
+      ],
+      [
         "L",
+        "L",
+        "L",
+        "L",
+        "R",
+        "T",
+        "T"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "R",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "L",
+        "R",
         "L",
         "L"
       ],
@@ -1354,62 +1437,100 @@ const EMBEDDED_LEVELS = {
         "S",
         "L",
         "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
         "R",
-        "R",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "T",
-        "T",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "L",
-        "T",
-        "T",
         "L",
         "L"
       ]
     ],
     "spawnPosition": {
       "x": 1,
-      "y": 3
+      "y": 6
+    }
+  },
+  "010": {
+    "id": "010",
+    "name": "Level 10 - Bottom Corner [BEGINNER]",
+    "cloudLimit": 4,
+    "grid": [
+      [
+        "L",
+        "L",
+        "R",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "R",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "R",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "T",
+        "T",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "T",
+        "T",
+        "R",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "R",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "R",
+        "L",
+        "S",
+        "L"
+      ]
+    ],
+    "spawnPosition": {
+      "x": 5,
+      "y": 6
     }
   },
   "011": {
     "id": "011",
-    "name": "Level 11 - Top Left",
+    "name": "Level 11 - Top Avenue [NORMAL]",
     "cloudLimit": 4,
     "grid": [
       [
+        "L",
+        "L",
         "T",
         "T",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "T",
-        "T",
-        "R",
-        "L",
         "L",
         "L",
         "L"
@@ -1417,16 +1538,25 @@ const EMBEDDED_LEVELS = {
       [
         "L",
         "L",
+        "T",
+        "T",
+        "L",
+        "L",
+        "L"
+      ],
+      [
         "R",
-        "L",
-        "L",
+        "R",
+        "R",
+        "R",
+        "R",
         "L",
         "L"
       ],
       [
         "L",
         "L",
-        "R",
+        "L",
         "L",
         "L",
         "L",
@@ -1467,76 +1597,76 @@ const EMBEDDED_LEVELS = {
   },
   "012": {
     "id": "012",
-    "name": "Level 12 - Central Park",
+    "name": "Level 12 - Central Park [NORMAL]",
     "cloudLimit": 6,
     "grid": [
       [
         "L",
         "L",
         "L",
-        "L",
+        "R",
         "L",
         "L",
         "L"
       ],
       [
         "L",
-        "R",
-        "R",
-        "R",
-        "R",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "R",
         "T",
         "T",
         "R",
         "L",
+        "L",
         "L"
       ],
       [
         "L",
-        "R",
         "T",
         "T",
         "R",
         "L",
-        "L"
-      ],
-      [
-        "L",
-        "R",
-        "R",
-        "R",
-        "R",
         "L",
         "L"
       ],
       [
+        "R",
+        "R",
+        "R",
+        "R",
+        "R",
+        "R",
+        "R"
+      ],
+      [
         "L",
         "L",
         "L",
-        "L",
+        "R",
         "L",
         "L",
         "L"
       ],
       [
         "L",
+        "L",
+        "L",
+        "R",
         "L",
         "S",
+        "L"
+      ],
+      [
         "L",
+        "L",
+        "L",
+        "R",
         "L",
         "L",
         "L"
       ]
     ],
     "spawnPosition": {
-      "x": 2,
-      "y": 6
+      "x": 5,
+      "y": 5
     }
   },
   "013": {
@@ -1601,7 +1731,7 @@ const EMBEDDED_LEVELS = {
       [
         "L",
         "L",
-        "L",
+        "R",
         "L",
         "L",
         "S",
@@ -1637,25 +1767,25 @@ const EMBEDDED_LEVELS = {
         "L"
       ],
       [
-        "L",
         "R",
         "R",
         "R",
         "R",
         "R",
-        "L"
-      ],
-      [
-        "L",
-        "T",
-        "T",
-        "T",
-        "T",
         "R",
         "L"
       ],
       [
         "L",
+        "T",
+        "T",
+        "T",
+        "T",
+        "R",
+        "L"
+      ],
+      [
+        "R",
         "R",
         "R",
         "R",
@@ -1689,60 +1819,51 @@ const EMBEDDED_LEVELS = {
   },
   "015": {
     "id": "015",
-    "name": "Level 15 - The Moat",
+    "name": "Level 15 - The Moat [NORMAL]",
     "cloudLimit": 6,
     "grid": [
       [
         "L",
         "L",
         "L",
-        "L",
+        "R",
         "L",
         "L",
         "L"
       ],
       [
         "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "R",
-        "R",
-        "R",
-        "L",
-        "L"
-      ],
-      [
         "L",
         "L",
         "R",
         "T",
         "T",
-        "R",
         "L"
       ],
       [
         "L",
         "L",
+        "L",
         "R",
         "T",
         "T",
-        "R",
         "L"
+      ],
+      [
+        "R",
+        "R",
+        "R",
+        "R",
+        "R",
+        "R",
+        "R"
       ],
       [
         "L",
         "L",
+        "L",
         "R",
-        "R",
-        "R",
+        "L",
         "L",
         "L"
       ],
@@ -1750,7 +1871,16 @@ const EMBEDDED_LEVELS = {
         "L",
         "S",
         "L",
+        "R",
         "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "R",
         "L",
         "L",
         "L"
@@ -1758,7 +1888,7 @@ const EMBEDDED_LEVELS = {
     ],
     "spawnPosition": {
       "x": 1,
-      "y": 6
+      "y": 5
     }
   },
   "016": {
@@ -1813,7 +1943,7 @@ const EMBEDDED_LEVELS = {
         "L",
         "L",
         "L",
-        "L",
+        "R",
         "L"
       ],
       [
@@ -1823,7 +1953,7 @@ const EMBEDDED_LEVELS = {
         "L",
         "L",
         "L",
-        "L",
+        "R",
         "L"
       ],
       [
@@ -1858,16 +1988,7 @@ const EMBEDDED_LEVELS = {
     "cloudLimit": 2,
     "grid": [
       [
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "T",
+        "R",
         "R",
         "L",
         "L",
@@ -1877,6 +1998,15 @@ const EMBEDDED_LEVELS = {
       ],
       [
         "T",
+        "R",
+        "R",
+        "L",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "T",
         "T",
         "R",
         "L",
@@ -1894,9 +2024,9 @@ const EMBEDDED_LEVELS = {
         "L"
       ],
       [
-        "L",
-        "L",
-        "L",
+        "R",
+        "R",
+        "R",
         "L",
         "L",
         "L",
@@ -1928,15 +2058,15 @@ const EMBEDDED_LEVELS = {
   },
   "018": {
     "id": "018",
-    "name": "Level 18 - Grand Avenue",
+    "name": "Level 18 - Grand Avenue [NORMAL]",
     "cloudLimit": 6,
     "grid": [
       [
         "L",
         "L",
         "L",
-        "L",
-        "L",
+        "R",
+        "R",
         "L",
         "L",
         "L"
@@ -1945,59 +2075,59 @@ const EMBEDDED_LEVELS = {
         "L",
         "L",
         "L",
-        "L",
-        "L",
+        "R",
+        "R",
         "L",
         "L",
         "L"
       ],
       [
         "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "R",
-        "R",
-        "R",
-        "R",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "R",
-        "L",
-        "L",
-        "R",
-        "L",
-        "L"
-      ],
-      [
-        "L",
-        "L",
-        "R",
         "T",
         "T",
         "R",
+        "R",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "T",
+        "T",
+        "R",
+        "R",
+        "L",
         "L",
         "L"
       ],
       [
         "L",
         "L",
+        "L",
         "R",
-        "T",
-        "T",
         "R",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "R",
+        "R",
+        "L",
+        "L",
+        "L"
+      ],
+      [
+        "L",
+        "L",
+        "L",
+        "R",
+        "R",
+        "L",
         "L",
         "L"
       ],
@@ -2005,8 +2135,8 @@ const EMBEDDED_LEVELS = {
         "L",
         "S",
         "L",
-        "L",
-        "L",
+        "R",
+        "R",
         "L",
         "L",
         "L"
@@ -2025,10 +2155,10 @@ const EMBEDDED_LEVELS = {
       [
         "L",
         "L",
-        "L",
-        "L",
-        "L",
-        "L",
+        "R",
+        "R",
+        "R",
+        "R",
         "L",
         "L"
       ],
@@ -2058,13 +2188,13 @@ const EMBEDDED_LEVELS = {
         "T",
         "R",
         "R",
-        "L",
+        "R",
         "L",
         "L"
       ],
       [
-        "L",
-        "L",
+        "R",
+        "R",
         "R",
         "L",
         "L",
@@ -2116,20 +2246,20 @@ const EMBEDDED_LEVELS = {
       [
         "L",
         "L",
+        "R",
         "L",
         "L",
-        "L",
-        "L",
+        "R",
         "L",
         "L"
       ],
       [
         "L",
         "L",
+        "R",
         "L",
         "L",
-        "L",
-        "L",
+        "R",
         "L",
         "L"
       ],
@@ -2164,9 +2294,9 @@ const EMBEDDED_LEVELS = {
         "L"
       ],
       [
-        "L",
-        "L",
-        "L",
+        "R",
+        "R",
+        "R",
         "R",
         "R",
         "R",
@@ -2221,18 +2351,18 @@ class GameState {
     // Creates a deep clone of the current state, useful for undo and processing moves safely
     clone() {
         const clonedState = new GameState();
-        
+
         // Grid is static per level, so shallow copy of rows is usually fine, 
         // but let's deep copy just in case we add mutable elements later
-        clonedState.grid = this.grid.map(row => [...row]); 
-        
+        clonedState.grid = this.grid.map(row => [...row]);
+
         // Deep copy restaurants
         clonedState.restaurants = this.restaurants.map(r => ({ ...r }));
-        
+
         clonedState.cloudLimit = this.cloudLimit;
         clonedState.phase = this.phase;
         clonedState.isSplittingCycle = this.isSplittingCycle;
-        
+
         return clonedState;
     }
 
@@ -2272,7 +2402,7 @@ class GameRules {
 
         // 2. Connectivity check
         if (!this.checkConnectivity(newState)) {
-            return null; 
+            return null;
         }
 
         events.push({ type: 'MOVE', direction });
@@ -2290,11 +2420,11 @@ class GameRules {
                     return null; // Move rejected if split cannot occur
                 }
                 events.push(...splitEvents);
-                
+
                 if (!this.checkConnectivity(newState)) {
                     return null; // Move rejected if split causes disconnect
                 }
-                
+
                 // Check if cycle is over
                 const anyAtMax = newState.restaurants.some(r => r.floors >= newState.cloudLimit);
                 if (!anyAtMax) {
@@ -2335,7 +2465,7 @@ class GameRules {
             const nextY = rest.y + direction.y;
 
             if (!this.isValidPosition(state, nextX, nextY)) {
-                return false; 
+                return false;
             }
         }
 
@@ -2383,9 +2513,9 @@ class GameRules {
         // Split floors in half
         const halfFloors = Math.floor(rest.floors / 2);
         rest.floors = halfFloors;
-        
+
         let maxId = state.restaurants.reduce((max, r) => Math.max(max, r.id), 0);
-        
+
         const newRest = {
             id: maxId + 1,
             x: nextX,
@@ -2403,7 +2533,7 @@ class GameRules {
 
     static checkConnectivity(state) {
         if (state.restaurants.length === 0) return true;
-        
+
         // BFS to check if all restaurants form a single connected component
         const visited = new Set();
         const queue = [state.restaurants[0]];
@@ -2411,7 +2541,7 @@ class GameRules {
 
         while (queue.length > 0) {
             const current = queue.shift();
-            
+
             for (const other of state.restaurants) {
                 if (!visited.has(other.id)) {
                     const dx = Math.abs(current.x - other.x);
@@ -2455,40 +2585,40 @@ class GameRules {
                 }
             }
         }
-        
+
         // Lose 1: Total restaurant footprint > target footprint
         if (state.restaurants.length > targets.length) {
             return true;
         }
-        
+
         // Lose 2: Current shape cannot fit inside target shape (not a subset of any translation)
         if (state.restaurants.length > 0 && targets.length > 0) {
             const refRest = state.restaurants[0];
             let canFit = false;
-            
+
             // Try every possible translation that maps refRest to a target cell
             for (const t of targets) {
                 const dx = t.x - refRest.x;
                 const dy = t.y - refRest.y;
-                
+
                 let allMatch = true;
                 for (const r of state.restaurants) {
                     const targetX = r.x + dx;
                     const targetY = r.y + dy;
-                    
+
                     const isTarget = targets.some(tgt => tgt.x === targetX && tgt.y === targetY);
                     if (!isTarget) {
                         allMatch = false;
                         break;
                     }
                 }
-                
+
                 if (allMatch) {
                     canFit = true;
                     break;
                 }
             }
-            
+
             if (!canFit) return true;
         }
 
@@ -2500,7 +2630,7 @@ class GameRules {
         if (y < 0 || y >= state.height || x < 0 || x >= state.width) {
             return false;
         }
-        
+
         // Blocker check
         const cellType = state.grid[y][x];
         if (cellType === CELL_TYPES.BLOCKER) {
@@ -2541,6 +2671,126 @@ class CommandHistory {
 
     clear() {
         this.stack = [];
+    }
+}
+
+
+// --- AudioManager.js ---
+class AudioManager {
+    constructor() {
+        this.ctx = null;
+        this.enabled = true;
+    }
+
+    init() {
+        if (!this.ctx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                this.ctx = new AudioContext();
+            }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    playTone(frequency, type, duration, vol = 0.1) {
+        if (!this.enabled || !this.ctx) return;
+        
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        
+        osc.type = type;
+        osc.frequency.setValueAtTime(frequency, this.ctx.currentTime);
+        
+        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+        
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+    }
+
+    playMove() {
+        this.init();
+        if (!this.ctx) return;
+        this.playTone(150, 'triangle', 0.1, 0.05);
+    }
+
+    playBump() {
+        this.init();
+        if (!this.ctx) return;
+        this.playTone(80, 'square', 0.15, 0.1);
+        if (navigator.vibrate) navigator.vibrate(30);
+    }
+
+    playGrow(level) {
+        this.init();
+        if (!this.ctx) return;
+        // Pitch goes up as level increases
+        const freq = 300 + (level * 150);
+        this.playTone(freq, 'sine', 0.15, 0.1);
+        
+        // Slight delay for a 'bloop' effect
+        setTimeout(() => {
+            this.playTone(freq * 1.2, 'sine', 0.15, 0.1);
+        }, 50);
+        
+        if (navigator.vibrate) navigator.vibrate(15);
+    }
+
+    playSplit() {
+        this.init();
+        if (!this.ctx) return;
+        
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.2);
+        
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.2);
+        
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+        
+        if (navigator.vibrate) navigator.vibrate([20, 30, 20]);
+    }
+
+    playWin() {
+        this.init();
+        if (!this.ctx) return;
+        
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C E G C
+        let time = this.ctx.currentTime;
+        
+        notes.forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, time);
+            
+            gain.gain.setValueAtTime(0.1, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+            
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            
+            osc.start(time);
+            osc.stop(time + 0.3);
+            
+            time += 0.15;
+        });
+        
+        if (navigator.vibrate) navigator.vibrate([50, 100, 50, 100, 150]);
     }
 }
 
@@ -2616,206 +2866,744 @@ class LevelLoader {
 
 // --- IsometricRenderer.js ---
 
+const BUILDING_PALETTE = ['#3FA968', '#4F86E8', '#E07A3F', '#9B6BD6', '#D9534F', '#2BB3A3'];
+
+/**
+ * Adjust hex color brightness. Positive percent lightens towards white; negative darkens towards black.
+ * Always returns a hex string '#rrggbb' with 2-digit channels.
+ */
+function adjustBrightness(hex, percent) {
+    let clean = String(hex).replace('#', '').trim();
+    if (clean.length === 3) {
+        clean = clean.split('').map(c => c + c).join('');
+    }
+    const num = parseInt(clean, 16);
+    let r = (num >> 16) & 255;
+    let g = (num >> 8) & 255;
+    let b = num & 255;
+
+    if (percent > 0) {
+        r = Math.min(255, Math.round(r + (255 - r) * percent));
+        g = Math.min(255, Math.round(g + (255 - g) * percent));
+        b = Math.min(255, Math.round(b + (255 - b) * percent));
+    } else if (percent < 0) {
+        const factor = 1 + percent;
+        r = Math.max(0, Math.round(r * factor));
+        g = Math.max(0, Math.round(g * factor));
+        b = Math.max(0, Math.round(b * factor));
+    }
+
+    const toHex = (v) => v.toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/**
+ * Get the 6 vertices of the true outer hexagonal silhouette of an isometric building block.
+ */
+function getBuildingSilhouette(p, bW, bH, H) {
+    return [
+        { x: p.x - bW / 2, y: p.y },
+        { x: p.x,          y: p.y + bH / 2 },
+        { x: p.x + bW / 2, y: p.y },
+        { x: p.x + bW / 2, y: p.y - H },
+        { x: p.x,          y: p.y - H - bH / 2 },
+        { x: p.x - bW / 2, y: p.y - H }
+    ];
+}
+
+/**
+ * Ray-casting algorithm to test whether point (px, py) is inside polygon.
+ */
+function pointInPolygon(px, py, vertices) {
+    let inside = false;
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+        const xi = vertices[i].x, yi = vertices[i].y;
+        const xj = vertices[j].x, yj = vertices[j].y;
+        const intersect = ((yi > py) !== (yj > py))
+            && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
 class IsometricRenderer {
     constructor(canvas, container) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.container = container;
-        
-        // Settings for Dimetric projection (2:1 pixel art style)
-        this.tileWidth = 64;
-        this.tileHeight = 32;
-        this.floorHeight = 16;
-        
-        this.offsetX = 0;
-        this.offsetY = 0;
+
+        this.dpr = 1;
+        this.viewW = 0;
+        this.viewH = 0;
+
+        // Isometric board geometry
+        this.cellSize = 56;
+        this.originX = 0;
+        this.originY = 0;
+        this.lastState = null;
+
+        // Offscreen background canvas cache
+        this.bgCanvas = document.createElement('canvas');
+        this.bgCtx = this.bgCanvas.getContext('2d');
+        this.lastBgKey = null;
+
+        // Offscreen building canvas cache
+        this.bldCanvas = document.createElement('canvas');
+        this.bldCtx = this.bldCanvas.getContext('2d');
+
+        // Palette assignment by order of appearance
+        this.buildingColorMap = new Map();
+        this.currentLevelId = null;
+
+        // Restaurant tweening
+        this.visualRestaurants = new Map();
+        this.isAnimating = false;
 
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
 
+    toggleViewMode() {
+        return 'iso';
+    }
+
     resize() {
-        this.canvas.width = this.container.clientWidth;
-        this.canvas.height = this.container.clientHeight;
-        
-        // Center the grid
-        this.offsetX = this.canvas.width / 2;
-        this.offsetY = this.canvas.height / 4;
-        
-        // Initial render if state exists
+        this.viewW = this.container.clientWidth;
+        this.viewH = this.container.clientHeight;
+        this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        this.canvas.width = Math.round(this.viewW * this.dpr);
+        this.canvas.height = Math.round(this.viewH * this.dpr);
+        this.canvas.style.width = this.viewW + 'px';
+        this.canvas.style.height = this.viewH + 'px';
+        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+
+        this.bldCanvas.width = Math.round(this.viewW * this.dpr);
+        this.bldCanvas.height = Math.round(this.viewH * this.dpr);
+        this.bldCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+
+        this.lastBgKey = null;
+
         if (this.lastState) {
+            this.computeDimensions(this.lastState);
             this.render(this.lastState);
         }
     }
 
-    getScreenCoords(gridX, gridY, floor = 0) {
-        const sx = (gridX - gridY) * (this.tileWidth / 2) + this.offsetX;
-        const sy = (gridX + gridY) * (this.tileHeight / 2) + this.offsetY - (floor * this.floorHeight);
+    computeDimensions(state) {
+        const W = state.width || 1;
+        const H = state.height || 1;
+
+        // Determine max possible building height for vertical clearance
+        let maxFloors = state.cloudLimit || 6;
+        if (state.restaurants && state.restaurants.length > 0) {
+            for (const r of state.restaurants) {
+                if (r.floors > maxFloors) maxFloors = r.floors;
+            }
+        }
+        maxFloors = Math.max(maxFloors, 4);
+
+        // Reserve 70px at top for HUD and 110px at bottom for controls
+        const topReserve = 70;
+        const bottomReserve = 110;
+        const availW = Math.max(100, this.viewW - 40);
+        const availH = Math.max(100, this.viewH - topReserve - bottomReserve);
+
+        // Base thickness (18px) + badge margin
+        const baseThickness = 18;
+        const badgeMargin = 24;
+
+        // Horizontal constraint: (W + H) * cellSize / 2 <= availW
+        const cellFromW = (2 * availW) / (W + H);
+
+        // Vertical constraint: (W + H + maxFloors) * (cellSize / 4) + (baseThickness + badgeMargin) <= availH
+        const cellFromH = (4 * (availH - baseThickness - badgeMargin)) / (W + H + maxFloors);
+
+        this.cellSize = Math.min(Math.floor(cellFromW), Math.floor(cellFromH), 96);
+        this.cellSize = Math.max(24, this.cellSize);
+
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const floorH = tileH * 0.5;
+
+        // Horizontally center the isometric grid
+        this.originX = this.viewW / 2 - ((W - H) * tileW) / 4;
+
+        // Vertically center the entire scene (towers + ground + diorama base)
+        const topExtent = tileH / 2 + maxFloors * floorH + badgeMargin;
+        const bottomExtent = (W + H - 1) * (tileH / 2) + baseThickness;
+        const targetCenterY = (topReserve + (this.viewH - bottomReserve)) / 2;
+        this.originY = targetCenterY - (bottomExtent - topExtent) / 2;
+    }
+
+    getScreenCoords(gridX, gridY) {
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const sx = (gridX - gridY) * (tileW / 2) + this.originX;
+        const sy = (gridX + gridY) * (tileH / 2) + this.originY;
         return { x: sx, y: sy };
     }
 
+    getBuildingColor(id) {
+        if (!this.buildingColorMap.has(id)) {
+            const idx = this.buildingColorMap.size % BUILDING_PALETTE.length;
+            this.buildingColorMap.set(id, BUILDING_PALETTE[idx]);
+        }
+        return this.buildingColorMap.get(id);
+    }
+
     render(state) {
-        this.lastState = state;
-        
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Painter's Algorithm: Draw from top-left (0,0) down to bottom-right
-        // First draw base grid
-        for (let y = 0; y < state.height; y++) {
-            for (let x = 0; x < state.width; x++) {
-                this.drawTile(x, y, state.grid[y][x]);
-            }
+        if (!this.lastState || this.lastState.id !== state.id) {
+            this.buildingColorMap.clear();
         }
 
-        // Draw targets (footprints)
-        for (let y = 0; y < state.height; y++) {
-            for (let x = 0; x < state.width; x++) {
-                if (state.grid[y][x] === CELL_TYPES.TARGET) {
-                    this.drawTargetIndicator(x, y);
+        this.lastState = state;
+        this.computeDimensions(state);
+
+        // Register colors for initial restaurants in order of appearance
+        for (const rest of state.restaurants) {
+            this.getBuildingColor(rest.id);
+        }
+
+        const now = performance.now();
+        // Update visual targets
+        for (const rest of state.restaurants) {
+            let vis = this.visualRestaurants.get(rest.id);
+            if (!vis) {
+                // New restaurant (split). Start from parent's target position if available.
+                let parentVis = rest.parentId ? this.visualRestaurants.get(rest.parentId) : null;
+                vis = {
+                    id: rest.id,
+                    x: parentVis ? parentVis.targetX : rest.x,
+                    y: parentVis ? parentVis.targetY : rest.y,
+                    startX: parentVis ? parentVis.targetX : rest.x,
+                    startY: parentVis ? parentVis.targetY : rest.y,
+                    targetX: rest.x,
+                    targetY: rest.y,
+                    startTime: now,
+                    floors: rest.floors,
+                    startFloors: rest.floors,
+                    targetFloors: rest.floors
+                };
+                this.visualRestaurants.set(rest.id, vis);
+            } else {
+                // Update existing
+                if (vis.targetX !== rest.x || vis.targetY !== rest.y || vis.targetFloors !== rest.floors) {
+                    vis.startX = vis.x;
+                    vis.startY = vis.y;
+                    vis.targetX = rest.x;
+                    vis.targetY = rest.y;
+                    vis.startFloors = vis.floors;
+                    vis.targetFloors = rest.floors;
+                    vis.startTime = now;
                 }
             }
         }
 
-        // Draw Map Boundaries
-        this.drawMapBoundaries(state);
-
-        // Draw restaurants (sort by Y then X for correct isometric overlap)
-        const sortedRestaurants = [...state.restaurants].sort((a, b) => {
-            if (a.x + a.y === b.x + b.y) {
-                // If same depth, sort by id to be deterministic, though they shouldn't overlap
-                return a.id - b.id; 
+        // Remove stale restaurants (e.g. after undo)
+        for (const id of this.visualRestaurants.keys()) {
+            if (!state.restaurants.some(r => r.id === id)) {
+                this.visualRestaurants.delete(id);
             }
-            return (a.x + a.y) - (b.x + b.y);
+        }
+
+        if (!this.isAnimating) {
+            this.isAnimating = true;
+            requestAnimationFrame(this.animationLoop.bind(this));
+        }
+    }
+
+    animationLoop(time) {
+        if (!this.lastState) return;
+
+        let needsUpdate = false;
+        const DURATION = 150; // ms
+
+        for (const vis of this.visualRestaurants.values()) {
+            const elapsed = time - vis.startTime;
+            if (elapsed < DURATION) {
+                let p = elapsed / DURATION;
+                p = 1 - Math.pow(1 - p, 3); // ease-out cubic
+                vis.x = vis.startX + (vis.targetX - vis.startX) * p;
+                vis.y = vis.startY + (vis.targetY - vis.startY) * p;
+                vis.floors = vis.startFloors + (vis.targetFloors - vis.startFloors) * p;
+                needsUpdate = true;
+            } else {
+                vis.x = vis.targetX;
+                vis.y = vis.targetY;
+                vis.floors = vis.targetFloors;
+            }
+        }
+
+        this.drawFrame();
+
+        if (needsUpdate) {
+            requestAnimationFrame(this.animationLoop.bind(this));
+        } else {
+            this.isAnimating = false;
+        }
+    }
+
+    drawFrame() {
+        const state = this.lastState;
+        if (!state) return;
+
+        // Check offscreen background cache key
+        const bgKey = `${this.viewW}_${this.viewH}_${this.dpr}_${this.cellSize}_${this.originX}_${this.originY}_${state.width}_${state.height}_` +
+            state.grid.map(row => row.join('')).join('|');
+
+        if (this.lastBgKey !== bgKey) {
+            this.renderBackgroundToOffscreen(state);
+            this.lastBgKey = bgKey;
+        }
+
+        // 1. Draw cached board background
+        this.ctx.clearRect(0, 0, this.viewW, this.viewH);
+        this.ctx.drawImage(this.bgCanvas, 0, 0, this.viewW, this.viewH);
+
+        // 2. Sort restaurants by (x + y) ascending, ties broken by x
+        const sortedRestaurants = Array.from(this.visualRestaurants.values()).sort((a, b) => {
+            const sumA = a.x + a.y;
+            const sumB = b.x + b.y;
+            if (Math.abs(sumA - sumB) > 0.0001) return sumA - sumB;
+            return a.x - b.x;
         });
 
-        for (const rest of sortedRestaurants) {
-            this.drawRestaurant(rest);
+        // 3. Draw restaurants with occlusion transparency
+        for (const vis of sortedRestaurants) {
+            const occluding = this.isOccluding(vis, state);
+            this.drawBuilding(vis, occluding);
+        }
+
+        // 4. Draw top overlay layer (target dashed borders + floor badges)
+        this.drawTargetOverlays(state);
+        this.drawFloorBadges(sortedRestaurants);
+    }
+
+    renderBackgroundToOffscreen(state) {
+        this.bgCanvas.width = Math.round(this.viewW * this.dpr);
+        this.bgCanvas.height = Math.round(this.viewH * this.dpr);
+        this.bgCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        this.bgCtx.clearRect(0, 0, this.viewW, this.viewH);
+
+        // 1. Diorama base block
+        this.drawDioramaBase(this.bgCtx, state);
+
+        // 2. Ground grid tiles
+        for (let y = 0; y < state.height; y++) {
+            for (let x = 0; x < state.width; x++) {
+                this.drawTile(this.bgCtx, x, y, state.grid[y][x], state);
+            }
         }
     }
 
-    drawTile(x, y, type) {
-        const coords = this.getScreenCoords(x, y);
-        this.ctx.beginPath();
-        this.ctx.moveTo(coords.x, coords.y - this.tileHeight / 2); // Top
-        this.ctx.lineTo(coords.x + this.tileWidth / 2, coords.y); // Right
-        this.ctx.lineTo(coords.x, coords.y + this.tileHeight / 2); // Bottom
-        this.ctx.lineTo(coords.x - this.tileWidth / 2, coords.y); // Left
-        this.ctx.closePath();
+    drawDioramaBase(ctx, state) {
+        const W = state.width;
+        const H = state.height;
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const depth = 18;
 
-        // Get colors from CSS vars
-        const styles = getComputedStyle(document.body);
-        
-        let fillStyle = styles.getPropertyValue('--color-land');
-        if (type === CELL_TYPES.ROAD) fillStyle = styles.getPropertyValue('--color-road');
-        if (type === CELL_TYPES.BLOCKER) fillStyle = styles.getPropertyValue('--color-blocker');
-        if (type === CELL_TYPES.TARGET) fillStyle = styles.getPropertyValue('--color-target'); // Make target a distinct floor color
+        const T = { x: this.originX, y: this.originY - tileH / 2 };
+        const R = { x: this.originX + W * (tileW / 2), y: this.originY + (W - 1) * (tileH / 2) };
+        const B = { x: this.originX + (W - H) * (tileW / 2), y: this.originY + (W + H - 1) * (tileH / 2) };
+        const L = { x: this.originX - H * (tileW / 2), y: this.originY + (H - 1) * (tileH / 2) };
 
-        this.ctx.fillStyle = fillStyle;
+        // Base top face under tiles
+        ctx.beginPath();
+        ctx.moveTo(T.x, T.y);
+        ctx.lineTo(R.x, R.y);
+        ctx.lineTo(B.x, B.y);
+        ctx.lineTo(L.x, L.y);
+        ctx.closePath();
+        ctx.fillStyle = '#553A29';
+        ctx.fill();
+
+        // Left side face (L -> B)
+        ctx.beginPath();
+        ctx.moveTo(L.x, L.y);
+        ctx.lineTo(B.x, B.y);
+        ctx.lineTo(B.x, B.y + depth);
+        ctx.lineTo(L.x, L.y + depth);
+        ctx.closePath();
+        ctx.fillStyle = '#6B4A35';
+        ctx.fill();
+        ctx.strokeStyle = '#4A3325';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Right side face (B -> R)
+        ctx.beginPath();
+        ctx.moveTo(B.x, B.y);
+        ctx.lineTo(R.x, R.y);
+        ctx.lineTo(R.x, R.y + depth);
+        ctx.lineTo(B.x, B.y + depth);
+        ctx.closePath();
+        ctx.fillStyle = '#553A29';
+        ctx.fill();
+        ctx.strokeStyle = '#3D281D';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    drawTile(ctx, x, y, type, state) {
+        const p = this.getScreenCoords(x, y);
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+
+        this.drawRhombus(ctx, p.x, p.y, tileW, tileH);
+
+        if (type === CELL_TYPES.ROAD) {
+            ctx.fillStyle = '#5B6577';
+            ctx.fill();
+            ctx.strokeStyle = '#46505F';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Dashed lane markings connecting to neighboring road cells
+            ctx.save();
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 3]);
+
+            let connected = false;
+            if (y > 0 && state.grid[y - 1][x] === CELL_TYPES.ROAD) {
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x + tileW / 4, p.y - tileH / 4);
+                ctx.stroke();
+                connected = true;
+            }
+            if (y < state.height - 1 && state.grid[y + 1][x] === CELL_TYPES.ROAD) {
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x - tileW / 4, p.y + tileH / 4);
+                ctx.stroke();
+                connected = true;
+            }
+            if (x > 0 && state.grid[y][x - 1] === CELL_TYPES.ROAD) {
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x - tileW / 4, p.y - tileH / 4);
+                ctx.stroke();
+                connected = true;
+            }
+            if (x < state.width - 1 && state.grid[y][x + 1] === CELL_TYPES.ROAD) {
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x + tileW / 4, p.y + tileH / 4);
+                ctx.stroke();
+                connected = true;
+            }
+
+            if (!connected) {
+                ctx.beginPath();
+                ctx.moveTo(p.x - tileW / 6, p.y - tileH / 6);
+                ctx.lineTo(p.x + tileW / 6, p.y + tileH / 6);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+        } else if (type === CELL_TYPES.TARGET) {
+            ctx.fillStyle = '#F5B324';
+            ctx.fill();
+            ctx.strokeStyle = '#D48F0C';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Small diamond mark at center
+            this.drawRhombus(ctx, p.x, p.y, tileW * 0.35, tileH * 0.35);
+            ctx.fillStyle = '#FFF275';
+            ctx.fill();
+            ctx.strokeStyle = '#D48F0C';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+        } else if (type === CELL_TYPES.BLOCKER) {
+            ctx.fillStyle = '#3E2723';
+            ctx.fill();
+            ctx.strokeStyle = '#271711';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+        } else {
+            // Default land
+            ctx.fillStyle = '#8FBF5A';
+            ctx.fill();
+            ctx.strokeStyle = '#6D9A40';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+    }
+
+    drawRhombus(ctx, cx, cy, w, h) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - h / 2);
+        ctx.lineTo(cx + w / 2, cy);
+        ctx.lineTo(cx, cy + h / 2);
+        ctx.lineTo(cx - w / 2, cy);
+        ctx.closePath();
+    }
+
+    isOccluding(buildingA, state) {
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const bW = tileW * 0.7;
+        const bH = tileH * 0.7;
+        const floorH = tileH * 0.5;
+
+        const floorsA = Math.max(1, Math.round(buildingA.floors));
+        const totalHA = floorsA * floorH;
+        const p = this.getScreenCoords(buildingA.x, buildingA.y);
+
+        const polyA = getBuildingSilhouette(p, bW, bH, totalHA);
+
+        const ax = buildingA.targetX !== undefined ? buildingA.targetX : buildingA.x;
+        const ay = buildingA.targetY !== undefined ? buildingA.targetY : buildingA.y;
+        const sumA = ax + ay;
+
+        // 1. Check target cells behind building A
+        for (let y = 0; y < state.height; y++) {
+            for (let x = 0; x < state.width; x++) {
+                if (state.grid[y][x] === CELL_TYPES.TARGET) {
+                    if ((x + y) < sumA - 0.001) {
+                        const sQ = this.getScreenCoords(x, y);
+                        if (pointInPolygon(sQ.x, sQ.y, polyA)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Check other restaurants behind building A
+        for (const other of this.visualRestaurants.values()) {
+            if (other.id !== buildingA.id) {
+                const qx = other.targetX !== undefined ? other.targetX : other.x;
+                const qy = other.targetY !== undefined ? other.targetY : other.y;
+                if ((qx + qy) < sumA - 0.001) {
+                    const sQ = this.getScreenCoords(qx, qy);
+                    if (pointInPolygon(sQ.x, sQ.y, polyA)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    drawBuilding(vis, occluding = false) {
+        const p = this.getScreenCoords(vis.x, vis.y);
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const bW = tileW * 0.7;
+        const bH = tileH * 0.7;
+        const floorH = tileH * 0.5;
+
+        // 1. Ground shadow: black rhombus with alpha 0.25 (drawn directly on main canvas)
+        this.ctx.save();
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        this.drawRhombus(this.ctx, p.x, p.y, bW * 1.05, bH * 1.05);
         this.ctx.fill();
-        
-        // Grid outline
-        this.ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-        this.ctx.lineWidth = 1;
-        this.ctx.stroke();
-    }
+        this.ctx.restore();
 
-    drawTargetIndicator(x, y) {
-        const coords = this.getScreenCoords(x, y);
-        this.ctx.beginPath();
-        // Inner diamond for target footprint "O"
-        const offset = 8;
-        this.ctx.moveTo(coords.x, coords.y - this.tileHeight / 2 + offset); 
-        this.ctx.lineTo(coords.x + this.tileWidth / 2 - offset*2, coords.y);
-        this.ctx.lineTo(coords.x, coords.y + this.tileHeight / 2 - offset); 
-        this.ctx.lineTo(coords.x - this.tileWidth / 2 + offset*2, coords.y);
-        this.ctx.closePath();
+        const totalFloors = Math.max(1, Math.round(vis.floors));
 
-        this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 2;
-        this.ctx.setLineDash([4, 4]); // Dashed line to look like blueprint/target
-        this.ctx.stroke();
-        this.ctx.setLineDash([]); // Reset
-        this.ctx.lineWidth = 1;
-    }
+        if (occluding) {
+            // Draw body + awning into shared offscreen canvas
+            this.bldCtx.clearRect(0, 0, this.viewW, this.viewH);
+            this.drawBuildingBody(this.bldCtx, vis, p, bW, bH, floorH, totalFloors);
 
-    drawMapBoundaries(state) {
-        this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 2;
-        
-        // Top edge
-        const topCoords = this.getScreenCoords(0, 0);
-        const rightCoords = this.getScreenCoords(state.width - 1, 0);
-        const bottomCoords = this.getScreenCoords(state.width - 1, state.height - 1);
-        const leftCoords = this.getScreenCoords(0, state.height - 1);
+            // Composite onto main canvas with globalAlpha 0.35
+            this.ctx.save();
+            this.ctx.globalAlpha = 0.35;
+            this.ctx.drawImage(this.bldCanvas, 0, 0, this.viewW, this.viewH);
+            this.ctx.restore();
 
-        this.ctx.beginPath();
-        // Top vertex
-        this.ctx.moveTo(topCoords.x, topCoords.y - this.tileHeight / 2);
-        // Right vertex
-        this.ctx.lineTo(rightCoords.x + this.tileWidth / 2, rightCoords.y);
-        // Bottom vertex
-        this.ctx.lineTo(bottomCoords.x, bottomCoords.y + this.tileHeight / 2);
-        // Left vertex
-        this.ctx.lineTo(leftCoords.x - this.tileWidth / 2, leftCoords.y);
-        this.ctx.closePath();
-        this.ctx.stroke();
-        this.ctx.lineWidth = 1;
-    }
-
-    drawRestaurant(rest) {
-        // Draw floors from bottom to top
-        for(let f = 0; f < rest.floors; f++) {
-            const baseCoords = this.getScreenCoords(rest.x, rest.y, f);
-            const topY = baseCoords.y - this.floorHeight; 
-            
-            // Draw top face
+            // Draw outer silhouette (white outline, alpha 0.6, lineWidth 1.5)
+            const poly = getBuildingSilhouette(p, bW, bH, totalFloors * floorH);
+            this.ctx.save();
             this.ctx.beginPath();
-            this.ctx.moveTo(baseCoords.x, topY - this.tileHeight / 2); // Top vertex
-            this.ctx.lineTo(baseCoords.x + this.tileWidth / 2, topY); // Right vertex
-            this.ctx.lineTo(baseCoords.x, topY + this.tileHeight / 2); // Bottom vertex
-            this.ctx.lineTo(baseCoords.x - this.tileWidth / 2, topY); // Left vertex
+            this.ctx.moveTo(poly[0].x, poly[0].y);
+            for (let i = 1; i < poly.length; i++) {
+                this.ctx.lineTo(poly[i].x, poly[i].y);
+            }
             this.ctx.closePath();
-
-            const styles = getComputedStyle(document.body);
-            let color = styles.getPropertyValue('--color-restaurant-base').trim();
-            
-            this.ctx.fillStyle = color;
-            this.ctx.fill();
-            this.ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            this.ctx.lineWidth = 1.5;
             this.ctx.stroke();
-            
-            // Draw left face
-            this.ctx.beginPath();
-            this.ctx.moveTo(baseCoords.x - this.tileWidth / 2, topY);
-            this.ctx.lineTo(baseCoords.x, topY + this.tileHeight / 2);
-            this.ctx.lineTo(baseCoords.x, baseCoords.y + this.tileHeight / 2); // Down to base
-            this.ctx.lineTo(baseCoords.x - this.tileWidth / 2, baseCoords.y); // Back to base left
-            this.ctx.closePath();
-            this.ctx.fillStyle = '#cc3333'; // Darker red
-            this.ctx.fill();
-            this.ctx.stroke();
-
-            // Draw right face
-            this.ctx.beginPath();
-            this.ctx.moveTo(baseCoords.x + this.tileWidth / 2, topY);
-            this.ctx.lineTo(baseCoords.x, topY + this.tileHeight / 2);
-            this.ctx.lineTo(baseCoords.x, baseCoords.y + this.tileHeight / 2); // Down to base
-            this.ctx.lineTo(baseCoords.x + this.tileWidth / 2, baseCoords.y); // Back to base right
-            this.ctx.closePath();
-            this.ctx.fillStyle = '#992222'; // Darkest red
-            this.ctx.fill();
-            this.ctx.stroke();
+            this.ctx.restore();
+        } else {
+            // Draw body directly on main canvas
+            this.drawBuildingBody(this.ctx, vis, p, bW, bH, floorH, totalFloors);
         }
-        
-        // Draw ID on top
-        const topBaseCoords = this.getScreenCoords(rest.x, rest.y, rest.floors);
-        const textY = topBaseCoords.y - this.floorHeight; // center of the top face
-        
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`#${rest.id}`, topBaseCoords.x, textY);
+    }
+
+    drawBuildingBody(ctx, vis, p, bW, bH, floorH, totalFloors) {
+        const baseColor = this.getBuildingColor(vis.id);
+
+        for (let f = 0; f < totalFloors; f++) {
+            const isOdd = (f % 2 === 1);
+            const floorBase = isOdd ? adjustBrightness(baseColor, -0.12) : baseColor;
+            const leftColor = adjustBrightness(floorBase, 0.0);
+            const rightColor = adjustBrightness(floorBase, -0.25);
+            const topColor = adjustBrightness(floorBase, 0.22);
+            const strokeColor = adjustBrightness(floorBase, -0.35);
+
+            const elevBottom = f * floorH;
+            const elevTop = (f + 1) * floorH;
+
+            // Left face (medium)
+            ctx.beginPath();
+            ctx.moveTo(p.x - bW / 2, p.y - elevBottom);
+            ctx.lineTo(p.x, p.y - elevBottom + bH / 2);
+            ctx.lineTo(p.x, p.y - elevTop + bH / 2);
+            ctx.lineTo(p.x - bW / 2, p.y - elevTop);
+            ctx.closePath();
+            ctx.fillStyle = leftColor;
+            ctx.fill();
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Right face (dark)
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y - elevBottom + bH / 2);
+            ctx.lineTo(p.x + bW / 2, p.y - elevBottom);
+            ctx.lineTo(p.x + bW / 2, p.y - elevTop);
+            ctx.lineTo(p.x, p.y - elevTop + bH / 2);
+            ctx.closePath();
+            ctx.fillStyle = rightColor;
+            ctx.fill();
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Top face (light)
+            const T = { x: p.x, y: p.y - elevTop - bH / 2 };
+            const R = { x: p.x + bW / 2, y: p.y - elevTop };
+            const B = { x: p.x, y: p.y - elevTop + bH / 2 };
+            const L = { x: p.x - bW / 2, y: p.y - elevTop };
+
+            if (f === totalFloors - 1) {
+                // Top roof: striped French awning (#C9432F & #FFFFFF)
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(T.x, T.y);
+                ctx.lineTo(R.x, R.y);
+                ctx.lineTo(B.x, B.y);
+                ctx.lineTo(L.x, L.y);
+                ctx.closePath();
+                ctx.clip();
+
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fill();
+
+                ctx.fillStyle = '#C9432F';
+                const stripes = 6;
+                for (let s = 0; s < stripes; s += 2) {
+                    const t0 = s / stripes;
+                    const t1 = (s + 1) / stripes;
+                    const p1 = { x: L.x + (T.x - L.x) * t0, y: L.y + (T.y - L.y) * t0 };
+                    const p2 = { x: L.x + (T.x - L.x) * t1, y: L.y + (T.y - L.y) * t1 };
+                    const p3 = { x: B.x + (R.x - B.x) * t1, y: B.y + (R.y - B.y) * t1 };
+                    const p4 = { x: B.x + (R.x - B.x) * t0, y: B.y + (R.y - B.y) * t0 };
+
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.lineTo(p3.x, p3.y);
+                    ctx.lineTo(p4.x, p4.y);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                ctx.beginPath();
+                ctx.moveTo(T.x, T.y);
+                ctx.lineTo(R.x, R.y);
+                ctx.lineTo(B.x, B.y);
+                ctx.lineTo(L.x, L.y);
+                ctx.closePath();
+                ctx.strokeStyle = '#8E2819';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(T.x, T.y);
+                ctx.lineTo(R.x, R.y);
+                ctx.lineTo(B.x, B.y);
+                ctx.lineTo(L.x, L.y);
+                ctx.closePath();
+                ctx.fillStyle = topColor;
+                ctx.fill();
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+    }
+
+    drawTargetOverlays(state) {
+        const ctx = this.ctx;
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+
+        ctx.save();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 4]);
+
+        for (let y = 0; y < state.height; y++) {
+            for (let x = 0; x < state.width; x++) {
+                if (state.grid[y][x] === CELL_TYPES.TARGET) {
+                    const p = this.getScreenCoords(x, y);
+                    this.drawRhombus(ctx, p.x, p.y, tileW, tileH);
+                    ctx.stroke();
+                }
+            }
+        }
+        ctx.restore();
+    }
+
+    drawFloorBadges(sortedRestaurants) {
+        const ctx = this.ctx;
+        const tileH = this.cellSize / 2;
+        const floorH = tileH * 0.5;
+
+        const radius = Math.max(10, this.cellSize * 0.16);
+        const fontSize = Math.max(14, Math.round(this.cellSize * 0.22));
+
+        ctx.save();
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (const vis of sortedRestaurants) {
+            const floorsCount = Math.max(1, Math.round(vis.floors));
+            const totalHeight = floorsCount * floorH;
+            const p = this.getScreenCoords(vis.x, vis.y);
+
+            const badgeX = p.x;
+            const badgeY = p.y - totalHeight;
+
+            // White circular badge
+            ctx.beginPath();
+            ctx.arc(badgeX, badgeY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fill();
+
+            // Badge border #2A211B
+            ctx.strokeStyle = '#2A211B';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Bold floor number #2A211B
+            ctx.fillStyle = '#2A211B';
+            ctx.fillText(String(floorsCount), badgeX, badgeY);
+        }
+        ctx.restore();
     }
 }
 
@@ -2886,17 +3674,21 @@ class InputHandler {
 
         const dx = touchEndX - this.touchStartX;
         const dy = touchEndY - this.touchStartY;
-        const minSwipeDistance = 30;
+        const minSwipeDistance = 25;
 
         if (Math.abs(dx) < minSwipeDistance && Math.abs(dy) < minSwipeDistance) {
             return;
         }
 
         let direction = null;
-        if (Math.abs(dx) > Math.abs(dy)) {
-            direction = dx > 0 ? DIRECTIONS.RIGHT : DIRECTIONS.LEFT;
-        } else {
-            direction = dy > 0 ? DIRECTIONS.DOWN : DIRECTIONS.UP;
+        if (dx >= 0 && dy < 0) {
+            direction = DIRECTIONS.UP;
+        } else if (dx >= 0 && dy >= 0) {
+            direction = DIRECTIONS.RIGHT;
+        } else if (dx < 0 && dy >= 0) {
+            direction = DIRECTIONS.DOWN;
+        } else if (dx < 0 && dy < 0) {
+            direction = DIRECTIONS.LEFT;
         }
 
         if (direction) {
@@ -2920,6 +3712,7 @@ class GameApp {
         this.renderer = null;
         this.inputHandler = null;
         this.history = null;
+        this.audio = new AudioManager();
 
         // UI elements
         this.levelNameEl = document.getElementById('level-name');
@@ -2986,6 +3779,23 @@ class GameApp {
             });
         }
 
+        this.btnToggleView = document.getElementById('btn-toggle-view');
+        if (this.btnToggleView) {
+            this.btnToggleView.addEventListener('click', () => {
+                const newMode = this.renderer.toggleViewMode();
+                this.updateViewModeUI(newMode);
+            });
+        }
+
+        // Virtual D-Pad buttons
+        document.querySelectorAll('.dpad-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const dirKey = e.currentTarget.dataset.dir;
+                const dir = DIRECTIONS[dirKey];
+                if (dir) this.handleMove(dir);
+            });
+        });
+
         document.querySelectorAll('.btn-level').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const lvl = parseInt(e.target.dataset.level, 10);
@@ -3015,6 +3825,30 @@ class GameApp {
 
     closeGuide() {
         if (this.guideModal) this.guideModal.classList.add('hidden');
+    }
+
+    updateViewModeUI(mode) {
+        if (!this.btnToggleView) return;
+        const upBtn = document.querySelector('.dpad-up');
+        const leftBtn = document.querySelector('.dpad-left');
+        const downBtn = document.querySelector('.dpad-down');
+        const rightBtn = document.querySelector('.dpad-right');
+
+        if (mode === 'topdown') {
+            this.btnToggleView.textContent = '🔲 2D Top';
+            this.btnToggleView.style.backgroundColor = '#10b981';
+            if (upBtn) upBtn.textContent = '⬆';
+            if (leftBtn) leftBtn.textContent = '⬅';
+            if (downBtn) downBtn.textContent = '⬇';
+            if (rightBtn) rightBtn.textContent = '➡';
+        } else {
+            this.btnToggleView.textContent = '📐 3D Iso';
+            this.btnToggleView.style.backgroundColor = '#3b82f6';
+            if (upBtn) upBtn.textContent = '↗';
+            if (leftBtn) leftBtn.textContent = '↖';
+            if (downBtn) downBtn.textContent = '↙';
+            if (rightBtn) rightBtn.textContent = '↘';
+        }
     }
 
     async init() {
@@ -3093,6 +3927,9 @@ class GameApp {
 
     handleMove(direction) {
         if (!this.state || this.state.phase !== 'moving') return;
+        
+        // Resume audio context on first interaction
+        this.audio.init();
 
         const oldState = this.state.clone();
         const result = GameRules.applyMove(this.state, direction);
@@ -3102,13 +3939,72 @@ class GameApp {
             this.history.push({ stateBefore: oldState, direction });
             
             this.state = result.newState;
-            // TODO: handle events (AnimationManager)
+            
+            // Process Audio and Feedback Events
+            let didSplit = false;
+            let didGrow = false;
+            let newFloors = 0;
+            let eventRest = null;
+            
+            for (const ev of result.events) {
+                if (ev.type === 'SPLIT') {
+                    didSplit = true;
+                    eventRest = ev.child;
+                }
+                if (ev.type === 'GROW') {
+                    didGrow = true;
+                    newFloors = ev.newFloors;
+                    eventRest = this.state.restaurants.find(r => r.id === ev.restaurantId);
+                }
+            }
+            
+            if (this.state.phase === 'win') {
+                this.audio.playWin();
+                this.spawnFloatingText("BẾP HOÀN THÀNH! 🎉", this.state.width/2 - 0.5, this.state.height/2 - 0.5, '#4ade80');
+            } else if (didSplit) {
+                this.audio.playSplit();
+                if (eventRest) this.spawnFloatingText("TÁCH! ⚡", eventRest.x, eventRest.y, '#f43f5e');
+            } else if (didGrow) {
+                this.audio.playGrow(newFloors);
+                if (eventRest) this.spawnFloatingText(`+1 TẦNG!`, eventRest.x, eventRest.y, '#facc15');
+            } else {
+                this.audio.playMove();
+            }
+            
             this.updateHUD();
             this.render();
             this.checkGameEnd();
         } else {
             console.log("Invalid move!");
+            this.audio.playBump();
+            // Simple visual bump effect on container
+            const container = document.getElementById('game-container');
+            if (container) {
+                container.classList.add('bump-shake');
+                setTimeout(() => container.classList.remove('bump-shake'), 200);
+            }
         }
+    }
+
+    spawnFloatingText(text, gridX, gridY, color = '#fbbf24') {
+        if (!this.renderer) return;
+        const coords = this.renderer.getScreenCoords(gridX, gridY);
+        const container = document.getElementById('game-container');
+        if (!container) return;
+        
+        const el = document.createElement('div');
+        el.className = 'floating-text';
+        el.textContent = text;
+        // Center text on the tile
+        el.style.left = `${coords.x}px`;
+        el.style.top = `${coords.y - 30}px`;
+        el.style.color = color;
+        el.style.transform = 'translateX(-50%)';
+        
+        container.appendChild(el);
+        setTimeout(() => {
+            if (el.parentNode) el.parentNode.removeChild(el);
+        }, 1000);
     }
 
     handleUndo() {
