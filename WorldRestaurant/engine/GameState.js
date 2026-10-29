@@ -29,6 +29,11 @@ export class GameState {
         clonedState.phase = this.phase;
         clonedState.isSplittingCycle = this.isSplittingCycle;
 
+        // Level identity and move budget are set by LevelLoader, not the constructor
+        clonedState.id = this.id;
+        clonedState.name = this.name;
+        clonedState.movesRemaining = this.movesRemaining;
+
         return clonedState;
     }
 

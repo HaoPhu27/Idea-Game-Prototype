@@ -30,6 +30,22 @@ function adjustBrightness(hex, percent) {
 }
 
 /**
+ * Normalize direction input (string or DIRECTIONS object) to uppercase direction string.
+ */
+function normalizeDirKey(dir) {
+    if (!dir) return null;
+    if (typeof dir === 'string') return dir.toUpperCase();
+    if (typeof dir === 'object') {
+        if (dir.x === 0 && dir.y === -1) return 'UP';
+        if (dir.x === 1 && dir.y === 0) return 'RIGHT';
+        if (dir.x === 0 && dir.y === 1) return 'DOWN';
+        if (dir.x === -1 && dir.y === 0) return 'LEFT';
+        if (dir.dir) return String(dir.dir).toUpperCase();
+    }
+    return String(dir).toUpperCase();
+}
+
+/**
  * 6 Handcrafted Restaurant Types (Diorama flat style, no external images, no emoji).
  */
 const RESTAURANT_TYPES = [
@@ -291,6 +307,17 @@ export class IsometricRenderer {
         this.visualRestaurants = new Map();
         this.isAnimating = false;
 
+        // Edge arrows & preview drag state
+        this.hoverArrow = null;
+        this.previewState = null;
+        this.previewDir = null;
+        this.previewInvalid = false;
+
+        // Shake animation state for invalid moves
+        this.shakeOffsetX = 0;
+        this.isShaking = false;
+        this.shakeStartTime = 0;
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
@@ -344,18 +371,19 @@ export class IsometricRenderer {
         // Reserve 70px at top for HUD and 110px at bottom for controls
         const topReserve = 70;
         const bottomReserve = 110;
-        const availW = Math.max(100, this.viewW - 40);
+        const availW = Math.max(100, this.viewW - 80);
         const availH = Math.max(100, this.viewH - topReserve - bottomReserve);
 
-        // Base thickness (18px) + badge margin
+        // Base thickness (18px) + badge margin + edge arrows margin
         const baseThickness = 18;
         const badgeMargin = 26;
+        const arrowMargin = 32;
 
         // Horizontal constraint: (W + H) * cellSize / 2 <= availW
         const cellFromW = (2 * availW) / (W + H);
 
-        // Vertical constraint: (W + H + maxFloors) * (cellSize / 4) + (baseThickness + badgeMargin) <= availH
-        const cellFromH = (4 * (availH - baseThickness - badgeMargin)) / (W + H + maxFloors);
+        // Vertical constraint: (W + H + maxFloors) * (cellSize / 4) + (baseThickness + badgeMargin + arrowMargin) <= availH
+        const cellFromH = (4 * (availH - baseThickness - badgeMargin - arrowMargin)) / (W + H + maxFloors);
 
         const newCellSize = Math.max(24, Math.min(Math.floor(cellFromW), Math.floor(cellFromH), 96));
         if (this.lastCacheCellSize !== newCellSize) {
@@ -371,9 +399,9 @@ export class IsometricRenderer {
         // Horizontally center the isometric grid
         this.originX = this.viewW / 2 - ((W - H) * tileW) / 4;
 
-        // Vertically center the entire scene (towers + ground + diorama base)
+        // Vertically center the entire scene (towers + ground + diorama base + arrows)
         const topExtent = tileH / 2 + maxFloors * floorH + badgeMargin;
-        const bottomExtent = (W + H - 1) * (tileH / 2) + baseThickness;
+        const bottomExtent = (W + H - 1) * (tileH / 2) + baseThickness + arrowMargin;
         const targetCenterY = (topReserve + (this.viewH - bottomReserve)) / 2;
         this.originY = targetCenterY - (bottomExtent - topExtent) / 2;
     }
@@ -408,6 +436,12 @@ export class IsometricRenderer {
         if (!this.lastState || this.lastState.id !== state.id) {
             this.buildingTypeMap.clear();
         }
+
+        this.previewState = null;
+        this.previewDir = null;
+        this.previewInvalid = false;
+        this.shakeOffsetX = 0;
+        this.isShaking = false;
 
         this.lastState = state;
         this.computeDimensions(state);
@@ -513,7 +547,7 @@ export class IsometricRenderer {
         this.ctx.clearRect(0, 0, this.viewW, this.viewH);
         this.ctx.drawImage(this.bgCanvas, 0, 0, this.viewW, this.viewH);
 
-        // 2. Sort restaurants by (x + y) ascending, ties broken by x
+        // 3. Sort restaurants by (x + y) ascending, ties broken by x
         const sortedRestaurants = Array.from(this.visualRestaurants.values()).sort((a, b) => {
             const sumA = a.x + a.y;
             const sumB = b.x + b.y;
@@ -521,15 +555,23 @@ export class IsometricRenderer {
             return a.x - b.x;
         });
 
-        // 3. Draw restaurants with occlusion transparency
+        // 4. Draw restaurants with occlusion transparency
         for (const vis of sortedRestaurants) {
             const occluding = this.isOccluding(vis, state);
             this.drawBuilding(vis, occluding);
         }
 
-        // 4. Draw top overlay layer (target dashed borders + floor badges)
+        // 5. Draw ghost buildings for preview drag (after real buildings, before overlay)
+        if (this.previewState && !this.previewInvalid) {
+            this.drawGhostBuildings(this.previewState, state);
+        }
+
+        // 6. Draw top overlay layer (target dashed borders + floor badges)
         this.drawTargetOverlays(state);
         this.drawFloorBadges(sortedRestaurants);
+
+        // 7. Draw edge navigation arrows on top, so tall buildings don't occlude them
+        this.drawEdgeArrows(state);
     }
 
     renderBackgroundToOffscreen(state) {
@@ -751,6 +793,7 @@ export class IsometricRenderer {
 
     drawBuilding(vis, occluding = false) {
         const p = this.getScreenCoords(vis.x, vis.y);
+        p.x += this.shakeOffsetX;
         const tileW = this.cellSize;
         const tileH = this.cellSize / 2;
         const bW = tileW * 0.7;
@@ -1265,6 +1308,7 @@ export class IsometricRenderer {
             const floorsCount = Math.max(1, Math.round(vis.floors));
             const H = floorsCount * floorH;
             const p = this.getScreenCoords(vis.x, vis.y);
+            p.x += this.shakeOffsetX;
 
             // Right corner of roof: x = p.x + bW/2, y = p.y - H
             let cornerX = p.x + bW / 2;
@@ -1302,5 +1346,302 @@ export class IsometricRenderer {
             ctx.fillText(String(floorsCount), badgeX, badgeY);
         }
         ctx.restore();
+    }
+
+    /**
+     * Compute positions, radii, and angles for the 4 edge navigation arrows.
+     * @param {Object} state - Current GameState
+     * @returns {Object|null}
+     */
+    getEdgeArrowPositions(state) {
+        if (!state) return null;
+
+        const W = state.width;
+        const H = state.height;
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+
+        const T = { x: this.originX, y: this.originY - tileH / 2 };
+        const R = { x: this.originX + W * (tileW / 2), y: this.originY + (W - 1) * (tileH / 2) };
+        const B = { x: this.originX + (W - H) * (tileW / 2), y: this.originY + (W + H - 1) * (tileH / 2) };
+        const L = { x: this.originX - H * (tileW / 2), y: this.originY + (H - 1) * (tileH / 2) };
+
+        const r = Math.max(18, this.cellSize * 0.28);
+        const offset = 22;
+        const invSqrt5 = 1 / Math.sqrt(5);
+
+        // Edge midpoints and outward unit normal vectors:
+        // UP: top-right edge (T -> R), normal points up-right
+        // RIGHT: bottom-right edge (R -> B), normal points down-right
+        // DOWN: bottom-left edge (B -> L), normal points down-left
+        // LEFT: top-left edge (L -> T), normal points up-left
+        const edges = {
+            UP: {
+                midX: (T.x + R.x) / 2,
+                midY: (T.y + R.y) / 2,
+                nx: invSqrt5,
+                ny: -2 * invSqrt5
+            },
+            RIGHT: {
+                midX: (R.x + B.x) / 2,
+                midY: (R.y + B.y) / 2,
+                nx: invSqrt5,
+                ny: 2 * invSqrt5
+            },
+            DOWN: {
+                midX: (B.x + L.x) / 2,
+                midY: (B.y + L.y) / 2,
+                nx: -invSqrt5,
+                ny: 2 * invSqrt5
+            },
+            LEFT: {
+                midX: (L.x + T.x) / 2,
+                midY: (L.y + T.y) / 2,
+                nx: -invSqrt5,
+                ny: -2 * invSqrt5
+            }
+        };
+
+        const arrows = {};
+        const padding = 4;
+        const maxR = r * 1.1;
+
+        for (const [dir, edge] of Object.entries(edges)) {
+            let ax = edge.midX + offset * edge.nx;
+            let ay = edge.midY + offset * edge.ny;
+
+            // Pull arrow inside if it exceeds the drawing area
+            ax = Math.max(maxR + padding, Math.min(this.viewW - maxR - padding, ax));
+            ay = Math.max(maxR + padding, Math.min(this.viewH - maxR - padding, ay));
+
+            arrows[dir] = {
+                dir,
+                x: ax,
+                y: ay,
+                r,
+                angle: Math.atan2(edge.ny, edge.nx)
+            };
+        }
+
+        return arrows;
+    }
+
+    /**
+     * Draw 4 edge navigation arrows positioned along the diorama base perimeter.
+     * @param {Object} state - Current GameState
+     */
+    drawEdgeArrows(state) {
+        const arrows = this.getEdgeArrowPositions(state);
+        if (!arrows) return;
+
+        for (const arrow of Object.values(arrows)) {
+            this.drawArrow(this.ctx, arrow);
+        }
+    }
+
+    /**
+     * Render a single edge arrow button with circular background and directional arrow.
+     * @param {CanvasRenderingContext2D} ctx - Context to draw onto
+     * @param {Object} arrow - Arrow properties {x, y, r, angle, dir}
+     */
+    drawArrow(ctx, arrow) {
+        const { x, y, r, angle, dir } = arrow;
+        const isHovered = this.hoverArrow === dir;
+        const isPreviewActive = this.previewDir === dir;
+        const isInvalid = this.previewInvalid && isPreviewActive;
+
+        // Hover or active preview: scale 10% larger
+        const scale = (isHovered || (isPreviewActive && !isInvalid)) ? 1.1 : 1.0;
+        const currentR = r * scale;
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        // 1. Circular background (white alpha 0.92, brighter on hover/active)
+        ctx.beginPath();
+        ctx.arc(0, 0, currentR, 0, Math.PI * 2);
+        ctx.fillStyle = (isHovered || isPreviewActive) ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.92)';
+        ctx.fill();
+
+        // 2. Circular border #2A211B 2px
+        ctx.strokeStyle = '#2A211B';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 3. Arrow (triangle head + stem) pointing outward along diagonal edge normal
+        ctx.rotate(angle);
+
+        let arrowColor = '#E8772E';
+        if (isInvalid) {
+            arrowColor = '#D9534F'; // Invalid direction: red
+        } else if (isHovered || isPreviewActive) {
+            arrowColor = adjustBrightness('#E8772E', 0.25); // Brighter orange
+        }
+
+        const stemHalfW = currentR * 0.16;
+        const stemLeft = -currentR * 0.44;
+        const headBase = currentR * 0.08;
+        const headWing = currentR * 0.42;
+        const headTip = currentR * 0.56;
+
+        ctx.fillStyle = arrowColor;
+        ctx.beginPath();
+        ctx.moveTo(stemLeft, -stemHalfW);
+        ctx.lineTo(headBase, -stemHalfW);
+        ctx.lineTo(headBase, -headWing);
+        ctx.lineTo(headTip, 0);
+        ctx.lineTo(headBase, headWing);
+        ctx.lineTo(headBase, stemHalfW);
+        ctx.lineTo(stemLeft, stemHalfW);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    /**
+     * Draw preview ghost buildings with transparent sprites and dashed footprint.
+     * @param {Object} previewState - Simulated state
+     * @param {Object} currentState - Real GameState
+     */
+    drawGhostBuildings(previewState, currentState) {
+        if (!previewState || !previewState.restaurants) return;
+
+        const ctx = this.ctx;
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const bW = tileW * 0.7;
+        const bH = tileH * 0.7;
+
+        // Sort preview restaurants by (x + y) ascending, ties broken by x
+        const sortedPreview = [...previewState.restaurants].sort((a, b) => {
+            const sumA = a.x + a.y;
+            const sumB = b.x + b.y;
+            if (Math.abs(sumA - sumB) > 0.0001) return sumA - sumB;
+            return a.x - b.x;
+        });
+
+        // 1. Footprint rhombus with dashed border (purple #C4B5FD if newly split, white otherwise)
+        ctx.save();
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 4]);
+
+        for (const rest of sortedPreview) {
+            const p = this.getScreenCoords(rest.x, rest.y);
+            const isSplitNew = currentState && currentState.restaurants
+                ? !currentState.restaurants.some(r => r.id === rest.id)
+                : false;
+
+            ctx.strokeStyle = isSplitNew ? '#C4B5FD' : '#FFFFFF';
+            this.drawRhombus(ctx, p.x, p.y, bW, bH);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // 2. Ghost building sprites with globalAlpha 0.4 composited via bldCanvas
+        for (const rest of sortedPreview) {
+            const p = this.getScreenCoords(rest.x, rest.y);
+            const totalFloors = Math.max(1, Math.round(rest.floors));
+            const type = this.getBuildingType(rest.id);
+            const sprite = this.getBuildingSprite(type, totalFloors);
+
+            this.bldCtx.clearRect(0, 0, this.viewW, this.viewH);
+            this.bldCtx.drawImage(sprite.canvas, p.x - sprite.anchorX, p.y - sprite.anchorY, sprite.w, sprite.h);
+
+            ctx.save();
+            ctx.globalAlpha = 0.4;
+            ctx.drawImage(this.bldCanvas, 0, 0, this.viewW, this.viewH);
+            ctx.restore();
+        }
+    }
+
+    /**
+     * Check if client coordinates lie within the touch region of any edge arrow.
+     * @param {number} clientX - Event clientX
+     * @param {number} clientY - Event clientY
+     * @returns {'UP'|'RIGHT'|'DOWN'|'LEFT'|null}
+     */
+    getEdgeArrowAt(clientX, clientY) {
+        if (!this.lastState) return null;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const cssX = clientX - rect.left;
+        const cssY = clientY - rect.top;
+
+        const arrows = this.getEdgeArrowPositions(this.lastState);
+        if (!arrows) return null;
+
+        for (const [dir, arrow] of Object.entries(arrows)) {
+            // Touch region is a circle with radius >= 28px CSS, larger than drawn arrow
+            const touchRadius = Math.max(28, arrow.r);
+            const dx = cssX - arrow.x;
+            const dy = cssY - arrow.y;
+            if (dx * dx + dy * dy <= touchRadius * touchRadius) {
+                return dir;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Set the currently hovered edge arrow and redraw frame.
+     * @param {'UP'|'RIGHT'|'DOWN'|'LEFT'|null} dirKey
+     */
+    setHoverArrow(dirKey) {
+        const normalized = normalizeDirKey(dirKey);
+        if (this.hoverArrow === normalized) return;
+        this.hoverArrow = normalized;
+        if (!this.isAnimating && !this.isShaking) {
+            this.drawFrame();
+        }
+    }
+
+    /**
+     * Set preview drag state and redraw frame.
+     * @param {Object|null} previewState - Simulated state after move
+     * @param {'UP'|'RIGHT'|'DOWN'|'LEFT'|null} dirKey - Direction key
+     * @param {boolean} invalid - Whether the move is invalid
+     */
+    setPreview(previewState = null, dirKey = null, invalid = false) {
+        this.previewState = previewState;
+        this.previewDir = normalizeDirKey(dirKey);
+        this.previewInvalid = Boolean(invalid);
+
+        if (this.previewInvalid) {
+            // Shake real buildings horizontally ±2px via sine wave for 250ms
+            this.shakeStartTime = performance.now();
+            if (!this.isShaking) {
+                this.isShaking = true;
+                requestAnimationFrame(this.shakeLoop.bind(this));
+            }
+        } else {
+            this.shakeOffsetX = 0;
+            this.isShaking = false;
+            if (!this.isAnimating) {
+                this.drawFrame();
+            }
+        }
+    }
+
+    /**
+     * Shake animation loop for invalid moves (±2px sine oscillation over 250ms).
+     * @param {number} time - Animation timestamp
+     */
+    shakeLoop(time) {
+        if (!this.isShaking) return;
+        const elapsed = time - this.shakeStartTime;
+        const DURATION = 250; // ms
+
+        if (elapsed < DURATION) {
+            const progress = elapsed / DURATION;
+            this.shakeOffsetX = Math.sin(progress * Math.PI * 6) * 2;
+            this.drawFrame();
+            requestAnimationFrame(this.shakeLoop.bind(this));
+        } else {
+            this.shakeOffsetX = 0;
+            this.isShaking = false;
+            this.drawFrame();
+        }
     }
 }

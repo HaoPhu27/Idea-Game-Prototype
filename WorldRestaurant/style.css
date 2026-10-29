@@ -715,4 +715,9 @@ button:active {
     transform: rotate(-45deg);
 }
 
+/* D-pad cũ đã được thay bằng mũi tên trên mép bàn cờ + kéo trên canvas */
+#virtual-dpad {
+    display: none !important;
+}
+
 

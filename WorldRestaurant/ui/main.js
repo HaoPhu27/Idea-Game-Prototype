@@ -155,7 +155,29 @@ class GameApp {
         const container = document.getElementById('game-container');
         
         this.renderer = new IsometricRenderer(canvas, container);
-        this.inputHandler = new InputHandler(this.handleMove.bind(this));
+
+        const hasRendererApi = (name) => this.renderer && typeof this.renderer[name] === 'function';
+
+        this.inputHandler = new InputHandler(canvas, {
+            onMove: (dir) => this.handleMove(dir),
+            onPreview: (dirKey) => {
+                if (!hasRendererApi('setPreview')) return;
+                if (!dirKey || !this.state || this.state.phase !== 'moving') {
+                    this.renderer.setPreview(null, null, false);
+                    return;
+                }
+                const res = GameRules.applyMove(this.state, DIRECTIONS[dirKey]);
+                this.renderer.setPreview(res ? res.newState : null, dirKey, !res);
+            },
+            getArrowAt: (clientX, clientY) => {
+                if (!hasRendererApi('getEdgeArrowAt')) return null;
+                return this.renderer.getEdgeArrowAt(clientX, clientY);
+            },
+            onHover: (dirKey) => {
+                if (!hasRendererApi('setHoverArrow')) return;
+                this.renderer.setHoverArrow(dirKey);
+            }
+        });
         
         // Run loading animation
         this.simulateLoading();
@@ -225,6 +247,9 @@ class GameApp {
     }
 
     handleMove(direction) {
+        if (this.renderer && typeof this.renderer.setPreview === 'function') {
+            this.renderer.setPreview(null, null, false);
+        }
         if (!this.state || this.state.phase !== 'moving') return;
         
         // Resume audio context on first interaction
@@ -335,7 +360,7 @@ class GameApp {
         this.levelNameEl.textContent = "Level " + parseInt(this.state.id || "1", 10);
         this.cloudLimitEl.textContent = this.state.cloudLimit;
         this.undoBtn.disabled = !this.history.canUndo();
-        this.undoBtn.textContent = `Undo (${this.history.maxUndo - this.history.undoCount})`;
+        this.undoBtn.textContent = `Undo (${this.history.undosLeft})`;
     }
 
     render() {
