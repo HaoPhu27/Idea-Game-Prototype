@@ -114,8 +114,50 @@ class GameApp {
         this.undoBtn.onclick = () => this.handleUndo();
         document.querySelector('#hud > div:nth-child(2)').appendChild(this.undoBtn);
 
+        // Add Decor Toggle Button to HUD dynamically
+        this.decorEnabled = this.loadDecorState();
+        this.decorBtn = document.createElement('button');
+        this.decorBtn.style.margin = '0';
+        this.decorBtn.style.padding = '6px 12px';
+        this.decorBtn.style.fontSize = '14px';
+        this.decorBtn.title = 'Bật/tắt cây cối, mây trang trí (giúp máy yếu chạy mượt hơn)';
+        this.updateDecorBtnUI();
+        this.decorBtn.onclick = (e) => {
+            this.decorEnabled = !this.decorEnabled;
+            this.saveDecorState(this.decorEnabled);
+            if (this.renderer && typeof this.renderer.setDecorEnabled === 'function') {
+                this.renderer.setDecorEnabled(this.decorEnabled);
+            }
+            this.updateDecorBtnUI();
+            if (e && e.currentTarget) e.currentTarget.blur();
+        };
+        document.querySelector('#hud > div:nth-child(2)').appendChild(this.decorBtn);
+
         this.currentLevelUrl = 'levels/level_001.json';
         this.init();
+    }
+
+    loadDecorState() {
+        try {
+            const saved = localStorage.getItem('wr_decor');
+            if (saved === '0') return false;
+            return true;
+        } catch (err) {
+            return true;
+        }
+    }
+
+    saveDecorState(enabled) {
+        try {
+            localStorage.setItem('wr_decor', enabled ? '1' : '0');
+        } catch (err) {
+            // localStorage unavailable — ignore, state stays in memory
+        }
+    }
+
+    updateDecorBtnUI() {
+        if (!this.decorBtn) return;
+        this.decorBtn.textContent = this.decorEnabled ? '🌳 Cảnh: Bật' : '🌳 Cảnh: Tắt';
     }
 
     openGuide() {
@@ -155,6 +197,10 @@ class GameApp {
         const container = document.getElementById('game-container');
         
         this.renderer = new IsometricRenderer(canvas, container);
+
+        if (typeof this.renderer.setDecorEnabled === 'function') {
+            this.renderer.setDecorEnabled(this.decorEnabled);
+        }
 
         const hasRendererApi = (name) => this.renderer && typeof this.renderer[name] === 'function';
 

@@ -2888,6 +2888,39 @@ class LevelLoader {
 // --- IsometricRenderer.js ---
 
 /**
+ * Mulberry32 32-bit seeded PRNG.
+ */
+function mulberry32(seed) {
+    let s = seed >>> 0;
+    return function() {
+        s = (s + 0x6D2B79F5) >>> 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+/**
+ * Generate a deterministic 32-bit seed from level dimensions and grid contents.
+ */
+function getLevelSeed(state) {
+    let hash = (state.width * 73856093) ^ (state.height * 19349663);
+    if (state.grid) {
+        for (let y = 0; y < state.height; y++) {
+            const row = state.grid[y];
+            if (!row) continue;
+            for (let x = 0; x < state.width; x++) {
+                const cell = row[x];
+                const code = typeof cell === 'string' ? cell.charCodeAt(0) : (Number(cell) || 0);
+                hash = Math.imul(hash ^ (code + 1), 16777619);
+                hash = (hash << 5) | (hash >>> 27);
+            }
+        }
+    }
+    return hash >>> 0;
+}
+
+/**
  * Adjust hex color brightness. Positive percent lightens towards white; negative darkens towards black.
  * Always returns a hex string '#rrggbb' with 2-digit channels.
  */
@@ -3205,6 +3238,26 @@ class IsometricRenderer {
         this.isShaking = false;
         this.shakeStartTime = 0;
 
+        // Scenery decoration settings
+        this.decorEnabled = true;
+        this.clouds = [
+            { x: 30, y: 35, scale: 0.9, speed: 10 },
+            { x: 180, y: 65, scale: 1.25, speed: 14 },
+            { x: 340, y: 48, scale: 0.85, speed: 9 }
+        ];
+        this.lastCloudFrameTime = 0;
+        this.cloudRafId = null;
+        this.isCloudLoopRunning = false;
+
+        this.onVisibilityChange = () => {
+            if (document.hidden) {
+                this.stopCloudLoop();
+            } else if (this.decorEnabled && this.lastState) {
+                this.startCloudLoop();
+            }
+        };
+        document.addEventListener('visibilitychange', this.onVisibilityChange);
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
@@ -3272,7 +3325,22 @@ class IsometricRenderer {
         // Vertical constraint: (W + H + maxFloors) * (cellSize / 4) + (baseThickness + badgeMargin + arrowMargin) <= availH
         const cellFromH = (4 * (availH - baseThickness - badgeMargin - arrowMargin)) / (W + H + maxFloors);
 
-        const newCellSize = Math.max(24, Math.min(Math.floor(cellFromW), Math.floor(cellFromH), 96));
+        const baseCellSize = Math.max(24, Math.min(Math.floor(cellFromW), Math.floor(cellFromH), 96));
+
+        let newCellSize = baseCellSize;
+        if (this.decorEnabled) {
+            // Expanded island adds 2 tiles margin on each side (total 4 tiles), cliff depth 26px
+            const islandExtraTiles = 4;
+            const islandExtraDepth = 26;
+            const decorCellFromW = (2 * availW) / (W + H + islandExtraTiles);
+            const decorCellFromH = (4 * (availH - (baseThickness + islandExtraDepth) - badgeMargin - arrowMargin)) / (W + H + islandExtraTiles + maxFloors);
+            const decorDesired = Math.max(24, Math.min(Math.floor(decorCellFromW), Math.floor(decorCellFromH), 96));
+
+            // Rule 7: prioritize large game grid, do not shrink grid by more than 12% compared to current
+            const minAllowed = Math.floor(baseCellSize * 0.88);
+            newCellSize = Math.max(minAllowed, Math.min(baseCellSize, decorDesired));
+        }
+
         if (this.lastCacheCellSize !== newCellSize) {
             this.spriteCache.clear();
             this.lastCacheCellSize = newCellSize;
@@ -3288,7 +3356,13 @@ class IsometricRenderer {
 
         // Vertically center the entire scene (towers + ground + diorama base + arrows)
         const topExtent = tileH / 2 + maxFloors * floorH + badgeMargin;
-        const bottomExtent = (W + H - 1) * (tileH / 2) + baseThickness + arrowMargin;
+        let bottomExtent = (W + H - 1) * (tileH / 2) + baseThickness + arrowMargin;
+        if (this.decorEnabled) {
+            // Incorporate island bottom depth to balance vertical centering
+            const islandBottomExtra = 2 * (tileH / 2) + 26;
+            bottomExtent += islandBottomExtra * 0.6;
+        }
+
         const targetCenterY = (topReserve + (this.viewH - bottomReserve)) / 2;
         this.originY = targetCenterY - (bottomExtent - topExtent) / 2;
     }
@@ -3384,6 +3458,11 @@ class IsometricRenderer {
             this.isAnimating = true;
             requestAnimationFrame(this.animationLoop.bind(this));
         }
+
+        // Start cloud animation loop if decor is enabled
+        if (this.decorEnabled && !this.isCloudLoopRunning && !document.hidden) {
+            this.startCloudLoop();
+        }
     }
 
     animationLoop(time) {
@@ -3421,8 +3500,8 @@ class IsometricRenderer {
         const state = this.lastState;
         if (!state) return;
 
-        // Check offscreen background cache key
-        const bgKey = `${this.viewW}_${this.viewH}_${this.dpr}_${this.cellSize}_${this.originX}_${this.originY}_${state.width}_${state.height}_` +
+        // Check offscreen background cache key (including decorEnabled)
+        const bgKey = `${this.viewW}_${this.viewH}_${this.dpr}_${this.cellSize}_${this.originX}_${this.originY}_${state.width}_${state.height}_${this.decorEnabled}_` +
             state.grid.map(row => row.join('')).join('|');
 
         if (this.lastBgKey !== bgKey) {
@@ -3433,6 +3512,11 @@ class IsometricRenderer {
         // 1. Draw cached board background
         this.ctx.clearRect(0, 0, this.viewW, this.viewH);
         this.ctx.drawImage(this.bgCanvas, 0, 0, this.viewW, this.viewH);
+
+        // 2. Drifting clouds (after background, before buildings)
+        if (this.decorEnabled) {
+            this.drawClouds();
+        }
 
         // 3. Sort restaurants by (x + y) ascending, ties broken by x
         const sortedRestaurants = Array.from(this.visualRestaurants.values()).sort((a, b) => {
@@ -3457,8 +3541,9 @@ class IsometricRenderer {
         this.drawTargetOverlays(state);
         this.drawFloorBadges(sortedRestaurants);
 
-        // 7. Draw edge navigation arrows on top, so tall buildings don't occlude them
-        this.drawEdgeArrows(state);
+        // NOTE: Edge arrows are no longer drawn. Tapping outside the board still
+        // navigates via getEdgeArrowAt(). Call this.drawEdgeArrows(state) to bring
+        // the visual arrows back.
     }
 
     renderBackgroundToOffscreen(state) {
@@ -3467,15 +3552,125 @@ class IsometricRenderer {
         this.bgCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
         this.bgCtx.clearRect(0, 0, this.viewW, this.viewH);
 
-        // 1. Diorama base block
-        this.drawDioramaBase(this.bgCtx, state);
+        if (!this.decorEnabled) {
+            // Revert to original plain background and diorama base
+            this.drawDioramaBase(this.bgCtx, state);
+            for (let y = 0; y < state.height; y++) {
+                for (let x = 0; x < state.width; x++) {
+                    this.drawTile(this.bgCtx, x, y, state.grid[y][x], state);
+                }
+            }
+            return;
+        }
 
-        // 2. Ground grid tiles
+        // 1. Soft vertical sky gradient
+        const skyGrad = this.bgCtx.createLinearGradient(0, 0, 0, this.viewH);
+        skyGrad.addColorStop(0, '#CFE8E4');
+        skyGrad.addColorStop(1, '#A9D3C4');
+        this.bgCtx.fillStyle = skyGrad;
+        this.bgCtx.fillRect(0, 0, this.viewW, this.viewH);
+
+        // 2. Expanded island and water ring
+        this.drawExpandedIsland(this.bgCtx, state);
+
+        // 3. Generate decorative objects along island margin
+        const { backDecorations, frontDecorations } = this.generateDecorations(state);
+
+        // 4. Draw back edge decorations (behind the board)
+        for (const decor of backDecorations) {
+            this.drawDecorationObject(this.bgCtx, decor);
+        }
+
+        // 5. Board pedestal (sidewalk + curb + soft shadow) sitting on top of the island
+        this.drawBoardPedestal(this.bgCtx, state);
+
+        // 6. Ground grid tiles
         for (let y = 0; y < state.height; y++) {
             for (let x = 0; x < state.width; x++) {
                 this.drawTile(this.bgCtx, x, y, state.grid[y][x], state);
             }
         }
+
+        // 7. Draw front edge decorations (in front of board base)
+        for (const decor of frontDecorations) {
+            this.drawDecorationObject(this.bgCtx, decor);
+        }
+    }
+
+    /**
+     * Draw board stone pedestal / sidewalk surrounding the game grid.
+     * Viền vỉa hè rộng 0.18 ô (#D8D2C4 mặt trên), mặt bên #B4AC9B dày 8px,
+     * đổ bóng mềm lên đảo (hình thoi đen alpha 0.18 lệch xuống 6px).
+     */
+    drawBoardPedestal(ctx, state) {
+        const W = state.width;
+        const H = state.height;
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const pad = 0.18; // 0.18 ô
+        const depth = 8; // dày 8px
+
+        const T = { x: this.originX, y: this.originY - tileH / 2 };
+        const R = { x: this.originX + W * (tileW / 2), y: this.originY + (W - 1) * (tileH / 2) };
+        const B = { x: this.originX + (W - H) * (tileW / 2), y: this.originY + (W + H - 1) * (tileH / 2) };
+        const L = { x: this.originX - H * (tileW / 2), y: this.originY + (H - 1) * (tileH / 2) };
+
+        // 4 corners of sidewalk top face
+        const padT = { x: T.x, y: T.y - pad * tileH };
+        const padR = { x: R.x + pad * tileW, y: R.y };
+        const padB = { x: B.x, y: B.y + pad * tileH };
+        const padL = { x: L.x - pad * tileW, y: L.y };
+
+        // 1. Soft shadow of plinth on island: hình thoi đen alpha 0.18 lệch xuống 6px
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        ctx.beginPath();
+        ctx.moveTo(padT.x, padT.y + 6);
+        ctx.lineTo(padR.x, padR.y + 6);
+        ctx.lineTo(padB.x, padB.y + depth + 6);
+        ctx.lineTo(padL.x, padL.y + depth + 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // 2. Left side face (padL -> padB) #B4AC9B, 8px high
+        ctx.beginPath();
+        ctx.moveTo(padL.x, padL.y);
+        ctx.lineTo(padB.x, padB.y);
+        ctx.lineTo(padB.x, padB.y + depth);
+        ctx.lineTo(padL.x, padL.y + depth);
+        ctx.closePath();
+        ctx.fillStyle = '#B4AC9B';
+        ctx.fill();
+        ctx.strokeStyle = '#9E9686';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // 3. Right side face (padB -> padR) #B4AC9B slightly shaded, 8px high
+        ctx.beginPath();
+        ctx.moveTo(padB.x, padB.y);
+        ctx.lineTo(padR.x, padR.y);
+        ctx.lineTo(padR.x, padR.y + depth);
+        ctx.lineTo(padB.x, padB.y + depth);
+        ctx.closePath();
+        ctx.fillStyle = adjustBrightness('#B4AC9B', -0.08);
+        ctx.fill();
+        ctx.strokeStyle = '#8E8779';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // 4. Sidewalk top face (padT -> padR -> padB -> padL) #D8D2C4
+        ctx.beginPath();
+        ctx.moveTo(padT.x, padT.y);
+        ctx.lineTo(padR.x, padR.y);
+        ctx.lineTo(padB.x, padB.y);
+        ctx.lineTo(padL.x, padL.y);
+        ctx.closePath();
+        ctx.fillStyle = '#D8D2C4';
+        ctx.fill();
+        ctx.strokeStyle = '#B4AC9B';
+        ctx.lineWidth = 1;
+        ctx.stroke();
     }
 
     drawDioramaBase(ctx, state) {
@@ -3585,6 +3780,11 @@ class IsometricRenderer {
             }
             ctx.restore();
 
+            // Subtle crosswalk markings bordering land tiles
+            if (this.decorEnabled) {
+                this.drawRoadCrosswalks(ctx, p, x, y, state, tileW, tileH);
+            }
+
         } else if (type === CELL_TYPES.TARGET) {
             ctx.fillStyle = '#F5B324';
             ctx.fill();
@@ -3614,6 +3814,52 @@ class IsometricRenderer {
             ctx.strokeStyle = '#6D9A40';
             ctx.lineWidth = 1;
             ctx.stroke();
+
+            // Subtle flat in-grid details (grass tufts or tiny flower dots)
+            if (this.decorEnabled) {
+                const tileSeed = (state.width * 10007 + state.height * 30011 + x * 65537 + y * 49157) ^ getLevelSeed(state);
+                const tileRng = mulberry32(tileSeed);
+                const roll = tileRng();
+
+                if (roll < 0.30) {
+                    if (roll < 0.18) {
+                        // 2-4 small grass tufts (V-shape darker green ~10%)
+                        const numTufts = 2 + Math.floor(tileRng() * 3);
+                        ctx.save();
+                        ctx.strokeStyle = '#658C3B';
+                        ctx.lineWidth = 1;
+                        for (let i = 0; i < numTufts; i++) {
+                            const u = (tileRng() - 0.5) * 0.45;
+                            const v = (tileRng() - 0.5) * 0.45;
+                            const tx = p.x + u * tileW;
+                            const ty = p.y + v * tileH;
+                            ctx.beginPath();
+                            ctx.moveTo(tx - 2, ty - 2);
+                            ctx.lineTo(tx, ty);
+                            ctx.lineTo(tx + 2, ty - 2);
+                            ctx.stroke();
+                        }
+                        ctx.restore();
+                    } else {
+                        // 1-3 tiny flower dots (radius 1.5px) - NO yellow #F5B324
+                        const numFlowers = 1 + Math.floor(tileRng() * 3);
+                        const flowerColors = ['#FFFFFF', '#F08080', '#CE93D8', '#98D8AA'];
+                        ctx.save();
+                        for (let i = 0; i < numFlowers; i++) {
+                            const u = (tileRng() - 0.5) * 0.45;
+                            const v = (tileRng() - 0.5) * 0.45;
+                            const tx = p.x + u * tileW;
+                            const ty = p.y + v * tileH;
+                            const col = flowerColors[Math.floor(tileRng() * flowerColors.length)];
+                            ctx.fillStyle = col;
+                            ctx.beginPath();
+                            ctx.arc(tx, ty, 1.5, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        ctx.restore();
+                    }
+                }
+            }
         }
     }
 
@@ -4443,7 +4689,12 @@ class IsometricRenderer {
     }
 
     /**
-     * Check if client coordinates lie within the touch region of any edge arrow.
+     * Resolve a tap/click outside the board into a navigation direction.
+     *
+     * The 4 edge arrows are no longer drawn; instead any touch in the empty area
+     * beyond a board edge navigates towards that direction. Touches inside the
+     * board return null so drag-to-pan keeps working.
+     *
      * @param {number} clientX - Event clientX
      * @param {number} clientY - Event clientY
      * @returns {'UP'|'RIGHT'|'DOWN'|'LEFT'|null}
@@ -4455,20 +4706,55 @@ class IsometricRenderer {
         const cssX = clientX - rect.left;
         const cssY = clientY - rect.top;
 
-        const arrows = this.getEdgeArrowPositions(this.lastState);
-        if (!arrows) return null;
+        // Ignore taps on the HUD strip at the top of the canvas
+        if (cssY < 60) return null;
 
-        for (const [dir, arrow] of Object.entries(arrows)) {
-            // Touch region is a circle with radius >= 28px CSS, larger than drawn arrow
-            const touchRadius = Math.max(28, arrow.r);
-            const dx = cssX - arrow.x;
-            const dy = cssY - arrow.y;
-            if (dx * dx + dy * dy <= touchRadius * touchRadius) {
-                return dir;
+        const W = this.lastState.width;
+        const H = this.lastState.height;
+
+        // Invert the isometric projection generically: build the local basis from
+        // getScreenCoords so this stays correct if the projection ever changes.
+        const o = this.getScreenCoords(0, 0);
+        const ex = { x: this.getScreenCoords(1, 0).x - o.x, y: this.getScreenCoords(1, 0).y - o.y };
+        const ey = { x: this.getScreenCoords(0, 1).x - o.x, y: this.getScreenCoords(0, 1).y - o.y };
+
+        const dx = cssX - o.x;
+        const dy = cssY - o.y;
+
+        const det = ex.x * ey.y - ex.y * ey.x;
+        if (Math.abs(det) < 1e-6) return null;
+
+        // Solve (dx, dy) = gx * ex + gy * ey
+        let gx = (dx * ey.y - dy * ey.x) / det;
+        let gy = (ex.x * dy - ex.y * dx) / det;
+
+        // getScreenCoords returns cell centers, so shift to edge-based coordinates
+        // where the board occupies 0 <= gx < W and 0 <= gy < H.
+        gx += 0.5;
+        gy += 0.5;
+
+        if (gx >= 0 && gx < W && gy >= 0 && gy < H) {
+            return null; // Inside the board: let drag-to-pan handle it
+        }
+
+        // Overshoot beyond each edge (positive values only)
+        const overshoot = {
+            UP: -gy,
+            DOWN: gy - H,
+            LEFT: -gx,
+            RIGHT: gx - W
+        };
+
+        let bestDir = null;
+        let bestAmount = 0;
+        for (const [dir, amount] of Object.entries(overshoot)) {
+            if (amount > bestAmount) {
+                bestAmount = amount;
+                bestDir = dir;
             }
         }
 
-        return null;
+        return bestDir;
     }
 
     /**
@@ -4529,6 +4815,1049 @@ class IsometricRenderer {
             this.shakeOffsetX = 0;
             this.isShaking = false;
             this.drawFrame();
+        }
+    }
+
+    /**
+     * Enable or disable diorama scenery decorations.
+     * @param {boolean} enabled
+     */
+    setDecorEnabled(enabled) {
+        const val = Boolean(enabled);
+        if (this.decorEnabled === val) return;
+        this.decorEnabled = val;
+        this.lastBgKey = null;
+        if (this.lastState) {
+            this.computeDimensions(this.lastState);
+            this.renderBackgroundToOffscreen(this.lastState);
+            this.drawFrame();
+        }
+        if (this.decorEnabled) {
+            this.startCloudLoop();
+        } else {
+            this.stopCloudLoop();
+        }
+    }
+
+    /**
+     * Start the cloud animation loop capped at ~30fps.
+     */
+    startCloudLoop() {
+        if (!this.decorEnabled || document.hidden || this.isCloudLoopRunning) return;
+        this.isCloudLoopRunning = true;
+        this.lastCloudFrameTime = performance.now();
+        this.cloudRafId = requestAnimationFrame(this.cloudLoop.bind(this));
+    }
+
+    /**
+     * Stop the cloud animation loop.
+     */
+    stopCloudLoop() {
+        this.isCloudLoopRunning = false;
+        if (this.cloudRafId) {
+            cancelAnimationFrame(this.cloudRafId);
+            this.cloudRafId = null;
+        }
+    }
+
+    /**
+     * Cloud animation frame loop capped at ~30fps.
+     */
+    cloudLoop(time) {
+        if (!this.decorEnabled || document.hidden || !this.lastState) {
+            this.isCloudLoopRunning = false;
+            this.cloudRafId = null;
+            return;
+        }
+
+        const delta = time - this.lastCloudFrameTime;
+        if (delta >= 32) { // ~30 fps cap
+            this.lastCloudFrameTime = time - (delta % 32);
+            const dt = Math.min(delta / 1000, 0.1);
+
+            for (const c of this.clouds) {
+                c.x += c.speed * dt;
+                if (c.x > this.viewW + 70) {
+                    c.x = -80;
+                }
+            }
+
+            // Only redraw if not already being drawn by active tween or shake
+            if (!this.isAnimating && !this.isShaking) {
+                this.drawFrame();
+            }
+        }
+
+        this.cloudRafId = requestAnimationFrame(this.cloudLoop.bind(this));
+    }
+
+    /**
+     * Draw clouds on main canvas.
+     */
+    drawClouds() {
+        if (!this.decorEnabled || !this.clouds) return;
+        for (const cloud of this.clouds) {
+            this.drawCloud(this.ctx, cloud.x, cloud.y, cloud.scale);
+        }
+    }
+
+    /**
+     * Render a single minimalist white cloud (alpha 0.5).
+     */
+    drawCloud(ctx, cx, cy, scale) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        const r1 = 12 * scale;
+        const r2 = 18 * scale;
+        const r3 = 13 * scale;
+        ctx.beginPath();
+        ctx.arc(cx - 14 * scale, cy, r1, 0, Math.PI * 2);
+        ctx.arc(cx + 2 * scale, cy - 4 * scale, r2, 0, Math.PI * 2);
+        ctx.arc(cx + 18 * scale, cy, r3, 0, Math.PI * 2);
+        ctx.arc(cx + 4 * scale, cy + 4 * scale, 12 * scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    /**
+     * Draw expanded diorama island larger by 2 tiles with water ring and textured grass.
+     */
+    drawExpandedIsland(ctx, state) {
+        const W = state.width;
+        const H = state.height;
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const baseDepth = 8; // matches 8px sidewalk plinth height
+        const islandDepth = 26;
+        const M = 2; // 2 tiles margin on each side
+
+        // 4 corners of the board base top
+        const T = { x: this.originX, y: this.originY - tileH / 2 };
+        const R = { x: this.originX + W * (tileW / 2), y: this.originY + (W - 1) * (tileH / 2) };
+        const B = { x: this.originX + (W - H) * (tileW / 2), y: this.originY + (W + H - 1) * (tileH / 2) };
+        const L = { x: this.originX - H * (tileW / 2), y: this.originY + (H - 1) * (tileH / 2) };
+
+        // 4 corners of the island top surface (at vertical offset baseDepth = 8px)
+        const islandT = { x: T.x, y: T.y + baseDepth - M * tileH };
+        const islandR = { x: R.x + M * tileW, y: R.y + baseDepth };
+        const islandB = { x: B.x, y: B.y + baseDepth + M * tileH };
+        const islandL = { x: L.x - M * tileW, y: L.y + baseDepth };
+
+        // Bottom corners of island cliff
+        const botT = { x: islandT.x, y: islandT.y + islandDepth };
+        const botR = { x: islandR.x, y: islandR.y + islandDepth };
+        const botB = { x: islandB.x, y: islandB.y + islandDepth };
+        const botL = { x: islandL.x, y: islandL.y + islandDepth };
+
+        // 1. Water ring (flat rhombus, larger than island by 0.6 tiles)
+        const wM = 0.6;
+        const waterW = wM * tileW;
+        const waterH = wM * tileH;
+        const waterT = { x: botT.x, y: Math.min(botT.y - waterH, islandT.y - 6) };
+        const waterR = { x: botR.x + waterW, y: botR.y };
+        const waterB = { x: botB.x, y: botB.y + waterH };
+        const waterL = { x: botL.x - waterW, y: botL.y };
+
+        ctx.beginPath();
+        ctx.moveTo(waterT.x, waterT.y);
+        ctx.lineTo(waterR.x, waterR.y);
+        ctx.lineTo(waterB.x, waterB.y);
+        ctx.lineTo(waterL.x, waterL.y);
+        ctx.closePath();
+        ctx.fillStyle = '#8CCFE0';
+        ctx.fill();
+        ctx.strokeStyle = '#71BCCF';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Subtle white wave outline 3px inside water rim
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(waterT.x, waterT.y + 3);
+        ctx.lineTo(waterR.x - 3, waterR.y);
+        ctx.lineTo(waterB.x, waterB.y - 3);
+        ctx.lineTo(waterL.x + 3, waterL.y);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+
+        // 2. Island left dirt face (L -> B)
+        ctx.beginPath();
+        ctx.moveTo(islandL.x, islandL.y);
+        ctx.lineTo(islandB.x, islandB.y);
+        ctx.lineTo(botB.x, botB.y);
+        ctx.lineTo(botL.x, botL.y);
+        ctx.closePath();
+        ctx.fillStyle = '#6B4A35';
+        ctx.fill();
+        ctx.strokeStyle = '#4A3325';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // 3. Island right dirt face (B -> R)
+        ctx.beginPath();
+        ctx.moveTo(islandB.x, islandB.y);
+        ctx.lineTo(islandR.x, islandR.y);
+        ctx.lineTo(botR.x, botR.y);
+        ctx.lineTo(botB.x, botB.y);
+        ctx.closePath();
+        ctx.fillStyle = '#553A29';
+        ctx.fill();
+        ctx.strokeStyle = '#3D281D';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // 4. Island top grass face: darker yellow-olive #6E9F45
+        ctx.beginPath();
+        ctx.moveTo(islandT.x, islandT.y);
+        ctx.lineTo(islandR.x, islandR.y);
+        ctx.lineTo(islandB.x, islandB.y);
+        ctx.lineTo(islandL.x, islandL.y);
+        ctx.closePath();
+        ctx.fillStyle = '#6E9F45';
+        ctx.fill();
+        ctx.strokeStyle = '#5E8C3A';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // 5. Chấm cỏ #5E8C3A across the island margin
+        this.drawIslandGrassDots(ctx, state);
+    }
+
+    /**
+     * Draw textured grass tufts and dots (#5E8C3A) across the island grass margin.
+     */
+    drawIslandGrassDots(ctx, state) {
+        const W = state.width;
+        const H = state.height;
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const baseDepth = 8;
+        const seed = (getLevelSeed(state) ^ 0x5E8C3A5E) >>> 0;
+        const rng = mulberry32(seed);
+
+        const toScreen = (gx, gy) => ({
+            x: (gx - gy) * (tileW / 2) + this.originX,
+            y: (gx + gy) * (tileH / 2) + this.originY + baseDepth
+        });
+
+        ctx.save();
+        ctx.strokeStyle = '#5E8C3A';
+        ctx.fillStyle = '#5E8C3A';
+        ctx.lineWidth = 1.2;
+
+        const points = [];
+        // Back-Left margin
+        for (let gy = -1.2; gy < H + 0.8; gy += 0.7) {
+            for (let gx = -1.8; gx < -0.3; gx += 0.6) {
+                points.push({ gx: gx + (rng() - 0.5) * 0.25, gy: gy + (rng() - 0.5) * 0.25 });
+            }
+        }
+        // Back-Right margin
+        for (let gx = -0.3; gx < W + 0.8; gx += 0.7) {
+            for (let gy = -1.8; gy < -0.3; gy += 0.6) {
+                points.push({ gx: gx + (rng() - 0.5) * 0.25, gy: gy + (rng() - 0.5) * 0.25 });
+            }
+        }
+        // Front-Right margin
+        for (let gy = -0.3; gy < H + 1.8; gy += 0.7) {
+            for (let gx = W + 0.3; gx < W + 1.8; gx += 0.6) {
+                points.push({ gx: gx + (rng() - 0.5) * 0.25, gy: gy + (rng() - 0.5) * 0.25 });
+            }
+        }
+        // Front-Left margin
+        for (let gx = -1.8; gx < W + 0.3; gx += 0.7) {
+            for (let gy = H + 0.3; gy < H + 1.8; gy += 0.6) {
+                points.push({ gx: gx + (rng() - 0.5) * 0.25, gy: gy + (rng() - 0.5) * 0.25 });
+            }
+        }
+
+        for (const pt of points) {
+            if (rng() < 0.55) {
+                const p = toScreen(pt.gx, pt.gy);
+                const roll = rng();
+                if (roll < 0.5) {
+                    // Small V-shape tuft
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - 2, p.y - 2);
+                    ctx.lineTo(p.x, p.y);
+                    ctx.lineTo(p.x + 2, p.y - 2);
+                    ctx.stroke();
+                } else {
+                    // 2 tiny dots
+                    ctx.beginPath();
+                    ctx.arc(p.x - 1.5, p.y, 1.2, 0, Math.PI * 2);
+                    ctx.arc(p.x + 1.5, p.y - 1, 1.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        ctx.restore();
+    }
+
+    /**
+     * Generate deterministic decorative objects along island margin.
+     * Features:
+     * - 3-5 tree clusters on the 2 back edges (2-4 trees overlapping, bushes/flowers at foot)
+     * - Front edges: low bushes, flower beds, benches, street lamps (~1 object per 0.8 tiles)
+     * - 1 focal pond at a back corner (rounded rhombus #8CCFE0 border #6FB6CB, 2 lily pads)
+     * - 1 food / ice cream cart with striped awning at a front corner
+     * - All items strictly outside sidewalk and sorted by (x + y)
+     */
+    generateDecorations(state) {
+        const seed = getLevelSeed(state);
+        const rng = mulberry32(seed);
+
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const baseDepth = 8;
+        const W = state.width;
+        const H = state.height;
+
+        const toScreen = (gx, gy) => ({
+            x: (gx - gy) * (tileW / 2) + this.originX,
+            y: (gx + gy) * (tileH / 2) + this.originY + baseDepth
+        });
+
+        const backDecorations = [];
+        const frontDecorations = [];
+
+        // 1. Accent 1: Small pond (ao nhỏ) in a back corner
+        const pondInBackLeft = rng() < 0.5;
+        const pondGx = pondInBackLeft ? -1.15 : (W - 0.6);
+        const pondGy = pondInBackLeft ? (H - 0.6) : -1.15;
+        const pondPos = toScreen(pondGx, pondGy);
+        backDecorations.push({
+            type: 'pond',
+            x: pondPos.x,
+            y: pondPos.y,
+            depthKey: pondGx + pondGy,
+            scale: 1.0
+        });
+
+        // 2. Accent 2: Food cart / ice cream cart (xe bán hàng/quầy kem có mái sọc) in a front corner
+        const cartInFrontRight = pondInBackLeft; // balance opposite corner
+        const cartGx = cartInFrontRight ? (W + 0.65) : 0.2;
+        const cartGy = cartInFrontRight ? 0.2 : (H + 0.65);
+        const cartPos = toScreen(cartGx, cartGy);
+        frontDecorations.push({
+            type: 'foodCart',
+            x: cartPos.x,
+            y: cartPos.y,
+            depthKey: cartGx + cartGy,
+            scale: 1.0
+        });
+
+        // 3. Tree clusters along the 2 back edges (3-5 clusters in total)
+        const totalClusters = Math.min(5, Math.max(3, Math.round(2 + (W + H) * 0.35)));
+        const numBackLeftClusters = Math.max(1, Math.floor(totalClusters / 2));
+        const numBackRightClusters = totalClusters - numBackLeftClusters;
+
+        // Back-Left clusters (along edge gx ~ -1.2, gy from 0 to H)
+        for (let c = 0; c < numBackLeftClusters; c++) {
+            const frac = (c + 0.5) / numBackLeftClusters;
+            const cgx = -1.25 + (rng() - 0.5) * 0.2;
+            const cgy = (frac * H) - 0.2 + (rng() - 0.5) * 0.3;
+
+            // Skip if overlapping pond
+            if (Math.hypot(cgx - pondGx, cgy - pondGy) < 0.9) continue;
+
+            const treeCount = 2 + Math.floor(rng() * 3); // 2-4 trees
+            for (let t = 0; t < treeCount; t++) {
+                const tgx = cgx + (rng() - 0.5) * 0.4;
+                const tgy = cgy + (rng() - 0.5) * 0.4;
+                const p = toScreen(tgx, tgy);
+                const treeType = rng() < 0.55 ? 'roundTree' : 'pineTree';
+                backDecorations.push({
+                    type: treeType,
+                    x: p.x,
+                    y: p.y,
+                    depthKey: tgx + tgy,
+                    scale: 0.95 + rng() * 0.2
+                });
+            }
+
+            // Undergrowth (bushes and flowers at the foot of the cluster)
+            const underCount = 1 + Math.floor(rng() * 2);
+            for (let u = 0; u < underCount; u++) {
+                const ugx = cgx + (rng() - 0.5) * 0.35 + 0.08;
+                const ugy = cgy + (rng() - 0.5) * 0.35 + 0.08;
+                const p = toScreen(ugx, ugy);
+                const uType = rng() < 0.55 ? 'bush' : 'flower';
+                backDecorations.push({
+                    type: uType,
+                    x: p.x,
+                    y: p.y,
+                    depthKey: ugx + ugy + 0.05, // slightly in front of trees
+                    scale: 0.85 + rng() * 0.2
+                });
+            }
+        }
+
+        // Back-Right clusters (along edge gy ~ -1.2, gx from 0 to W)
+        for (let c = 0; c < numBackRightClusters; c++) {
+            const frac = (c + 0.5) / numBackRightClusters;
+            const cgx = (frac * W) - 0.2 + (rng() - 0.5) * 0.3;
+            const cgy = -1.25 + (rng() - 0.5) * 0.2;
+
+            if (Math.hypot(cgx - pondGx, cgy - pondGy) < 0.9) continue;
+
+            const treeCount = 2 + Math.floor(rng() * 3); // 2-4 trees
+            for (let t = 0; t < treeCount; t++) {
+                const tgx = cgx + (rng() - 0.5) * 0.4;
+                const tgy = cgy + (rng() - 0.5) * 0.4;
+                const p = toScreen(tgx, tgy);
+                const treeType = rng() < 0.55 ? 'roundTree' : 'pineTree';
+                backDecorations.push({
+                    type: treeType,
+                    x: p.x,
+                    y: p.y,
+                    depthKey: tgx + tgy,
+                    scale: 0.95 + rng() * 0.2
+                });
+            }
+
+            // Undergrowth at foot of cluster
+            const underCount = 1 + Math.floor(rng() * 2);
+            for (let u = 0; u < underCount; u++) {
+                const ugx = cgx + (rng() - 0.5) * 0.35 + 0.08;
+                const ugy = cgy + (rng() - 0.5) * 0.35 + 0.08;
+                const p = toScreen(ugx, ugy);
+                const uType = rng() < 0.55 ? 'bush' : 'flower';
+                backDecorations.push({
+                    type: uType,
+                    x: p.x,
+                    y: p.y,
+                    depthKey: ugx + ugy + 0.05,
+                    scale: 0.85 + rng() * 0.2
+                });
+            }
+        }
+
+        // 4. Two Front edges: low bushes, flower beds, benches, street lamps (~1 item per 0.8 tiles)
+        const frontCycle = ['bush', 'flower', 'bench', 'streetLamp', 'bush', 'flower'];
+        let cycleIdx = Math.floor(rng() * frontCycle.length);
+
+        // Front-Right edge (gx outside board: gx ~ W + 0.55, gy from 0.1 to H + 0.4, step 0.8)
+        for (let gy = 0.1; gy < H + 0.4; gy += 0.8) {
+            const fgx = W + 0.55 + (rng() - 0.5) * 0.15;
+            const fgy = gy + (rng() - 0.5) * 0.15;
+
+            // Leave clearance for food cart
+            if (Math.hypot(fgx - cartGx, fgy - cartGy) < 0.75) continue;
+
+            const itemType = frontCycle[cycleIdx % frontCycle.length];
+            cycleIdx++;
+            const p = toScreen(fgx, fgy);
+            frontDecorations.push({
+                type: itemType,
+                x: p.x,
+                y: p.y,
+                depthKey: fgx + fgy,
+                scale: 0.9 + rng() * 0.2
+            });
+        }
+
+        // Front-Left edge (gy outside board: gy ~ H + 0.55, gx from 0.1 to W + 0.4, step 0.8)
+        for (let gx = 0.1; gx < W + 0.4; gx += 0.8) {
+            const fgx = gx + (rng() - 0.5) * 0.15;
+            const fgy = H + 0.55 + (rng() - 0.5) * 0.15;
+
+            // Leave clearance for food cart
+            if (Math.hypot(fgx - cartGx, fgy - cartGy) < 0.75) continue;
+
+            const itemType = frontCycle[cycleIdx % frontCycle.length];
+            cycleIdx++;
+            const p = toScreen(fgx, fgy);
+            frontDecorations.push({
+                type: itemType,
+                x: p.x,
+                y: p.y,
+                depthKey: fgx + fgy,
+                scale: 0.9 + rng() * 0.2
+            });
+        }
+
+        // Sort both by depthKey (x + y) ascending for proper isometric painter's algorithm
+        backDecorations.sort((a, b) => a.depthKey - b.depthKey);
+        frontDecorations.sort((a, b) => a.depthKey - b.depthKey);
+
+        return { backDecorations, frontDecorations };
+    }
+
+    /**
+     * Dispatch drawing for a single decorative object.
+     */
+    drawDecorationObject(ctx, decor) {
+        const { type, x, y, scale = 1.0, dir = 'x' } = decor;
+        switch (type) {
+            case 'roundTree':
+                this.drawRoundTree(ctx, x, y, scale);
+                break;
+            case 'pineTree':
+                this.drawPineTree(ctx, x, y, scale);
+                break;
+            case 'bush':
+                this.drawBush(ctx, x, y, scale);
+                break;
+            case 'flower':
+                this.drawFlowerCluster(ctx, x, y, scale);
+                break;
+            case 'streetLamp':
+                this.drawStreetLamp(ctx, x, y, scale);
+                break;
+            case 'bench':
+                this.drawWoodenBench(ctx, x, y, scale);
+                break;
+            case 'fence':
+                this.drawFence(ctx, x, y, scale, dir);
+                break;
+            case 'foodCart':
+                this.drawFoodCart(ctx, x, y, scale);
+                break;
+            case 'pond':
+                this.drawPond(ctx, x, y, scale);
+                break;
+            case 'rocks':
+                this.drawRocks(ctx, x, y, scale);
+                break;
+        }
+    }
+
+    /**
+     * Draw round tree: chiều cao tổng ~1.1 tileH, tán rộng ~0.55 tileW.
+     */
+    drawRoundTree(ctx, x, y, scale = 1.0) {
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const canopyR = Math.round(0.275 * tileW * scale); // canopy width = 0.55 tileW
+        const trunkH = Math.round(tileH * 0.22 * scale);
+        const trunkW = Math.max(3, Math.round(tileW * 0.08 * scale));
+        const cy = y - trunkH - canopyR * 0.6; // total height to top = trunkH + 1.6*canopyR ≈ 1.1 tileH
+
+        ctx.save();
+        // Ground shadow
+        ctx.beginPath();
+        ctx.ellipse(x, y, canopyR * 0.85, canopyR * 0.4, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        ctx.fill();
+
+        // Brown trunk
+        ctx.fillStyle = '#6B4A35';
+        ctx.strokeStyle = '#2A211B';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.rect(x - trunkW / 2, y - trunkH, trunkW, trunkH);
+        ctx.fill();
+        ctx.stroke();
+
+        // Dark half (left)
+        ctx.beginPath();
+        ctx.arc(x, cy, canopyR, Math.PI * 0.5, Math.PI * 1.5);
+        ctx.closePath();
+        ctx.fillStyle = '#3E8E4A';
+        ctx.fill();
+
+        // Light half (right)
+        ctx.beginPath();
+        ctx.arc(x, cy, canopyR, -Math.PI * 0.5, Math.PI * 0.5);
+        ctx.closePath();
+        ctx.fillStyle = '#5DAE5B';
+        ctx.fill();
+
+        // Outer outline
+        ctx.beginPath();
+        ctx.arc(x, cy, canopyR, 0, Math.PI * 2);
+        ctx.strokeStyle = '#2A211B';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Subtle highlight arc on top-right
+        ctx.beginPath();
+        ctx.arc(x, cy, canopyR * 0.75, -Math.PI * 0.35, -Math.PI * 0.05);
+        ctx.strokeStyle = '#74C268';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    /**
+     * Draw pine tree: chiều cao tổng ~1.3 tileH, base width ~0.52 tileW.
+     */
+    drawPineTree(ctx, x, y, scale = 1.0) {
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const targetH = 1.3 * tileH * scale;
+        const trunkH = Math.round(targetH * 0.16);
+        const trunkW = Math.max(3, Math.round(tileW * 0.08 * scale));
+        const baseW = Math.round(0.52 * tileW * scale);
+        const tierH = Math.round(targetH * 0.35);
+
+        ctx.save();
+        // Ground shadow
+        ctx.beginPath();
+        ctx.ellipse(x, y, baseW * 0.48, baseW * 0.22, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        ctx.fill();
+
+        // Brown trunk
+        ctx.fillStyle = '#6B4A35';
+        ctx.strokeStyle = '#2A211B';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.rect(x - trunkW / 2, y - trunkH, trunkW, trunkH);
+        ctx.fill();
+        ctx.stroke();
+
+        const tiers = [
+            { y: y - trunkH, w: baseW, h: tierH * 1.1, c: '#265C2F' },
+            { y: y - trunkH - tierH * 0.65, w: baseW * 0.78, h: tierH, c: '#35773F' },
+            { y: y - trunkH - tierH * 1.3, w: baseW * 0.55, h: tierH * 0.95, c: '#489452' }
+        ];
+
+        for (const t of tiers) {
+            ctx.beginPath();
+            ctx.moveTo(x - t.w / 2, t.y);
+            ctx.lineTo(x, t.y - t.h);
+            ctx.lineTo(x + t.w / 2, t.y);
+            ctx.closePath();
+            ctx.fillStyle = t.c;
+            ctx.fill();
+            ctx.strokeStyle = '#2A211B';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    /**
+     * Draw low green bush: rộng ~0.35 tileW.
+     */
+    drawBush(ctx, x, y, scale = 1.0) {
+        const tileW = this.cellSize;
+        const bushW = 0.35 * tileW * scale;
+        const r = bushW / 2.8;
+
+        ctx.save();
+        // Ground shadow
+        ctx.beginPath();
+        ctx.ellipse(x, y, bushW * 0.45, bushW * 0.2, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.fill();
+
+        const circles = [
+            { ox: -r * 0.75, oy: -r * 0.4, r: r * 0.85, c: '#3E8E4A' },
+            { ox: r * 0.75, oy: -r * 0.4, r: r * 0.80, c: '#489E50' },
+            { ox: 0, oy: -r * 0.75, r: r * 1.0, c: '#5DAE5B' }
+        ];
+        for (const c of circles) {
+            ctx.beginPath();
+            ctx.arc(x + c.ox, y + c.oy, c.r, 0, Math.PI * 2);
+            ctx.fillStyle = c.c;
+            ctx.fill();
+            ctx.strokeStyle = '#2A211B';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    /**
+     * Draw flower cluster patch / bồn hoa with colorful dots (NO #F5B324).
+     */
+    drawFlowerCluster(ctx, x, y, scale = 1.0) {
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const rw = 0.22 * tileW * scale;
+        const rh = 0.14 * tileH * scale;
+
+        ctx.save();
+        // Foliage base
+        ctx.beginPath();
+        ctx.ellipse(x, y - rh / 2, rw, rh, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#4E9B48';
+        ctx.fill();
+        ctx.strokeStyle = '#3E8E4A';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        const dots = [
+            { ox: -rw * 0.5, oy: -rh * 0.6, c: '#FFFFFF' },
+            { ox: rw * 0.4, oy: -rh * 0.7, c: '#F06565' },
+            { ox: 0, oy: -rh * 0.4, c: '#BA68C8' },
+            { ox: -rw * 0.35, oy: -rh * 0.2, c: '#FF8DA1' },
+            { ox: rw * 0.5, oy: -rh * 0.3, c: '#FFFFFF' }
+        ];
+        for (const d of dots) {
+            ctx.beginPath();
+            ctx.arc(x + d.ox, y + d.oy, 1.5 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = d.c;
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    /**
+     * Draw slender street lamp: chiều cao ~1.0 tileH, soft yellow bulb (#FFEAA7).
+     */
+    drawStreetLamp(ctx, x, y, scale = 1.0) {
+        const tileH = this.cellSize / 2;
+        const lampH = 1.0 * tileH * scale;
+
+        ctx.save();
+        // Ground shadow
+        ctx.beginPath();
+        ctx.ellipse(x, y, 4 * scale, 2 * scale, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fill();
+
+        // Dark slender post & gooseneck arm
+        ctx.strokeStyle = '#374151';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y - lampH);
+        ctx.lineTo(x + 5 * scale, y - lampH);
+        ctx.stroke();
+
+        // Lamp hood cap
+        ctx.fillStyle = '#1F2937';
+        ctx.beginPath();
+        ctx.arc(x + 5 * scale, y - lampH + 1, 3.5 * scale, Math.PI, 0);
+        ctx.fill();
+
+        // Soft yellow bulb
+        ctx.fillStyle = '#FFEAA7';
+        ctx.strokeStyle = '#2A211B';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(x + 5 * scale, y - lampH + 3.5 * scale, 2.5 * scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Soft glow halo
+        ctx.fillStyle = 'rgba(255, 234, 167, 0.25)';
+        ctx.beginPath();
+        ctx.arc(x + 5 * scale, y - lampH + 3.5 * scale, 6 * scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    /**
+     * Draw low wooden park bench.
+     */
+    drawWoodenBench(ctx, x, y, scale = 1.0) {
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const bw = 0.32 * tileW * scale;
+        const bh = 0.22 * tileH * scale;
+
+        ctx.save();
+        // Ground shadow
+        ctx.beginPath();
+        ctx.ellipse(x, y, bw * 0.48, bw * 0.2, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.fill();
+
+        // Legs
+        ctx.strokeStyle = '#4A3325';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x - bw * 0.4, y);
+        ctx.lineTo(x - bw * 0.4, y - bh * 0.6);
+        ctx.moveTo(x + bw * 0.4, y);
+        ctx.lineTo(x + bw * 0.4, y - bh * 0.6);
+        ctx.stroke();
+
+        // Seat
+        ctx.fillStyle = '#A06A42';
+        ctx.strokeStyle = '#2A211B';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.rect(x - bw / 2, y - bh * 0.75, bw, bh * 0.32);
+        ctx.fill();
+        ctx.stroke();
+
+        // Backrest
+        ctx.fillStyle = '#B57B4F';
+        ctx.beginPath();
+        ctx.rect(x - bw / 2, y - bh * 1.35, bw, bh * 0.35);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    /**
+     * Draw small pond: hình thoi bo tròn #8CCFE0 viền #6FB6CB, có 2 lá sen.
+     */
+    drawPond(ctx, x, y, scale = 1.0) {
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const pw = 0.82 * tileW * scale;
+        const ph = 0.52 * tileH * scale;
+
+        ctx.save();
+        // Pond water body (rounded isometric rhombus)
+        ctx.beginPath();
+        ctx.ellipse(x, y, pw / 2, ph / 2, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#8CCFE0';
+        ctx.fill();
+        ctx.strokeStyle = '#6FB6CB';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Water specular shine arc
+        ctx.beginPath();
+        ctx.ellipse(x, y - 2, pw * 0.32, ph * 0.32, 0, Math.PI * 0.8, Math.PI * 1.8);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Lily pad 1 (lá sen 1) with tiny pink blossom
+        const p1x = x - pw * 0.22;
+        const p1y = y - ph * 0.12;
+        ctx.beginPath();
+        ctx.ellipse(p1x, p1y, 4.5 * scale, 2.5 * scale, -0.3, 0, Math.PI * 2);
+        ctx.fillStyle = '#2E7D32';
+        ctx.fill();
+        ctx.strokeStyle = '#1B5E20';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(p1x + 1, p1y - 1, 1.2 * scale, 0, Math.PI * 2);
+        ctx.fillStyle = '#FF8DA1';
+        ctx.fill();
+
+        // Lily pad 2 (lá sen 2)
+        const p2x = x + pw * 0.20;
+        const p2y = y + ph * 0.14;
+        ctx.beginPath();
+        ctx.ellipse(p2x, p2y, 3.8 * scale, 2.2 * scale, 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = '#388E3C';
+        ctx.fill();
+        ctx.strokeStyle = '#1B5E20';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    /**
+     * Draw section of low wooden fence.
+     */
+    drawFence(ctx, x, y, scale = 1.0, dir = 'x') {
+        const len = 13 * scale;
+        const postH = 8 * scale;
+        const dx = dir === 'x' ? len * 0.89 : -len * 0.89;
+        const dy = len * 0.44;
+
+        ctx.save();
+        ctx.strokeStyle = '#A9713C';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y - postH * 0.35);
+        ctx.lineTo(x + dx, y + dy - postH * 0.35);
+        ctx.moveTo(x, y - postH * 0.75);
+        ctx.lineTo(x + dx, y + dy - postH * 0.75);
+        ctx.stroke();
+
+        const posts = [
+            { px: x, py: y },
+            { px: x + dx, py: y + dy }
+        ];
+        for (const p of posts) {
+            ctx.fillStyle = '#8B5A2B';
+            ctx.strokeStyle = '#2A211B';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.rect(p.px - 1.5, p.py - postH, 3, postH);
+            ctx.fill();
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    /**
+     * Draw food cart / ice cream cart with striped roof at front corner (NO #F5B324).
+     */
+    drawFoodCart(ctx, x, y, scale = 1.0) {
+        const tileW = this.cellSize;
+        const tileH = this.cellSize / 2;
+        const w = 0.42 * tileW * scale;
+        const bodyH = 0.28 * tileH * scale;
+        const totalH = 0.80 * tileH * scale;
+
+        ctx.save();
+        // Ground shadow
+        ctx.beginPath();
+        ctx.ellipse(x, y, w * 0.55, w * 0.25, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fill();
+
+        // 2 dark wooden wheels
+        ctx.fillStyle = '#4A3325';
+        ctx.beginPath();
+        ctx.arc(x - w * 0.28, y - 2, 3.5 * scale, 0, Math.PI * 2);
+        ctx.arc(x + w * 0.28, y - 2, 3.5 * scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cart counter body
+        ctx.fillStyle = '#F4ECE1';
+        ctx.strokeStyle = '#7A482F';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.rect(x - w / 2, y - 4 - bodyH, w, bodyH);
+        ctx.fill();
+        ctx.stroke();
+
+        // Counter glass window
+        ctx.fillStyle = '#9FD3E6';
+        ctx.fillRect(x - w * 0.38, y - 3 - bodyH * 0.75, w * 0.76, bodyH * 0.5);
+        ctx.strokeStyle = '#7A482F';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - w * 0.38, y - 3 - bodyH * 0.75, w * 0.76, bodyH * 0.5);
+
+        // Canopy support posts
+        ctx.strokeStyle = '#4A3325';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x - w * 0.42, y - 4 - bodyH);
+        ctx.lineTo(x - w * 0.42, y - totalH);
+        ctx.moveTo(x + w * 0.42, y - 4 - bodyH);
+        ctx.lineTo(x + w * 0.42, y - totalH);
+        ctx.stroke();
+
+        // Striped awning (mái sọc coral red & white)
+        const cw = w * 1.15;
+        const ch = 0.22 * tileH * scale;
+        const stripes = 5;
+        for (let s = 0; s < stripes; s++) {
+            const sx = (x - cw / 2) + (s * cw) / stripes;
+            ctx.fillStyle = s % 2 === 0 ? '#D9534F' : '#FFFFFF';
+            ctx.fillRect(sx, y - totalH - ch, cw / stripes, ch);
+        }
+        ctx.strokeStyle = '#2A211B';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - cw / 2, y - totalH - ch, cw, ch);
+
+        // Tiny ice cream cone sign on side
+        const coneX = x + w * 0.32;
+        const coneY = y - 4 - bodyH * 0.5;
+        ctx.fillStyle = '#D4A373';
+        ctx.beginPath();
+        ctx.moveTo(coneX - 2.5 * scale, coneY);
+        ctx.lineTo(coneX + 2.5 * scale, coneY);
+        ctx.lineTo(coneX, coneY + 4 * scale);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#FF8DA1';
+        ctx.beginPath();
+        ctx.arc(coneX, coneY - 1 * scale, 2.5 * scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    /**
+     * Draw small rocks.
+     */
+    drawRocks(ctx, x, y, scale = 1.0) {
+        ctx.save();
+        const stones = [
+            { ox: -3 * scale, oy: -2 * scale, rx: 3.5 * scale, ry: 2.2 * scale, c: '#8D99AE' },
+            { ox: 2 * scale, oy: -1 * scale, rx: 2.5 * scale, ry: 1.8 * scale, c: '#6C757D' }
+        ];
+        for (const st of stones) {
+            ctx.beginPath();
+            ctx.ellipse(x + st.ox, y + st.oy, st.rx, st.ry, 0, 0, Math.PI * 2);
+            ctx.fillStyle = st.c;
+            ctx.fill();
+            ctx.strokeStyle = '#2A211B';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    /**
+     * Draw subtle crosswalk dashed markings on road borders adjacent to land tiles.
+     */
+    drawRoadCrosswalks(ctx, p, x, y, state, tileW, tileH) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 1.2;
+
+        const isLand = (gx, gy) => {
+            if (gx < 0 || gx >= state.width || gy < 0 || gy >= state.height) return false;
+            return state.grid[gy][gx] === CELL_TYPES.LAND;
+        };
+
+        // Edge UP-RIGHT (y - 1)
+        if (isLand(x, y - 1)) {
+            for (let i = 1; i <= 3; i++) {
+                const t = i / 4;
+                const ex = p.x + (t * tileW) / 2;
+                const ey = (p.y - tileH / 2) + (t * tileH) / 2;
+                ctx.beginPath();
+                ctx.moveTo(ex - 2, ey + 1);
+                ctx.lineTo(ex + 2, ey - 1);
+                ctx.stroke();
+            }
+        }
+        // Edge DOWN-LEFT (y + 1)
+        if (isLand(x, y + 1)) {
+            for (let i = 1; i <= 3; i++) {
+                const t = i / 4;
+                const ex = (p.x - tileW / 2) + (t * tileW) / 2;
+                const ey = p.y + (t * tileH) / 2;
+                ctx.beginPath();
+                ctx.moveTo(ex - 2, ey + 1);
+                ctx.lineTo(ex + 2, ey - 1);
+                ctx.stroke();
+            }
+        }
+        // Edge UP-LEFT (x - 1)
+        if (isLand(x - 1, y)) {
+            for (let i = 1; i <= 3; i++) {
+                const t = i / 4;
+                const ex = (p.x - tileW / 2) + (t * tileW) / 2;
+                const ey = p.y - (t * tileH) / 2;
+                ctx.beginPath();
+                ctx.moveTo(ex - 2, ey - 1);
+                ctx.lineTo(ex + 2, ey + 1);
+                ctx.stroke();
+            }
+        }
+        // Edge DOWN-RIGHT (x + 1)
+        if (isLand(x + 1, y)) {
+            for (let i = 1; i <= 3; i++) {
+                const t = i / 4;
+                const ex = p.x + (t * tileW) / 2;
+                const ey = (p.y + tileH / 2) - (t * tileH) / 2;
+                ctx.beginPath();
+                ctx.moveTo(ex - 2, ey - 1);
+                ctx.lineTo(ex + 2, ey + 1);
+                ctx.stroke();
+            }
+        }
+
+        ctx.restore();
+    }
+
+    /**
+     * Clean up timers and listeners when renderer is destroyed.
+     */
+    destroy() {
+        this.stopCloudLoop();
+        if (this.onVisibilityChange) {
+            document.removeEventListener('visibilitychange', this.onVisibilityChange);
         }
     }
 }
@@ -4895,8 +6224,50 @@ class GameApp {
         this.undoBtn.onclick = () => this.handleUndo();
         document.querySelector('#hud > div:nth-child(2)').appendChild(this.undoBtn);
 
+        // Add Decor Toggle Button to HUD dynamically
+        this.decorEnabled = this.loadDecorState();
+        this.decorBtn = document.createElement('button');
+        this.decorBtn.style.margin = '0';
+        this.decorBtn.style.padding = '6px 12px';
+        this.decorBtn.style.fontSize = '14px';
+        this.decorBtn.title = 'Bật/tắt cây cối, mây trang trí (giúp máy yếu chạy mượt hơn)';
+        this.updateDecorBtnUI();
+        this.decorBtn.onclick = (e) => {
+            this.decorEnabled = !this.decorEnabled;
+            this.saveDecorState(this.decorEnabled);
+            if (this.renderer && typeof this.renderer.setDecorEnabled === 'function') {
+                this.renderer.setDecorEnabled(this.decorEnabled);
+            }
+            this.updateDecorBtnUI();
+            if (e && e.currentTarget) e.currentTarget.blur();
+        };
+        document.querySelector('#hud > div:nth-child(2)').appendChild(this.decorBtn);
+
         this.currentLevelUrl = 'levels/level_001.json';
         this.init();
+    }
+
+    loadDecorState() {
+        try {
+            const saved = localStorage.getItem('wr_decor');
+            if (saved === '0') return false;
+            return true;
+        } catch (err) {
+            return true;
+        }
+    }
+
+    saveDecorState(enabled) {
+        try {
+            localStorage.setItem('wr_decor', enabled ? '1' : '0');
+        } catch (err) {
+            // localStorage unavailable — ignore, state stays in memory
+        }
+    }
+
+    updateDecorBtnUI() {
+        if (!this.decorBtn) return;
+        this.decorBtn.textContent = this.decorEnabled ? '🌳 Cảnh: Bật' : '🌳 Cảnh: Tắt';
     }
 
     openGuide() {
@@ -4936,6 +6307,10 @@ class GameApp {
         const container = document.getElementById('game-container');
         
         this.renderer = new IsometricRenderer(canvas, container);
+
+        if (typeof this.renderer.setDecorEnabled === 'function') {
+            this.renderer.setDecorEnabled(this.decorEnabled);
+        }
 
         const hasRendererApi = (name) => this.renderer && typeof this.renderer[name] === 'function';
 
