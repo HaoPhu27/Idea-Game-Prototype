@@ -8,7 +8,7 @@ window.GAMES = [
     "status": "Prototype",
     "play": "Factory Sort/ab_test/dist/FactorySort_ABTest_Inverted.html",
     "dev": "Factory Sort/ab_test/index.html",
-    "thumb": "launcher/thumbs/factory-sort.svg",
+    "thumb": "launcher/thumbs/factory-sort-inverted.svg",
     "updated": "2026-11-02"
   },
   {
