@@ -5,3 +5,10 @@
 
 # Log cua cac AI worker (khong commit)
 .ai-logs/
+
+# Cache va dependency cuc bo
+__pycache__/
+*.py[cod]
+node_modules/
+.DS_Store
+Thumbs.db
