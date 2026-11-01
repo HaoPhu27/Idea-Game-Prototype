@@ -24,8 +24,8 @@
  *
  * Tie-break luon uu tien PAR NHO HON: kho chu khong phai ton thoi gian.
  */
-import { generateLevel, configForLevelNumber } from '../src/generator/SolvableLevelGenerator.js';
-import * as G from '../src/generator/GameSim.js';
+import { generateLevel, configForLevelNumber } from '../ab_test/src/generator/SolvableLevelGenerator.js';
+import * as G from '../ab_test/src/generator/GameSim.js';
 
 const SEEDS = Number(process.env.SEEDS || 40);    // so seed quet moi level
 const SCREEN = Number(process.env.SCREEN || 16);  // so van o vong so loai

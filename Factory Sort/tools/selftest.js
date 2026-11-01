@@ -8,11 +8,11 @@ import {
   generateLevelFromPreset,
   configForLevelNumber,
   PRESETS,
-} from '../src/generator/SolvableLevelGenerator.js';
-import { simulate, solveIDA, solveConstructive, isWrapped, isDeadlocked } from '../src/generator/Solver.js';
-import { LevelGenerator } from '../src/generator/LevelGenerator.js';
-import { GameEngine } from '../src/core/GameEngine.js';
-import * as G from '../src/generator/GameSim.js';
+} from '../ab_test/src/generator/SolvableLevelGenerator.js';
+import { simulate, solveIDA, solveConstructive, isWrapped, isDeadlocked } from '../ab_test/src/generator/Solver.js';
+import { LevelGenerator } from '../ab_test/src/generator/LevelGenerator.js';
+import { GameEngine } from '../ab_test/src/core/GameEngine.js';
+import * as G from '../ab_test/src/generator/GameSim.js';
 
 let failures = 0;
 const t0 = Date.now();

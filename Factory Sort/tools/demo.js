@@ -2,8 +2,8 @@
  * demo.js — chay: node tools/demo.js [levelNumber]
  * In ra 1 level de mat nguoi doc duoc + JSON day du.
  */
-import { generateLevel, configForLevelNumber, getTypeInfo } from '../src/generator/SolvableLevelGenerator.js';
-import { simulate, solveConstructive } from '../src/generator/Solver.js';
+import { generateLevel, configForLevelNumber, getTypeInfo } from '../ab_test/src/generator/SolvableLevelGenerator.js';
+import { simulate, solveConstructive } from '../ab_test/src/generator/Solver.js';
 
 const levelNumber = Number(process.argv[2] || 9);
 const lvl = generateLevel(configForLevelNumber(levelNumber));

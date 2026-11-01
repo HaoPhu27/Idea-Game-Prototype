@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
  * ab_test/build.mjs
- * Đóng gói độc lập CHỈ CHO BẢN A/B TEST (Inverted Layout).
- * Hoàn toàn không đụng tới thư mục delivery/.
+ * Đóng gói prototype chính Factory Sort (băng chuyền trên, thùng hàng dưới).
  */
 import fs from 'fs';
 import path from 'path';
@@ -10,7 +9,6 @@ import { fileURLToPath } from 'url';
 import { execFileSync } from 'child_process';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(DIR, '..');
 
 const JS_FILES = [
   'src/data/ItemCatalog.js',
@@ -54,12 +52,12 @@ function stripExports(src, file) {
   return src.replace(/^(\s*)export\s+(?=(const|class|function|let|var|async)\b)/gm, '$1');
 }
 
-console.log('🧪 [AB_TEST] Đang đóng gói bản A/B Test Inverted Layout...');
+console.log('🧪 [FACTORY SORT] Đang đóng gói prototype chính Factory Sort...');
 
 const parts = [];
 for (const rel of JS_FILES) {
   const abs = path.join(DIR, rel);
-  if (!fs.existsSync(abs)) throw new Error(`[AB_TEST] Thiếu file: ${rel}`);
+  if (!fs.existsSync(abs)) throw new Error(`[FACTORY SORT] Thiếu file: ${rel}`);
   let content = fs.readFileSync(abs, 'utf8').replace(/\r\n/g, '\n');
   content = stripExports(stripImports(content, rel), rel);
   parts.push(`// --- ${rel} ---\n${content}\n`);
@@ -67,7 +65,7 @@ for (const rel of JS_FILES) {
 const bundle = parts.join('\n');
 
 const leftover = bundle.split('\n').findIndex((l) => /^\s*(import|export)\b/.test(l));
-if (leftover !== -1) throw new Error(`[AB_TEST] Bundle con sot dong ${leftover + 1}: ${bundle.split('\n')[leftover]}`);
+if (leftover !== -1) throw new Error(`[FACTORY SORT] Bundle con sot dong ${leftover + 1}: ${bundle.split('\n')[leftover]}`);
 
 const DIST_DIR = path.join(DIR, 'dist');
 if (!fs.existsSync(DIST_DIR)) {
@@ -80,19 +78,19 @@ fs.writeFileSync(bundlePath, bundle);
 try {
   execFileSync(process.execPath, ['--check', bundlePath], { stdio: 'pipe' });
 } catch (e) {
-  throw new Error('[AB_TEST] bundle.js khong parse duoc:\n' + (e.stderr || '').toString());
+  throw new Error('[FACTORY SORT] bundle.js khong parse duoc:\n' + (e.stderr || '').toString());
 }
 
 const htmlPath = path.join(DIR, 'index.html');
-if (!fs.existsSync(htmlPath)) throw new Error('[AB_TEST] Khong tim thay ab_test/index.html');
+if (!fs.existsSync(htmlPath)) throw new Error('[FACTORY SORT] Khong tim thay ab_test/index.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
 const css = fs.readFileSync(path.join(DIR, 'style.css'), 'utf8');
 
 const LINK_REGEX = /<link\s+rel=["']stylesheet["']\s+href=["'][^"']*style\.css["']\s*\/?>/i;
 const SCRIPT_REGEX = /<script\s+(?:type=["']module["']\s+)?src=["'][^"']*(?:UIManager\.js|bundle\.js)["']\s*><\/script>/i;
 
-if (!LINK_REGEX.test(html)) throw new Error('[AB_TEST] ab_test/index.html thieu the style.css');
-if (!SCRIPT_REGEX.test(html)) throw new Error('[AB_TEST] ab_test/index.html thieu the script');
+if (!LINK_REGEX.test(html)) throw new Error('[FACTORY SORT] ab_test/index.html thieu the style.css');
+if (!SCRIPT_REGEX.test(html)) throw new Error('[FACTORY SORT] ab_test/index.html thieu the script');
 
 const MIME = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp',
@@ -101,12 +99,12 @@ const MIME = {
 
 function inlineAssets(cssText) {
   return cssText.replace(/url\(\s*['"]?(assets\/[^'")]+)['"]?\s*\)/g, (m, rel) => {
-    // Tự tìm trong ROOT/rel (do assets nam o root)
-    const abs = path.join(ROOT, rel);
-    if (!fs.existsSync(abs)) throw new Error(`[AB_TEST] CSS tro toi file khong ton tai: ${rel}`);
+    // Tài nguyên nằm cùng mã nguồn trong ab_test/assets/.
+    const abs = path.join(DIR, rel);
+    if (!fs.existsSync(abs)) throw new Error(`[FACTORY SORT] CSS tro toi file khong ton tai: ${rel}`);
     const ext = path.extname(rel).toLowerCase();
     const mime = MIME[ext];
-    if (!mime) throw new Error(`[AB_TEST] Khong biet MIME cho ${rel}`);
+    if (!mime) throw new Error(`[FACTORY SORT] Khong biet MIME cho ${rel}`);
     const b64 = fs.readFileSync(abs).toString('base64');
     return `url("data:${mime};base64,${b64}")`;
   });
@@ -120,17 +118,17 @@ const standalone = html
 
 const externals = standalone.match(/(?:src|href)\s*=\s*["']https?:\/\/[^"']+/g);
 if (externals) {
-  throw new Error('[AB_TEST] Ban standalone con phu thuoc ngoai:\n  ' + externals.join('\n  '));
+  throw new Error('[FACTORY SORT] Ban standalone con phu thuoc ngoai:\n  ' + externals.join('\n  '));
 }
 if (/url\(\s*['"]?assets\//.test(standalone)) {
-  throw new Error('[AB_TEST] Ban standalone con tro toi assets/ bang duong dan tuong doi.');
+  throw new Error('[FACTORY SORT] Ban standalone con tro toi assets/ bang duong dan tuong doi.');
 }
 
 const outputFile = path.join(DIST_DIR, 'FactorySort_ABTest_Inverted.html');
 fs.writeFileSync(outputFile, standalone);
 
 console.log(`====================================================`);
-console.log(`✅ [AB_TEST] BUILD HOAN TAT THANH CONG:`);
+console.log(`✅ [FACTORY SORT] BUILD HOAN TAT THANH CONG:`);
 console.log(`🧪 File Standalone: ab_test/dist/FactorySort_ABTest_Inverted.html`);
 console.log(`📜 File Bundle JS:  ab_test/dist/bundle.js`);
 console.log(`====================================================`);
