@@ -1074,22 +1074,20 @@ class UIManager {
                 continue;
             }
 
-            // Tim khay phu hop dang hoat dong
-            const matchingTray = activeTrays.find(t => t.canAccept(box));
-            if (!matchingTray) continue;
-
-            const trayObj = this.trayRenderer.trayElements.find(t => t.id === matchingTray.id);
-            if (!trayObj || trayObj.isExiting || trayObj.isReceiving || trayObj.fadingOut) continue;
-
             const slotEl = document.querySelector(`.queue-slot[data-box-id="${box.id}"]`);
-            const trayEl = trayObj.el;
-            if (!slotEl || !trayEl) continue;
+            if (!slotEl) continue;
 
-            // Phase 1 §1.4: Tách giao hàng khỏi toạ độ hình học
-            if (!this.trayRenderer.isInDeliveryZone(trayObj, slotEl, queue.length)) continue;
+            // Evaluate every matching tray: the first matching tray may still be
+            // on the far side while another is already passing this queue slot.
+            for (const tray of activeTrays) {
+                if (!tray.canAccept(box)) continue;
+                const trayObj = this.trayRenderer.trayElements.find(t => t.id === tray.id);
+                if (!trayObj || !trayObj.el || trayObj.isExiting || trayObj.isReceiving || trayObj.fadingOut) continue;
+                if (!this.trayRenderer.isInDeliveryZone(trayObj, slotEl, queue.length)) continue;
 
-            this.triggerQueueDelivery(box, matchingTray, slotEl, trayEl);
-            break; // Giao 1 thung moi lan
+                this.triggerQueueDelivery(box, tray, slotEl, trayObj.el);
+                return; // Keep delivery transactions serialized across frames.
+            }
         }
     }
 

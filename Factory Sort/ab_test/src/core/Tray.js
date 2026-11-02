@@ -1,15 +1,14 @@
 export class Tray {
     /**
      * @param {string} id
-     * @param {string} categoryId   nhom hang Khay nhan (che do 'category')
-     * @param {string} targetItemId loai item cu the Khay nhan (che do 'itemType')
+     * @param {string} categoryId   nhom hang dung de hien thi mau
+     * @param {string} targetItemId loai item cu the Khay nhan (emoji hien tren Khay)
      * @param {'category'|'itemType'} matchMode
      *
-     * matchMode la mot don bay do kho: 'category' cho phep bat ky Thung nao cung
-     * nhom hang; 'itemType' bat dung mot loai. Bo sinh man da phat matchMode tren
-     * moi Khay (configForLevelNumber dat 'itemType' tu level 40), nhung truoc day
-     * Tray bo qua no va luon so sanh theo categoryId — nghia la level >= 40 duoc
-     * hien thi nhu doi item cu the nhung lai nhan bat ky item cung nhom.
+     * Khay luon nhan dung loai item hien tren Khay, khong ghep theo ID cua Thung
+     * hay chi theo mau/category. matchMode duoc giu de doc du lieu level cu;
+     * no khong noi long dieu kien nhan hang. Moi Khay cung targetItemId deu co
+     * the nhan bat ky Thung da goi cung loai, moi Khay toi da mot Thung.
      */
     constructor(id, categoryId, targetItemId, matchMode = 'category') {
         this.id = id;
