@@ -1,6 +1,29 @@
 import { GameRules, DIRECTIONS } from '../engine/GameRules.js';
 import { IsometricRenderer } from '../renderer/IsometricRenderer.js';
 
+const TUTORIAL_LEVELS = {
+    1: {
+        tip: 'Vuốt chéo để cả phố trượt theo',
+        title: 'Cách chơi',
+        captions: [
+            'Ô vàng là nơi cần đặt nhà hàng',
+            'Vuốt ⬊: cả phố trượt 1 ô, nhà hàng cao thêm 1 tầng',
+            'Vuốt ⬊ lần nữa: khớp ô vàng là thắng!'
+        ],
+        button: 'Chơi thôi!'
+    },
+    2: {
+        tip: 'Vuốt ⬊ để nhà cao lên đến Stage Limit',
+        title: 'Chạm Stage Limit để tách nhà',
+        captions: [
+            'Stage Limit: 2 — nhà cao tối đa 2 tầng.',
+            'Đã chạm Stage Limit! Vuốt ⬊ lần nữa để tách thành hai nhà 1 tầng.',
+            'Khu vàng là đích đến. Mỗi ô một nhà, phủ kín là thắng!'
+        ],
+        button: 'Thử tách nhà!'
+    }
+};
+
 // Khung ẩn lớn để render bàn cờ ở kích thước thoải mái trước khi cắt cận cảnh.
 const CAPTURE_W = 900;
 const CAPTURE_H = 700;
@@ -73,7 +96,7 @@ export class Tutorial {
         return this.stepsOpen;
     }
 
-    /** Bắt đầu hướng dẫn — chỉ chạy ở level 1 và khi splash đã ẩn. */
+    /** Bắt đầu hướng dẫn — chạy ở level 1–2 khi splash đã ẩn. */
     start() {
         this.stop();
 
@@ -83,7 +106,9 @@ export class Tutorial {
 
         const state = this.app ? this.app.state : null;
         if (!state) return;
-        if (parseInt(state.id, 10) !== 1) return;
+        const config = TUTORIAL_LEVELS[parseInt(state.id, 10)];
+        if (!config) return;
+        this.applyStaticText(config);
 
         this.active = true;
         this.cancelled = false;
@@ -137,6 +162,7 @@ export class Tutorial {
         this._hide(this._el('tutorial-hand'));
         this._hide(this._el('tutorial-tip'));
         this.stepsShown = true;
+        this.stepsOpen = true; // Chặn input ngay cả khi ảnh còn đang được chuẩn bị.
 
         const gen = this.generation;
         const pending = this.capturePromise;
@@ -214,13 +240,13 @@ export class Tutorial {
      * this.stepImages còn rỗng).
      */
     async showSteps() {
-        if (!this.active || this.cancelled || this.stepsOpen) return;
+        if (!this.active || this.cancelled) return;
 
         const stepsEl = this._el('tutorial-steps');
-        if (!stepsEl) return;
+        if (!stepsEl) { this.stepsOpen = false; return; }
 
         const imgs = stepsEl.querySelectorAll('img.step-img');
-        if (!imgs || imgs.length === 0) return;
+        if (!imgs || imgs.length === 0) { this.stepsOpen = false; return; }
 
         this.stepsOpen = true;
         const gen = this.generation;
@@ -250,6 +276,23 @@ export class Tutorial {
         void stepsEl.offsetWidth;
         stepsEl.classList.add('show');
         this.bindOkButton();
+    }
+
+    /** Cập nhật nội dung theo level; luôn khôi phục nội dung level 1 khi quay lại. */
+    applyStaticText(config) {
+        const tip = this._el('tutorial-tip');
+        if (tip) tip.textContent = config.tip;
+        const panel = this._el('tutorial-steps');
+        if (!panel) return;
+        panel.querySelector('h2').textContent = config.title;
+        panel.querySelectorAll('figcaption').forEach((el, i) => {
+            el.textContent = config.captions[i];
+        });
+        panel.querySelectorAll('img.step-img').forEach((el, i) => {
+            el.alt = config.captions[i];
+        });
+        const button = this._el('btn-steps-ok');
+        if (button) button.textContent = config.button;
     }
 
     /** Ẩn bảng 3 bước. */
@@ -320,7 +363,7 @@ export class Tutorial {
                 if (gen !== this.generation || this.cancelled) break;
                 this.renderState(renderer, states[i]);
                 if (gen !== this.generation || this.cancelled) break;
-                images.push(this.drawRegion(renderer, canvas, region));
+                images.push(this.drawRegion(renderer, canvas, region, states[i], i));
             }
         } catch (err) {
             // Không chụp được ảnh thì trả về những gì đã có — không ném lỗi.
@@ -421,7 +464,7 @@ export class Tutorial {
      * contain, canh giữa cả hai chiều. Toạ độ getScreenCoords là px CSS, còn
      * canvas thật đã nhân dpr nên phải quy đổi.
      */
-    drawRegion(renderer, sourceCanvas, region) {
+    drawRegion(renderer, sourceCanvas, region, state, stepIndex) {
         const { minX, maxX, minY, maxY } = region;
         if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
             return '';
@@ -446,11 +489,13 @@ export class Tutorial {
         if (!ctx) return '';
 
         // Contain: giữ tỉ lệ, canh giữa, nền trong suốt.
-        const scale = Math.min(STEP_W / srcW, STEP_H / srcH);
+        const isLevel2 = parseInt(state?.id, 10) === 2;
+        const headerH = isLevel2 ? 64 : 0;
+        const scale = Math.min(STEP_W / srcW, (STEP_H - headerH) / srcH);
         const dstW = srcW * scale;
         const dstH = srcH * scale;
         const dstX = (STEP_W - dstW) / 2;
-        const dstY = (STEP_H - dstH) / 2;
+        const dstY = headerH + (STEP_H - headerH - dstH) / 2;
 
         // Nếu vùng cắt vượt ra ngoài canvas nguồn thì kẹp lại, đồng thời dịch
         // điểm vẽ tương ứng để ảnh không bị co lệch.
@@ -472,6 +517,20 @@ export class Tutorial {
             clipL, clipT, clipW, clipH,
             dstX + offX, dstY + offY, clipW * scale, clipH * scale
         );
+
+        if (isLevel2) {
+            // Badge nằm trên ảnh đích nên không bị mất khi cắt HUD khỏi ảnh nguồn.
+            const reached = stepIndex === 1;
+            ctx.fillStyle = reached ? '#E8772E' : '#2A4F51';
+            ctx.beginPath();
+            ctx.roundRect(60, 10, 360, 46, 12);
+            ctx.fill();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 21px sans-serif';
+            ctx.fillText(`Stage Limit: ${state.cloudLimit}${reached ? ' — Đã chạm!' : ''}`, STEP_W / 2, 33);
+        }
 
         try {
             return out.toDataURL('image/png');
