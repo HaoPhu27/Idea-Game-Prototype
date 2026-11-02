@@ -4872,18 +4872,13 @@ class UIManager {
     bindEngineCallbacks() {
         this.engine.onGameStateChanged = (state) => {
             if (state === 'WON') {
-                if (this.currentLevel === 1) {
-                    this.tutorialManager.onGameStateWon();
-                } else {
-                    this.showWinCelebration();
-                }
+                this.tutorialManager.skipTutorial();
+                this.showWinCelebration();
             } else if (state === 'LOST') {
+                this.tutorialManager.skipTutorial();
                 this.audio.lose();
                 if (this.loseReason) {
-                    const queueFull = this.engine.getQueue().length >= this.engine.maxQueueSize;
-                    this.loseReason.textContent = queueFull
-                        ? `Hàng chờ đầy ${this.engine.maxQueueSize}/${this.engine.maxQueueSize} và không Khay nào đang chạy nhận được các kiện này.`
-                        : 'Mọi Thùng đang hiện đều đã kín 3 ô mà không có Thùng nào gom đủ 3 món cùng loại.';
+                    this.loseReason.textContent = this.engine.loseReason || 'Không còn nước đi hợp lệ. Hãy thử lại màn này.';
                 }
                 this.overlayLose.classList.remove('hidden');
             } else {
