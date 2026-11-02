@@ -181,6 +181,7 @@
     if (!game) return; // hash sai id -> bỏ qua
 
     var url = encodePath(game.play || '');
+    if (game.version) url += '?v=' + encodeURIComponent(game.version);
     currentId = game.id;
 
     frame.src = url;
