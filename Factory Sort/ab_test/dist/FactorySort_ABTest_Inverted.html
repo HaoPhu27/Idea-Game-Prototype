@@ -7124,6 +7124,13 @@ class QueueRenderer {
                     slotEl.innerHTML = '';
                     slotEl.appendChild(boxEl);
                 }
+                // Slots are reused when delivery shifts the queue left. Clear the
+                // previous box's flight state before displaying its replacement.
+                if (boxEl.dataset.boxId !== String(box.id)) {
+                    boxEl.style.opacity = '';
+                    boxEl.dataset.boxId = String(box.id);
+                }
+                boxEl.querySelector('.queue-box-icon').textContent = displayEmoji;
                 boxEl.style.setProperty('--cat-color', catColor);
                 boxEl.title = catConfig ? catConfig.label : '';
             } else {
