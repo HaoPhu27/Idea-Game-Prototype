@@ -29,7 +29,7 @@ window.GAMES = [
     "genre": "Puzzle / Isometric",
     "status": "Prototype",
     "play": "WorldRestaurant/dist/WorldRestaurant.html",
-    "version": "9feea1e",
+    "version": "customer-rush-v1",
     "dev": "WorldRestaurant/index.html",
     "thumb": "launcher/thumbs/world-restaurant.svg",
     "updated": "2026-11-02"

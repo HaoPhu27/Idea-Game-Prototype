@@ -5,6 +5,7 @@ import { InputHandler } from './InputHandler.js';
 import { CommandHistory } from '../engine/CommandHistory.js';
 import { AudioManager } from '../engine/AudioManager.js';
 import { Tutorial } from './Tutorial.js';
+import { CustomerRush } from './CustomerRush.js';
 
 class GameApp {
     constructor() {
@@ -14,6 +15,14 @@ class GameApp {
         this.history = null;
         this.tutorial = null;
         this.audio = new AudioManager();
+        this.customerRush = new CustomerRush(this);
+
+        this.rushGeneration = 0;
+        this.rushPlaying = false;
+        this.winCelebratedState = null;
+
+        this.loadGeneration = 0;
+        this.loading = false;
 
         // UI elements
         this.levelNameEl = document.getElementById('level-name');
@@ -260,13 +269,58 @@ class GameApp {
         }, 80);
     }
 
+    cancelCelebration() {
+        this.rushGeneration++;
+        this.rushPlaying = false;
+        this.winCelebratedState = null;
+        if (this.customerRush && typeof this.customerRush.cancel === 'function') {
+            try {
+                this.customerRush.cancel();
+            } catch (err) {
+                // ignore cancellation errors
+            }
+        }
+        this.updateHUD();
+    }
+
+    showComplete() {
+        this.gameOverTitle.textContent = 'Level Complete!';
+        this.gameOverTitle.style.color = '#ffd700';
+        if (this.btnRetry) this.btnRetry.style.display = '';
+        this.gameOverScreen.classList.remove('hidden');
+        this.updateHUD();
+    }
+
     async loadLevel(url) {
+        this.cancelCelebration();
         this.currentLevelUrl = url;
-        this.state = await LevelLoader.loadLevelJSON(url);
+
+        const gen = ++this.loadGeneration;
+        this.loading = true;
+        this.gameOverScreen.classList.add('hidden');
+        if (this.btnBackToResults) this.btnBackToResults.classList.add('hidden');
+
+        let newState = null;
+        try {
+            newState = await LevelLoader.loadLevelJSON(url);
+        } catch (err) {
+            newState = null;
+        }
+
+        if (gen !== this.loadGeneration) {
+            return;
+        }
+        this.loading = false;
+
+        this.state = newState;
         this.history = new CommandHistory(3); // Allow 3 undos per level
+        this.winCelebratedState = null;
 
         if (this.state) {
-            this.gameOverScreen.classList.add('hidden');
+            if (!(this.levelMenu && !this.levelMenu.classList.contains('hidden') && this.state.phase === 'win')) {
+                this.gameOverScreen.classList.add('hidden');
+            }
+            if (this.btnBackToResults) this.btnBackToResults.classList.add('hidden');
             this.updateHUD();
             this.render();
             if (this.tutorial) {
@@ -277,12 +331,17 @@ class GameApp {
     }
 
     openMenu() {
+        this.cancelCelebration();
         this.levelMenu.classList.remove('hidden');
         this.gameOverScreen.classList.add('hidden');
     }
 
     closeMenu() {
         this.levelMenu.classList.add('hidden');
+        if (this.loading) return;
+        if (this.state && this.state.phase === 'win' && !this.rushPlaying) {
+            this.showComplete();
+        }
     }
 
     nextLevel() {
@@ -304,6 +363,7 @@ class GameApp {
 
     handleMove(direction) {
         if (this.tutorial && this.tutorial.isBlocking) return;
+        if (this.loading || this.rushPlaying) return;
         if (this.renderer && typeof this.renderer.setPreview === 'function') {
             this.renderer.setPreview(null, null, false);
         }
@@ -391,10 +451,12 @@ class GameApp {
     }
 
     handleUndo() {
+        if (this.loading || this.rushPlaying) return;
         if (this.history && this.history.canUndo()) {
             const prevState = this.history.undo();
             if (prevState) {
                 this.state = prevState;
+                this.winCelebratedState = null;
                 this.gameOverScreen.classList.add('hidden'); // Hide if we undid from a lose state
                 this.updateHUD();
                 this.render();
@@ -402,17 +464,71 @@ class GameApp {
         }
     }
 
+    showLose() {
+        this.gameOverTitle.textContent = 'Game Over';
+        this.gameOverTitle.style.color = '#ff5555';
+        if (this.btnRetry) this.btnRetry.style.display = 'none';
+        this.gameOverScreen.classList.remove('hidden');
+        this.updateHUD();
+    }
+
     checkGameEnd() {
+        if (!this.state) return;
         if (this.state.phase === 'win') {
-            this.gameOverTitle.textContent = 'Level Complete!';
-            this.gameOverTitle.style.color = '#ffd700';
-            if (this.btnRetry) this.btnRetry.style.display = '';
-            this.gameOverScreen.classList.remove('hidden');
+            if (this.winCelebratedState === this.state) return;
+            this.winCelebratedState = this.state;
+            this.gameOverScreen.classList.add('hidden');
+            const tokenGen = ++this.rushGeneration;
+            const stateAtWin = this.state;
+            this.rushPlaying = true;
+            this.updateHUD();
+            Promise.resolve()
+                .then(() => {
+                    // Guard against orphan animations: immediate menu/load/undo
+                    // may have invalidated the token between scheduling and running.
+                    if (tokenGen !== this.rushGeneration) return { cancelled: true };
+                    if (this.state !== stateAtWin) return { cancelled: true };
+                    if (!this.rushPlaying) return { cancelled: true };
+                    if (this.state.phase !== 'win') return { cancelled: true };
+                    if (!this.customerRush || typeof this.customerRush.play !== 'function') {
+                        return { completed: true, ran: false };
+                    }
+                    try {
+                        const p = this.customerRush.play();
+                        return Promise.resolve(p).then(
+                            (v) => ({ completed: v !== false, ran: true }),
+                            () => ({ completed: true, ran: true, rejected: true })
+                        );
+                    } catch (err) {
+                        // Thrown synchronously — treat celebration as completed so
+                        // Level Complete still appears if state is still current.
+                        return { completed: true, ran: true, thrown: true };
+                    }
+                })
+                .then((outcome) => {
+                    if (tokenGen !== this.rushGeneration) return;
+                    if (outcome && outcome.cancelled) return;
+                    this.rushPlaying = false;
+                    if (tokenGen === this.rushGeneration && this.state === stateAtWin && this.state.phase === 'win') {
+                        this.showComplete();
+                    } else {
+                        this.updateHUD();
+                    }
+                })
+                .catch(() => {
+                    if (tokenGen !== this.rushGeneration) return;
+                    this.rushPlaying = false;
+                    // Even a hard failure must still show Level Complete if
+                    // generation/state are still current, so the player is not
+                    // left stuck without the win screen.
+                    if (this.state === stateAtWin && this.state.phase === 'win') {
+                        this.showComplete();
+                    } else {
+                        this.updateHUD();
+                    }
+                });
         } else if (this.state.phase === 'lose') {
-            this.gameOverTitle.textContent = 'Game Over';
-            this.gameOverTitle.style.color = '#ff5555';
-            if (this.btnRetry) this.btnRetry.style.display = 'none';
-            this.gameOverScreen.classList.remove('hidden');
+            this.showLose();
         }
     }
 
@@ -420,8 +536,9 @@ class GameApp {
         if (!this.state) return;
         this.levelNameEl.textContent = "Level " + parseInt(this.state.id || "1", 10);
         this.cloudLimitEl.textContent = this.state.cloudLimit;
-        this.undoBtn.disabled = !this.history.canUndo();
-        this.undoBtn.textContent = `Undo (${this.history.undosLeft})`;
+        const undoDisabled = this.rushPlaying || !this.history || !this.history.canUndo();
+        this.undoBtn.disabled = undoDisabled;
+        this.undoBtn.textContent = `Undo (${this.history ? this.history.undosLeft : 0})`;
     }
 
     render() {

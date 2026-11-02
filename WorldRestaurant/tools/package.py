@@ -40,6 +40,7 @@ def build_standalone_html():
         os.path.join(ROOT_DIR, 'renderer', 'IsometricRenderer.js'),
         os.path.join(ROOT_DIR, 'ui', 'InputHandler.js'),
         os.path.join(ROOT_DIR, 'ui', 'Tutorial.js'),
+        os.path.join(ROOT_DIR, 'ui', 'CustomerRush.js'),
         os.path.join(ROOT_DIR, 'ui', 'main.js'),
     ]
 
