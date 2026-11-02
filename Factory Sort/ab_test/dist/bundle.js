@@ -3400,6 +3400,7 @@ class TrayRenderer {
         this.container = document.getElementById(containerId);
         this.offset = 0;
         this.baseSpeed = 0.015; // radians per frame at 60fps
+        this.speedMultiplier = 1;
         this.trayElements = [];
         this.slotCount = 4;
         // Hang so thoi gian cua buoc dan deu lai vong Khay sau moi lan Khay ra/vao.
@@ -3419,6 +3420,7 @@ class TrayRenderer {
     }
 
     reset() {
+        this.speedMultiplier = 1;
         this.container.innerHTML = '';
         this.trayElements = [];
         this.slotCount = 4;
@@ -3890,7 +3892,7 @@ class TrayRenderer {
         const dt = Math.min(now - this.lastTime, 50); // cap dt to avoid huge jumps
         this.lastTime = now;
         
-        let speed = this.baseSpeed;
+        let speed = this.baseSpeed * this.speedMultiplier;
         if (now < this.shiftDecayTime) {
             const remain = (this.shiftDecayTime - now) / 1200;
             speed *= (1 + 0.6 * remain);
@@ -4831,6 +4833,7 @@ class UIManager {
         );
         this.trayRenderer = new TrayRenderer('trays-container');
         this.trayRenderer.onTick = (now) => {
+            this.updateConveyorSpeed();
             this.updateLevelClock(now);
             this.checkQueuePickup(now);
         };
@@ -5013,6 +5016,11 @@ class UIManager {
         if (!this.moveLimitDisplay) return;
         this.moveLimitDisplay.textContent = '';
         this.moveLimitDisplay.classList.remove('low');
+    }
+
+    updateConveyorSpeed() {
+        const boardEmpty = !this.engine.boxes.some(box => !box.isEmpty());
+        this.trayRenderer.speedMultiplier = this.engine.gameState === 'PLAYING' && boardEmpty ? 1.5 : 1;
     }
 
     isClockPaused() {
@@ -5735,6 +5743,7 @@ class UIManager {
     }
 
     _resetAnimationState() {
+        if (this.trayRenderer) this.trayRenderer.speedMultiplier = 1;
         this._animationEpoch = (this._animationEpoch || 0) + 1;
         this._busyBoxes = new Set();
         this._pendingQueueBoxes = [];

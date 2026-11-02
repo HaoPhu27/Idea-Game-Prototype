@@ -27,6 +27,7 @@ class UIManager {
         );
         this.trayRenderer = new TrayRenderer('trays-container');
         this.trayRenderer.onTick = (now) => {
+            this.updateConveyorSpeed();
             this.updateLevelClock(now);
             this.checkQueuePickup(now);
         };
@@ -209,6 +210,11 @@ class UIManager {
         if (!this.moveLimitDisplay) return;
         this.moveLimitDisplay.textContent = '';
         this.moveLimitDisplay.classList.remove('low');
+    }
+
+    updateConveyorSpeed() {
+        const boardEmpty = !this.engine.boxes.some(box => !box.isEmpty());
+        this.trayRenderer.speedMultiplier = this.engine.gameState === 'PLAYING' && boardEmpty ? 1.5 : 1;
     }
 
     isClockPaused() {
@@ -931,6 +937,7 @@ class UIManager {
     }
 
     _resetAnimationState() {
+        if (this.trayRenderer) this.trayRenderer.speedMultiplier = 1;
         this._animationEpoch = (this._animationEpoch || 0) + 1;
         this._busyBoxes = new Set();
         this._pendingQueueBoxes = [];

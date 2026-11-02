@@ -5,6 +5,7 @@ export class TrayRenderer {
         this.container = document.getElementById(containerId);
         this.offset = 0;
         this.baseSpeed = 0.015; // radians per frame at 60fps
+        this.speedMultiplier = 1;
         this.trayElements = [];
         this.slotCount = 4;
         // Hang so thoi gian cua buoc dan deu lai vong Khay sau moi lan Khay ra/vao.
@@ -24,6 +25,7 @@ export class TrayRenderer {
     }
 
     reset() {
+        this.speedMultiplier = 1;
         this.container.innerHTML = '';
         this.trayElements = [];
         this.slotCount = 4;
@@ -495,7 +497,7 @@ export class TrayRenderer {
         const dt = Math.min(now - this.lastTime, 50); // cap dt to avoid huge jumps
         this.lastTime = now;
         
-        let speed = this.baseSpeed;
+        let speed = this.baseSpeed * this.speedMultiplier;
         if (now < this.shiftDecayTime) {
             const remain = (this.shiftDecayTime - now) / 1200;
             speed *= (1 + 0.6 * remain);
