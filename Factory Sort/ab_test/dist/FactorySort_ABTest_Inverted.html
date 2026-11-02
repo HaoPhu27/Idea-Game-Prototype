@@ -3872,9 +3872,14 @@ class GameEngine {
         return true;
     }
 
+    /** Delivered trays still occupy the conveyor until their OUT animation ends. */
+    hasPendingTrayExits() {
+        return this.conveyor.allTrays.some(tray => tray.isFull());
+    }
+
     /** Goi boi UI khi Khay chua box da di vao trong cua OUT */
     completeTrayExit(trayId) {
-        this.conveyor.removeTray(trayId);
+        if (!this.conveyor.removeTray(trayId)) return;
         if (this.onTrayExited) this.onTrayExited(trayId);
         if (!this.onTrayDelivered) {
             while (this.tryAutoFillTray()) {}
@@ -3900,6 +3905,11 @@ class GameEngine {
             this.setGameState('LOST');
             return;
         }
+
+        // An accepted delivery is progress, even when no player move remains.
+        // Wait for every occupied tray to exit before judging a deadlock: its
+        // removal may finish the level or expose the next matching order.
+        if (this.hasPendingTrayExits()) return;
 
         // 3. Kiem tra kha nang giao hang tu hang cho vao khay dang hoat dong
         const activeTrays = this.conveyor.getAllActiveTrays();
@@ -8647,8 +8657,8 @@ class UIManager {
         const queue = this.engine.getQueue();
         if (queue.length >= this.engine.maxQueueSize) {
             const trays = this.engine.conveyor.getAllActiveTrays();
-            // Existing queued deliveries must free a physical slot first.
-            if (queue.some(b => trays.some(t => t.canAccept(b))) || this._deliveryAnimating) return;
+            // An outgoing tray can expose the order needed to free a queue slot.
+            if (this.engine.hasPendingTrayExits() || queue.some(b => trays.some(t => t.canAccept(b))) || this._deliveryAnimating) return;
             this.engine.loseReason = 'Hàng chờ đã đầy, không còn chỗ nhận thùng đã đóng gói.';
             this.engine.setGameState('LOST');
             return;

@@ -875,8 +875,8 @@ class UIManager {
         const queue = this.engine.getQueue();
         if (queue.length >= this.engine.maxQueueSize) {
             const trays = this.engine.conveyor.getAllActiveTrays();
-            // Existing queued deliveries must free a physical slot first.
-            if (queue.some(b => trays.some(t => t.canAccept(b))) || this._deliveryAnimating) return;
+            // An outgoing tray can expose the order needed to free a queue slot.
+            if (this.engine.hasPendingTrayExits() || queue.some(b => trays.some(t => t.canAccept(b))) || this._deliveryAnimating) return;
             this.engine.loseReason = 'Hàng chờ đã đầy, không còn chỗ nhận thùng đã đóng gói.';
             this.engine.setGameState('LOST');
             return;

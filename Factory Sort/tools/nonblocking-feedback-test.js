@@ -33,6 +33,7 @@ function harness() {
         tutorialManager: { active: false },
         engine: {
             gameState: 'PLAYING', selectedSource: null,
+            hasPendingTrayExits: () => false,
             getBox: id => boxes.get(String(id)), isAccessible: () => true,
             selectSource(id) { calls.push(['select', id]); return true; },
             selectTarget(id) { calls.push(['place', id]); return false; },
@@ -128,4 +129,55 @@ function harness() {
     assert.deepEqual(moved, ['A', 'B'], 'an old flight callback cannot add a box after reset');
 }
 
-console.log('Nonblocking feedback: unrelated input, busy-box guards, serialized queue flights and stale callbacks passed');
+{
+    const { ui, boxes } = harness();
+    const queue = Array.from({ length: 5 }, (_, id) => ({ id: `queued-${id}` }));
+    const pending = boxes.get('C');
+    pending.isWrapped = true;
+    let outgoing = true;
+    const flights = [];
+    ui._deliveryAnimating = false;
+    ui._queueFlightActive = false;
+    ui._pendingQueueBoxes = [pending];
+    Object.assign(ui.engine, {
+        maxQueueSize: 5,
+        getQueue: () => queue,
+        hasPendingTrayExits: () => outgoing,
+        conveyor: { getAllActiveTrays: () => [{ canAccept: () => false }] },
+        setGameState(state) { this.gameState = state; },
+        moveBoxToQueue(box) { queue.push(box); boxes.delete(box.id); return true; },
+    });
+    ui.queueRenderer = {
+        animateBoxToQueue(box, index, element, done) { flights.push({ box, index, done }); },
+    };
+    ui._drainQueueFlights();
+    assert.equal(ui.engine.gameState, 'PLAYING', 'outgoing orders defer full-queue deadlock until backlog advances');
+    assert.equal(ui._pendingQueueBoxes.length, 1, 'waiting box must remain pending');
+    assert.equal(flights.length, 0, 'a full queue has no free physical destination');
+    outgoing = false;
+    queue.shift(); // Next order accepted a queued box after OUT exposed it.
+    ui._drainQueueFlights();
+    assert.equal(flights.length, 1);
+    assert.equal(flights[0].index, 4);
+    flights[0].done();
+    assert.equal(queue.length, 5);
+    assert.equal(ui.engine.gameState, 'PLAYING');
+    assert.equal(ui._pendingQueueBoxes.length, 0);
+}
+
+{
+    const { ui, boxes } = harness();
+    ui._deliveryAnimating = false;
+    ui._queueFlightActive = false;
+    ui._pendingQueueBoxes = [boxes.get('C')];
+    Object.assign(ui.engine, {
+        maxQueueSize: 5,
+        getQueue: () => Array.from({ length: 5 }, (_, id) => ({ id })),
+        conveyor: { getAllActiveTrays: () => [{ canAccept: () => false }] },
+        setGameState(state) { this.gameState = state; },
+    });
+    ui._drainQueueFlights();
+    assert.equal(ui.engine.gameState, 'LOST', 'full queue without delivery or outgoing progress remains a real loss');
+}
+
+console.log('Nonblocking feedback: unrelated input, busy guards, serialized flights, pending OUT and stale callbacks passed');

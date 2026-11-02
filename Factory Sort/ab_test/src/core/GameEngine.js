@@ -391,9 +391,14 @@ export class GameEngine {
         return true;
     }
 
+    /** Delivered trays still occupy the conveyor until their OUT animation ends. */
+    hasPendingTrayExits() {
+        return this.conveyor.allTrays.some(tray => tray.isFull());
+    }
+
     /** Goi boi UI khi Khay chua box da di vao trong cua OUT */
     completeTrayExit(trayId) {
-        this.conveyor.removeTray(trayId);
+        if (!this.conveyor.removeTray(trayId)) return;
         if (this.onTrayExited) this.onTrayExited(trayId);
         if (!this.onTrayDelivered) {
             while (this.tryAutoFillTray()) {}
@@ -419,6 +424,11 @@ export class GameEngine {
             this.setGameState('LOST');
             return;
         }
+
+        // An accepted delivery is progress, even when no player move remains.
+        // Wait for every occupied tray to exit before judging a deadlock: its
+        // removal may finish the level or expose the next matching order.
+        if (this.hasPendingTrayExits()) return;
 
         // 3. Kiem tra kha nang giao hang tu hang cho vao khay dang hoat dong
         const activeTrays = this.conveyor.getAllActiveTrays();
