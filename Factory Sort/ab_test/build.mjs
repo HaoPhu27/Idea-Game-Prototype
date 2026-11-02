@@ -17,6 +17,8 @@ const JS_FILES = [
   'src/core/Conveyor.js',
   'src/core/GameEngine.js',
   'src/generator/Solver.js',
+  'src/generator/CuratedLevelSeeds.js',
+  'src/generator/OrderPacing.js',
   'src/generator/SolvableLevelGenerator.js',
   'src/generator/LevelGenerator.js',
   'src/ui/AudioManager.js',

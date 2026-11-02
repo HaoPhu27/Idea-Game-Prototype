@@ -33,6 +33,7 @@ function harness() {
         tutorialManager: { active: false },
         engine: {
             gameState: 'PLAYING', selectedSource: null,
+            startClock: () => false,
             hasPendingTrayExits: () => false,
             getBox: id => boxes.get(String(id)), isAccessible: () => true,
             selectSource(id) { calls.push(['select', id]); return true; },

@@ -56,7 +56,7 @@ export function stateFromLevel(level) {
     : [level.boxes.map((_, i) => i)];
   const visibleRows = level.layout ? level.layout.visibleRows : Infinity;
   const trays = level.trays.map(t => ({
-    cat: t.categoryId, type: t.targetItemId, mode: t.matchMode || 'category',
+    cat: t.categoryId, type: t.targetItemId, mode: 'itemType',
   }));
   const maxActive = (level.conveyor && level.conveyor.maxActive) || level.maxActiveTrays || 4;
   const queueCap = (level.rules && level.rules.queueCapacity) || QUEUE_CAP;
@@ -86,10 +86,9 @@ export function isAccessible(s, i) {
   return false;
 }
 
-/** Tray.canAccept: 'itemType' so khop dung loai item, nguoc lai so khop nhom. */
+/** Match the real Tray: the displayed item is always required, regardless of legacy mode. */
 function trayAccepts(tray, items, catIndex) {
-  if (tray.mode === 'itemType') return items[0] === tray.type;
-  return catIndex.get(items[0]) === tray.cat;
+  return items[0] === tray.type;
 }
 
 function removeFromColumn(s, id) {
@@ -208,7 +207,7 @@ export function hashState(s) {
     }).join('|')
   ).sort().join('#');
   const q = s.queue.map(i => s.boxes[i].items[0]).sort().join('.');
-  const trays = s.trays.map(t => (t.mode === 'itemType' ? 't:' + t.type : 'c:' + t.cat)).join(',');
+  const trays = s.trays.map(t => ('t:' + t.type)).join(',');
   return cols + '~' + q + '~' + trays + '~' + s.visibleRows + '/' + s.maxActive;
 }
 
@@ -325,7 +324,7 @@ function pickSmart(s, mvs, rng) {
     else sc = -20 - dst.items.length * 5;            // do vao Thung la
     if (src.items.length === 1) {
       // Luat: Thung rong bien mat => mat cho chua.
-      const others = s.boxes.filter((b, i) => b && i !== mv.f && i !== mv.t && !b.w);
+      const others = s.boxes.filter((b, i) => b && i !== mv.f && i !== mv.t && !b.w && isAccessible(s, i));
       const freeOther = others.reduce((n, b) => n + (CAP - b.items.length), 0);
       if (same === 2) sc += others.length > 0 && freeOther === 0 ? -10000 : 15;
       else sc += freeOther + (CAP - after) === 0 ? -10000 : -40;
@@ -353,8 +352,7 @@ function pickPlanner(s, mvs, rng, catIndex) {
   // "cai Khay dang toi can gi, minh gom duoc no khong?".
   const wanted = new Set();
   for (const t of win) {
-    if (t.mode === 'itemType') wanted.add(t.type);
-    else for (const b of s.boxes) if (b && catIndex.get(b.items[0]) === t.cat) wanted.add(b.items[0]);
+    wanted.add(t.type);
   }
 
   let best = null, bestScore = -1e9;
@@ -374,7 +372,7 @@ function pickPlanner(s, mvs, rng, catIndex) {
     else if (same === 1) sc = (want ? 70 : 35) - dst.items.length;
     else sc = (want ? -8 : -20) - dst.items.length * 5;
     if (src.items.length === 1) {
-      const others = s.boxes.filter((b, i) => b && i !== mv.f && i !== mv.t && !b.w);
+      const others = s.boxes.filter((b, i) => b && i !== mv.f && i !== mv.t && !b.w && isAccessible(s, i));
       const freeOther = others.reduce((n, b) => n + (CAP - b.items.length), 0);
       if (same === 2) sc += others.length > 0 && freeOther === 0 ? -10000 : 15;
       else sc += freeOther + (CAP - after) === 0 ? -10000 : -40;
@@ -389,20 +387,24 @@ const pickRandom = (s, mvs, rng) => mvs[Math.floor(rng() * mvs.length)];
 
 const POLICIES = { greedy: pickGreedy, smart: pickSmart, planner: pickPlanner, random: pickRandom };
 
-/** Choi mot van tu dau den cuoi. Tra ve chuoi the co da di qua. */
-export function playout(state, catIndex, policyName, rng, maxSteps = 400) {
+/** Play one run. Disable recordTrail for outcome-only offline measurements. */
+export function playout(state, catIndex, policyName, rng, maxSteps = 400, options = {}) {
   const pick = POLICIES[policyName] || pickGreedy;
   let s = cloneState(state);
-  const trail = [cloneState(s)];
+  const recordTrail = options.recordTrail !== false;
+  const trail = recordTrail ? [cloneState(s)] : [];
+  const finish = (won, dead) => recordTrail
+    ? { trail, won, dead }
+    : { trail, won, dead, finalState: s };
   for (let i = 0; i < maxSteps; i++) {
-    if (isWin(s)) return { trail, won: true, dead: false };
-    if (s.dead) return { trail, won: false, dead: true };
+    if (isWin(s)) return finish(true, false);
+    if (s.dead) return finish(false, true);
     const mvs = legalMoves(s);
-    if (!mvs.length) return { trail, won: false, dead: true };
+    if (!mvs.length) return finish(false, true);
     s = applyMove(s, pick(s, mvs, rng, catIndex), catIndex);
-    trail.push(cloneState(s));
+    if (recordTrail) trail.push(cloneState(s));
   }
-  return { trail, won: isWin(s), dead: false };
+  return finish(isWin(s), false);
 }
 
 /**

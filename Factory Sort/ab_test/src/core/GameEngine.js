@@ -14,6 +14,10 @@ export class GameEngine {
         this.moveLimit = null;   // null = khong gioi han
         this.gameState = 'IDLE'; // IDLE, PLAYING, WON, LOST
         this.loseReason = '';
+        this.timeLimitSeconds = null;
+        this.timeRemainingSeconds = null;
+        this.elapsedPlaySeconds = 0;
+        this.clockStarted = false;
         
         // Callbacks for UI
         this.onBoxUpdated = null;
@@ -92,7 +96,42 @@ export class GameEngine {
         this.draggedBoxId = null;
         this.moveCount = 0;
         this.moveLimit = null; // Khong gioi han so nuoc di
+        const timer = levelConfig.rules?.timeToPlay;
+        this.timeLimitSeconds = Number.isFinite(timer) && timer > 0 ? timer : null;
+        this.timeRemainingSeconds = this.timeLimitSeconds;
+        this.elapsedPlaySeconds = 0;
+        this.clockStarted = false;
         this.setGameState('PLAYING');
+    }
+
+    /** Reading the board is free; the first valid pickup starts active play. */
+    startClock() {
+        if (this.gameState !== 'PLAYING') return false;
+        const started = !this.clockStarted;
+        this.clockStarted = true;
+        return started;
+    }
+
+    hasPlayerWorkRemaining() {
+        return this.boxes.some(box => !box.isWrapped && !box.isEmpty());
+    }
+
+    /** The UI supplies visible, unpaused wall-clock seconds, never frame counts. */
+    advanceClock(deltaSeconds) {
+        if (this.gameState !== 'PLAYING' || !this.clockStarted ||
+            !Number.isFinite(deltaSeconds) || deltaSeconds <= 0 || !this.hasPlayerWorkRemaining()) return;
+        const charged = this.timeRemainingSeconds === null
+            ? deltaSeconds : Math.min(deltaSeconds, this.timeRemainingSeconds);
+        this.elapsedPlaySeconds += charged;
+        if (this.timeRemainingSeconds === null) return;
+        this.timeRemainingSeconds = Math.max(0, this.timeRemainingSeconds - charged);
+        if (this.timeRemainingSeconds === 0) {
+            this.checkConditions();
+            if (this.gameState === 'PLAYING' && this.hasPlayerWorkRemaining()) {
+                this.loseReason = 'Hết thời gian! Hãy thử lại và ưu tiên các kiện có Khay đang chờ.';
+                this.setGameState('LOST');
+            }
+        }
     }
     
     setGameState(newState) {
@@ -247,6 +286,7 @@ export class GameEngine {
         }
         
         this.selectedSource = { boxId, itemIndex: slotIndex };
+        this.startClock();
         return true;
     }
     
@@ -279,6 +319,7 @@ export class GameEngine {
             return false;
         }
 
+        this.startClock();
         this.moveCount++;
         if (this.onMoveCountUpdated) this.onMoveCountUpdated(this.moveCount);
 

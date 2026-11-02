@@ -222,6 +222,21 @@ html, body {
 .hud-left  { flex: 1 1 auto; overflow: hidden; }
 .hud-right { flex: 0 0 auto; }
 
+.timer-pill { white-space: nowrap; flex-shrink: 0; }
+.timer-pill.timer-low { border-color: #fbbf24; background: #45351b; }
+.timer-pill.timer-low .hud-value { color: #fde68a; }
+.timer-pill.timer-critical { border-color: #fb7185; background: #551e30; }
+.timer-pill.timer-critical .hud-value { color: #fecdd3; }
+.tier-badge {
+    color: #93c5fd;
+    font-size: 9px;
+    font-weight: 900;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+}
+.tier-badge[data-tier="hard"] { color: #fbbf24; }
+.tier-badge[data-tier="superhard"] { color: #fb7185; }
+
 @media (max-width: 400px) {
     .hud-pill .hud-label { display: none; }
     .hud-pill { padding: 4px 8px; gap: 4px; }
@@ -2458,6 +2473,30 @@ body.is-item-dragging * {
         padding: 8px 4px;
         font-size: 16px;
     }
+}
+
+/* Keep both the countdown and tier readable next to the four header controls. */
+@media (max-width: 640px) {
+    #game-header {
+        height: auto;
+        min-height: 52px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        flex-wrap: wrap;
+        gap: 7px;
+        overflow: visible;
+    }
+    #game-header .hud-left {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        overflow: visible;
+        gap: 5px;
+    }
+    #game-header .hud-right { margin-left: auto; }
+    #game-header .hud-pill { padding: 4px 7px; gap: 4px; }
+    #game-header .hud-label { display: none; }
+    #game-header .tier-badge { margin-left: auto; font-size: 9px; }
+    .tutorial-banner { top: calc(112px + env(safe-area-inset-top, 0px)); }
 }
 
 /* ==========================================================================

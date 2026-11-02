@@ -41,24 +41,27 @@
  * HAI HE QUA DINH LUONG QUAN TRONG
  * ============================================================================
  *
- * (1) SO O TRONG LA MOT HANG SO CUC BO, KHONG PHU THUOC KICH CO BAN.
+ * (1) TONG O TRONG BAN DAU DUOC QUYET DINH BOI carrierBoxes.
  *     Goi S = so bo 3 item (= so Khay), E = so Thung "chuyen tiep" sinh boi R3.
  *     Tong so Thung N = S + E, tong item = 3S, nen tong o trong = 3(N − S) = 3E.
  *     R2 khong tao cung khong xoa o trong (bit o ben nay, mo o ben kia) nen 3E la
- *     bat bien suot ca qua trinh. Va vi R2 chi cham duoc Thung DANG HIEN, so o trong
- *     "dung duoc" luon quanh quan trong cua so 12 Thung.
+ *     bat bien qua cac phep R2. Mot phan o trong co the bi che trong cot; phai do
+ *     visibleFreeSlots rieng de biet bao nhieu o dung duoc ngay luc spawn.
  *     => carrierBoxes (E) la can gat DO CHAT khong gian xoay xo, DOC LAP voi N:
  *        E=1 (3 o trong) ngat tho, E=2 (6 o) chat, E=3 (9 o) vua, E=4 (12 o) rong.
- *     => Phong to ban KHONG lam man de hon, cung khong lam kho hon — chi dai hon.
- *        Do kho phai den tu cho khac: xem phan THIET KE DO KHO ben duoi.
+ *     => Tang so Thung chu yeu tang do dai; do kho con phu thuoc do che khuat,
+ *        thu tu don, ap luc hang cho va timer.
  *
- * (2) parMoves = refMoves = SO NUOC DI TOI UU (khong can chay IDA*).
- *     Moi bo s duoc rai ra d_s Thung (d ∈ {2,3}) bang dung d_s − 1 lan R2/R3, va
- *     khong item nao bi di chuyen hai lan. Xuoi, moi item lac phai duoc keo ve it
- *     nhat 1 lan, nen Σ(d_s − 1) vua la CHAN DUOI vua la do dai loi giai tham chieu
- *     => no CHINH LA toi uu. Ban truoc phai chay IDA* (va chi chay noi khi N ≤ 10)
- *     roi doan par tu lowerBound+1; nay par la con so chinh xac o MOI kich co ban,
- *     nen `moveLimit = ceil(par * slack)` cuoi cung cung dung nghia.
+ * (2) parMoves = refMoves = DO DAI LOI GIAI THAM CHIEU DA KIEM CHUNG.
+ *     referenceSolution duoc phat lai tren dung cot, item, hang cho va Khay.
+ *     Do dai cua no chung minh mot duong di kha thi, khong chung minh chan duoi
+ *     hay toi uu toan cuc: cac bo trung item co the duoc gom theo duong ngan hon.
+ *     Timer duoc tinh theo refMoves va phu phi van chuyen; khong ap gioi han nuoc di.
+ *
+ * Cau hinh hien tai: Normal 4 Khay, Hard 3, Super Hard 3. Nhac don hang co dinh
+ * theo seed duoc tao boi OrderPacing.js, sau do phat lai de kiem chung.
+ * Dinh nghia va ket qua do moi nhat: docs/difficulty-v4.md, tools/levels50.json.
+ * Ty le bot thua la ket qua thuc nghiem, khong phai bao dam ve nguoi choi that.
  *
  * ============================================================================
  * THIET KE DO KHO (9/2026) — KHO VI THONG TIN BI GIAU, KHONG VI DAI
@@ -67,8 +70,8 @@
  * Yeu cau san pham cho tier hard:
  *   - 50-70 Thung tren ca ban, nhung LUC NAO cung chi 3 x 4 = 12 Thung nhin thay
  *     duoc; phan con lai bi che HOAN TOAN (khong keo item vao/ra, khong giao).
- *   - Vung nhin thay o duoi day dac item lan lon cua nhieu bo khac nhau; thuong chi
- *     1-2 bo gom du 3 item ngay trong vung do.
+ *   - Vung nhin thay o duoi day dac item lan lon cua nhieu bo khac nhau. So bo
+ *     gom duoc ngay duoc do bang openingSets, khong co bao dam cung 1-2 bo.
  *   - Item con thieu cua cac bo khac nam trong Thung BI CHE phia tren. Muon lo ra
  *     thi phai giao/don bot Thung phia duoi cho cot tut xuong.
  *   => Vong lap that su: "goi duoc bo nao truoc -> giao -> cot tut -> lo tai nguyen
@@ -86,6 +89,8 @@
 
 import { heuristic, isWrapped, CAPACITY } from './Solver.js';
 import { ITEM_CATALOG } from '../data/ItemCatalog.js';
+import { LEVEL_SEEDS } from './CuratedLevelSeeds.js';
+import { createOrderSchedule } from './OrderPacing.js';
 
 /* ------------------------------------------------------------------ */
 /* Item Catalog (khop GDD 9.2 / ItemCatalog.js)                        */
@@ -155,9 +160,8 @@ export const DEFAULTS = {
   // neu hai Thung cung cot. Do la ly do man choi co dang "tai nguyen o tang tren".
   // Khi hai Thung khac cot thi thu tu lo ra do toc do lon cua tung cot quyet dinh —
   // day chinh la cho bottomBias can thiep.
-  // Tran so bo giai duoc NGAY trong vung nhin thay luc spawn ("cua mo dau"). Yeu cau
-  // san pham cho hard/super hard la 1-2; man de hon can nhieu cua hon de khong bi ket
-  // ngay tu dau. null = khong loc. Bo sinh xay lai voi seed khac cho toi khi dat.
+  // Tran muc tieu so bo giai duoc NGAY trong vung hien luc spawn. null = khong loc.
+  // Co the noi long sau mot so lan thu; generationQuality ghi ro co dat muc tieu.
   maxOpeningSets: null,
   buryBias: 0.2,          // do THIEN VI khi chon Thung nhan item lac: trong so cua mot
                           // Thung o hang `at` la (1 + 3*buryBias)^at, tuc cang cao thi
@@ -186,17 +190,16 @@ export const DEFAULTS = {
   // --- Tray / Conveyor ---
   trayMatchMode: 'category', // 'category' | 'itemType'
   strictTrayRatio: null,     // null = suy ra tu trayMatchMode (0 hoac 1)
-  // Thu tu Khay BAT BUOC bam theo thu tu giao hang cua loi giai tham chieu — neu
-  // khong, mot Thung goi xong se khong co Khay nao nhan va nam lai chiem hang cho.
-  // Chi duoc hoan vi TRONG TUNG KHOI kich thuoc <= conveyorMaxActive: khi do Khay can
-  // toi luon con trong cua so, nhung nguoi choi van khong doan duoc thu tu chinh xac.
+  // Thu tu Khay duoc tao ngoai runtime theo cac khoi nhac ap luc/giai phong.
+  // Khoi co the lon hon cua so Khay, nhung replay loi giai phai giu dung 5 o hang cho.
+  // Khong thay doi don theo ket qua hay toc do nguoi choi trong luc choi.
   trayJitter: true,
   conveyorMaxActive: 3,
   conveyorType: 'oval',
   queueCapacity: 5,          // = GameEngine.maxQueueSize; mo phong dung luat thua
 
-  // --- Ap luc meta ---
-  moveLimitSlack: null,   // null = khong gioi han. 1.6 = de, 1.15 = kho
+  // --- Timer pacing; legacy move/undo metadata is not an enforced mechanic ---
+  moveLimitSlack: null,   // legacy input only; rules.moveLimit is always null
   secondsPerMove: null,   // null = khong gioi han
   undoCount: 3,
 
@@ -209,9 +212,9 @@ export const DEFAULTS = {
 export const PRESETS = {
   tutorial:  { numBoxes: 6,  carrierBoxes: 3, numCategories: 1, itemTypesPerCategory: 2, ratio21: 1.0,  conveyorMaxActive: 4 },
   easy:      { numBoxes: 12, carrierBoxes: 3, numCategories: 2, itemTypesPerCategory: 2, ratio21: 0.85, conveyorMaxActive: 4, moveLimitSlack: 1.8 },
-  normal:    { numBoxes: 30, carrierBoxes: 3, numCategories: 3, itemTypesPerCategory: 3, ratio21: 0.65, conveyorMaxActive: 3, moveLimitSlack: 1.5 },
-  hard:      { numBoxes: 56, carrierBoxes: 2, numCategories: 5, itemTypesPerCategory: 3, ratio21: 0.62, conveyorMaxActive: 2, trayMatchMode: 'itemType', moveLimitSlack: 1.35, undoCount: 2 },
-  superhard: { numBoxes: 76, carrierBoxes: 2, numCategories: 6, itemTypesPerCategory: 3, ratio21: 0.55, conveyorMaxActive: 1, trayMatchMode: 'itemType', moveLimitSlack: 1.25, undoCount: 1 },
+  normal:    { numBoxes: 30, carrierBoxes: 3, numCategories: 3, itemTypesPerCategory: 3, ratio21: 0.65, conveyorMaxActive: 4, secondsPerMove: 6.5 },
+  hard:      { numBoxes: 56, carrierBoxes: 2, numCategories: 5, itemTypesPerCategory: 3, ratio21: 0.62, conveyorMaxActive: 3, trayMatchMode: 'itemType', secondsPerMove: 4.2, undoCount: 2 },
+  superhard: { numBoxes: 76, carrierBoxes: 3, numCategories: 6, itemTypesPerCategory: 3, ratio21: 0.55, conveyorMaxActive: 3, trayMatchMode: 'itemType', secondsPerMove: 3.0, undoCount: 1 },
 };
 
 /* ------------------------------------------------------------------ */
@@ -282,7 +285,7 @@ export function generateLevel(userConfig = {}) {
     if (!built) continue;
 
     const relaxed = attempt >= phase1 ? { ...cfg, maxOpeningSets: null } : cfg;
-    const level = finalize(relaxed, built, attempt);
+    const level = finalize(relaxed, built, attempt, cfg.maxOpeningSets);
     if (level) return level;
   }
 
@@ -296,80 +299,25 @@ export function generateLevel(userConfig = {}) {
 export function generateLevelFromPreset(presetName, overrides = {}) {
   const preset = PRESETS[presetName];
   if (!preset) throw new Error(`Preset khong ton tai: ${presetName}`);
-  return generateLevel({ ...preset, ...overrides });
+  return generateLevel({ ...preset, tier: presetName, ...overrides });
 }
 
 /**
- * Seed da TUYEN CHON cho 50 level chinh thuc (tools/curate50.mjs, 9/2026).
+ * Campaign tiers use offline-selected seeds from CuratedLevelSeeds.js.
+ * Recalibrate with tools/calibrate-difficulty.mjs --write; independent holdout
+ * outcomes and target misses are recorded in tools/levels50.json.
  *
- * configForLevelNumber chi quyet dinh KHUNG cua mot man. Hai man cung khung ma khac
- * seed lech nhau rat xa: do tren khung hard (52 Thung), 16 seed cho ty le thua tu 25%
- * den 85%. Vi vay 50 man nay khong duoc sinh ngau nhien luc chay: moi man da duoc quet
- * 40 seed, do bang 16 van sang loc va 40 van xac nhan duoi chinh sach "planner"
- * (GameSim: nguoi choi nhin cua so Khay + hang cho, khong nhin Thung bi che, khong tim
- * kiem), roi chot lai seed nao roi dung vao dai ty le thua muc tieu cua tier do.
- *
- *   tier        | ty le thua do duoc
- *   tutorial    |   0%
- *   onboarding  |   3%
- *   acclimation |  3-10%
- *   normal      | 18-33%
- *   hard        |  70%
- *   super hard  |  93%
- *
- * Doi mot so o day = doi han man choi do. Neu sua, chay lai tools/curate50.mjs va cap
- * nhat ca tools/levels50.json.
- */
-const LEVEL_SEEDS = {
-  1: 506952114, 2: 506952114, 3: 506952114, 4: 506952114, 5: 1013904228,
-  6: 267601732, 7: 1520856342, 8: 387276923, 9: 1520856342, 10: 2027808456,
-  11: 1013904228, 12: 1908133265, 13: 415528273, 14: 506952114, 15: 506952114,
-  16: 2027808456, 17: 1520856342, 18: 1788458074, 19: 1520856342, 20: 1281505960,
-  21: 267601732, 22: 267601732, 23: 1429432501, 24: 1429432501, 25: 1161830769,
-  26: 1549107692, 27: 387276923, 28: 387276923, 29: 1520856342, 30: 535203464,
-  31: 1042155578, 32: 1520856342, 33: 1520856342, 34: 1281505960, 35: 1908133265,
-  36: 950731737, 37: 654878655, 38: 1668782883, 39: 1281505960, 40: 1577359042,
-  41: 1520856342, 42: 1936384615, 43: 563454814, 44: 415528273, 45: 1281505960,
-  46: 654878655, 47: 1013904228, 48: 894229037, 49: 387276923, 50: 802805196,
-};
-
-/**
- * Lo trinh do kho theo level number — nguon su that DUY NHAT cho cau hoi
- * "level N kho the nao" (UIManager chi truyen levelNumber vao day).
- *
- * ==== BAN THIET KE 9/2026 (v3): DO KHO = SO THUNG BI CHE ====
- *
- *   L1..L5    TUTORIAL.    Toan bo ban nam gon trong 3x4 o hien. Khong co gi bi che,
- *                          Khay chi doi dung NHOM hang, o trong rong rai (E = 3..4).
- *   L6..L10   ONBOARDING.  Ban vua trum qua 12 o -> lan dau tien co Thung bi che,
- *                          nhung chi vai Thung va cua so Khay con rong (4 -> 3).
- *   L11..L20  LAM QUEN.    Phan bi che lon dan (10 -> 22 Thung). Tu L16 Khay bat dau
- *                          doi dung LOAI item, gioi han nuoc di siet lai.
- *   L21..L49  Duoi 5 = HARD (25/35/45). Duoi 9 = SUPER HARD (29/39/49). Con lai thuong.
- *
- * BANG CHOT (columns = 3, visibleRows = 4 o MOI tier — vung nhin thay luon la 12 o):
- *
- *     tier        | Thung   | bi che | E | cua so | Khay        | par
- *     tutorial    |  4-12   |   0    | 3 |   4    | nhom        |   2-11
- *     onboarding  | 14-20   |  2-8   | 3 |  4->3  | nhom        |  13-21
- *     acclimation | 22-34   | 10-22  | 3 |   3    | nhom -> loai|  23-40
- *     normal      | 34-46   | 22-34  | 2 |   3    | 55-90% loai |  40-60
- *     hard        | 52-68   | 40-56  | 2 |   2    | 100% loai   |  63-90
- *     super hard  | 72-80   | 60-68  | 2 |   1    | 100% loai   |  95-115
- *
- * VI SAO BA CAN GAT NAY, KHONG PHAI CAI KHAC:
- *
- *   - SO THUNG BI CHE la don bay chinh va la don bay DUY NHAT ti le thuan voi
- *     numBoxes. No lam kho MA KHONG lam roi: nguoi choi khong bi bat bam them nuoc
- *     di, ho bi bat lap ke hoach voi thong tin khong day du.
- *   - CUA SO KHAY (conveyorMaxActive) la mot TIEN TO CO DINH cua hang doi Khay, khong
- *     xoay vong duoc. Cua so 1 nghia la ca man chi mot Khay voi toi: moi Thung goi ra
- *     ma khong khop deu nam lai hang cho (toi da 5 slot) => het slot la thua.
- *   - E (carrierBoxes) khoa cung so o trong o 3E. Day la thu duy nhat quyet dinh
- *     "co con cho ma xoay xo khong", va no khong loang ra khi ban to len (he qua (1)).
- *
- * Con `numBoxes` mot minh thi KHONG lam kho, chi lam DAI: do la ly do par o bang tren
- * tang gan tuyen tinh theo so Thung, con diem do kho thi khong.
+ * L1..5 tutorial, L6..10 onboarding, L11..20 acclimation; after that:
+ * endings 5 => Hard, endings 9 => Super Hard, otherwise Normal.
+ * Normal: 34..46 boxes / 4 active orders / 6.5..6 sec per reference move.
+ * Hard: 52..68 boxes / 3 active orders / 4.2..3.8 sec per reference move.
+ * Super Hard: 72..80 boxes / 3 active orders / 3..2.7 sec per reference move.
+ * Every tier requires exact displayed emoji. All have 3 columns x 4 reachable
+ * rows and five queue slots. Carrier count measures global holes; visibleFreeSlots
+ * is the usable opening space and must be measured separately.
+ * Reference-solution replay proves solvability, not minimum solution length.
+ * The score is a heuristic descriptor; bot dead/win/unresolved outcomes are
+ * empirical screening metrics, not measured human failure probabilities.
  */
 export function configForLevelNumber(level, overrides = {}) {
   const L = Math.max(1, Math.floor(level));
@@ -444,20 +392,18 @@ export function configForLevelNumber(level, overrides = {}) {
     c = {
       numBoxes: Math.round(lerp(52, 68, u)),
       carrierBoxes: 2,                             // 6 o trong tren CA ban
-      maxOpeningSets: 4,                           // gan sat yeu cau "chi 1-2 bo giai ngay";
-                                                   // 4 la san thap nhat ma cau truc dat toi
+      maxOpeningSets: 4,                           // muc tieu; generationQuality ghi nhan noi long
       numCategories: 5, itemTypesPerCategory: 3,   // 15 loai item => vung hien rat lan lon
       ratio21: lerp(0.64, 0.58, u),
       trayMatchMode: 'itemType', strictTrayRatio: 1.0,
-      conveyorMaxActive: 4,
+      conveyorMaxActive: 3,
       buryBias: 0.1, bottomBias: lerp(0.40, 0.35, u),
       moveLimitSlack: lerp(1.40, 1.30, u),
-      secondsPerMove: lerp(7, 6, u),
+      secondsPerMove: lerp(4.2, 3.8, clamp(u, 0, 1)),
       undoCount: 2,
     };
   } else if (tier === 'superhard') {
-    // Nhu hard nhung: ban to hon, cua so Khay chi 1 Khay (thu tu giao gan nhu bi ep
-    // cung), va nhieu nhom hang hon nen mau sac khong con giup phan loai.
+    // More hidden dependencies/types than Hard, same three active orders, tighter timer.
     const u = (L - 29) / 20;                       // 29, 39, 49 -> 0, 0.5, 1
     c = {
       numBoxes: Math.round(lerp(72, 80, u)),
@@ -473,7 +419,7 @@ export function configForLevelNumber(level, overrides = {}) {
       conveyorMaxActive: 3,
       buryBias: 0.05, bottomBias: lerp(0.36, 0.30, u),
       moveLimitSlack: lerp(1.30, 1.22, u),
-      secondsPerMove: lerp(6, 5, u),
+      secondsPerMove: lerp(3.0, 2.7, clamp(u, 0, 1)),
       undoCount: 1,
     };
   } else {
@@ -484,11 +430,11 @@ export function configForLevelNumber(level, overrides = {}) {
       maxOpeningSets: 5,
       numCategories: 4, itemTypesPerCategory: 3,
       ratio21: lerp(0.68, 0.60, t),
-      trayMatchMode: 'itemType', strictTrayRatio: lerp(0.55, 0.9, t),
+      trayMatchMode: 'itemType', strictTrayRatio: 1.0,
       conveyorMaxActive: 4,
       buryBias: 0.15, bottomBias: lerp(0.45, 0.36, t),
       moveLimitSlack: lerp(1.55, 1.42, t),
-      secondsPerMove: lerp(8, 7, t),
+      secondsPerMove: lerp(6.5, 6, t),
       undoCount: 3,
     };
   }
@@ -843,6 +789,8 @@ function replayReal(cfg, boxesInit, colsInit, trays, solution, catOf) {
   let maxQueue = 0;
   let reveals = 0;
   let deliveries = 0;
+  let completions = 0;
+  const queueEvents = [];
 
   const visible = (id) => {
     for (const c of cols) {
@@ -898,38 +846,55 @@ function replayReal(cfg, boxesInit, colsInit, trays, solution, catOf) {
       queue.push(mv.to);
       maxQueue = Math.max(maxQueue, queue.length);
       if (queue.length > cfg.queueCapacity) return null;   // xuoi la THUA
+      completions++;
+      const before = queue.length;
+      const deliveredBefore = deliveries;
       autoDeliver();
+      queueEvents.push({
+        completion: completions,
+        completionProgress: completions / trays.length,
+        deliveredProgressBefore: deliveredBefore / trays.length,
+        deliveredProgressAfter: deliveries / trays.length,
+        before, after: queue.length,
+        released: deliveries - deliveredBefore,
+      });
     }
   }
 
   if (queue.length !== 0 || pending.length !== 0) return null;
   if (cols.some((c) => c.length > 0)) return null;
-  return { maxQueue, reveals, deliveries };
+  const phaseSummaries = Array.from({ length: 5 }, (_, phase) => {
+    const events = queueEvents.filter(event => Math.min(4, Math.floor((event.completion - 1) / trays.length * 5)) === phase);
+    return {
+      phase, fromProgress: phase / 5, toProgress: (phase + 1) / 5,
+      completions: events.length,
+      peakBefore: events.reduce((max, event) => Math.max(max, event.before), 0),
+      peakAfter: events.reduce((max, event) => Math.max(max, event.after), 0),
+      meanAfter: events.length ? events.reduce((sum, event) => sum + event.after, 0) / events.length : 0,
+      released: events.reduce((sum, event) => sum + event.released, 0),
+      releaseEvents: events.filter(event => event.released > 0).length,
+    };
+  });
+  return { maxQueue, reveals, deliveries, queueEvents, phaseSummaries };
 }
 
 /* ------------------------------------------------------------------ */
 /* Dong goi output + Khay + do kho                                     */
 /* ------------------------------------------------------------------ */
 
-function finalize(cfg, built, attempt) {
+function finalize(cfg, built, attempt, targetOpeningSets = cfg.maxOpeningSets) {
   const cap = cfg.boxCapacity;
   const { boxes, cols, setType, dSet, solution } = built;
   const S = cfg.numSets;
   const N = cfg.numBoxes;
 
-  /* --- Khay: 1 Khay / 1 bo, dung THU TU GIAO HANG cua loi giai tham chieu --- */
-  // Chi hoan vi trong tung KHOI <= conveyorMaxActive: Khay can toi luon con trong
-  // cua so nen khong bao gio ket, nhung nguoi choi van khong doan duoc thu tu chinh xac.
+  /* --- Author fixed order pressure/release against reference completions. --- */
   const rngT = makeRng(cfg.seed + 104729 + attempt);
-  const trayTypes = [];
-  const block = cfg.trayJitter ? Math.max(1, cfg.conveyorMaxActive) : 1;
-  for (let i = 0; i < S; i += block) {
-    trayTypes.push(...shuffle(rngT, setType.slice(i, i + block)));
-  }
+  let schedule = createOrderSchedule(setType, cfg, rngT);
 
   // Tat ca Khay deu khop theo LOAI ITEM cu the (targetItemId). Tray hien emoji nao
   // thi CHI nhan box cung emoji do — khong con che do 'category' gay nham lan.
-  const trays = trayTypes.map((typeId, i) => {
+  const makeTrays = (types) => types.map((typeId, i) => {
     const info = getTypeInfo(typeId);
     return {
       id: `tray_${i}`,
@@ -941,20 +906,28 @@ function finalize(cfg, built, attempt) {
       matchMode: 'itemType',
     };
   });
-  const strictRatio = trays.length
-    ? trays.filter((t) => t.matchMode === 'itemType').length / trays.length
-    : 0;
+  let trays = makeTrays(schedule.trayTypes);
 
   /* --- Kiem chung: phat lai loi giai duoi DUNG luat cua GameEngine --- */
   const catOf = (typeId) => getTypeInfo(typeId).categoryId;
   let sim = null;
   if (cfg.verify) {
     sim = replayReal(cfg, boxes, cols, trays, solution, catOf);
+    if (!sim && schedule.profile !== 'legacy') {
+      schedule = {
+        ...createOrderSchedule(setType, { ...cfg, tier: 'legacy' }, rngT),
+        authoringFallback: true,
+        requestedProfile: schedule.profile,
+      };
+      trays = makeTrays(schedule.trayTypes);
+      sim = replayReal(cfg, boxes, cols, trays, solution, catOf);
+    }
     if (!sim) return null;
   }
+  const strictRatio = trays.length ? 1 : 0;
 
   /* --- So do kho --- */
-  // refMoves = Σ(d_s − 1) vua la chan duoi vua la do dai loi giai => TOI UU (he qua 2).
+  // Reference length is verified feasible; duplicate types can permit shorter routes.
   const refMoves = solution.length;
   const parMoves = refMoves;
   const lowerBound = heuristic(boxes, cap);
@@ -970,17 +943,17 @@ function finalize(cfg, built, attempt) {
   }
   const visibleFreeSlots = [...visibleAtSpawn].reduce((n, i) => n + (cap - boxes[i].length), 0);
 
-  // Bo nao gom du 3 item NGAY trong vung nhin thay luc spawn? Day la so "cua mo dau"
-  // — yeu cau san pham la 1-2 bo; phan con lai bat buoc phai khoi thong tang tren.
+  // So bo gom duoc NGAY trong vung hien luc spawn: chi so mo dau do duoc,
+  // khong phai so lua chon an toan tai moi thoi diem cua man.
   const openingSets = countOpeningSets(boxes, solution, visibleAtSpawn, cap);
-  // Yeu cau san pham: vung nhin thay chi duoc cho san 1-2 bo hoan chinh; muon giai het
-  // thi BUOC PHAI khoi thong tang tren. Lan xay nao vuot tran thi bo, thu seed khac.
+  // Bo lan xay vuot tran dang ap dung; neu pha sinh da noi long thi ghi nhan ben duoi.
   if (cfg.maxOpeningSets != null && openingSets > cfg.maxOpeningSets) return null;
 
   const difficulty = {
     refMoves,
     parMoves,
-    optimalMoves: parMoves,     // xem he qua (2): refMoves CHINH LA toi uu
+    optimalMoves: null,        // duplicate item types can admit a shorter route
+    parSource: 'verified-reference-solution',
     lowerBound,
     freeSlots,
     visibleFreeSlots,
@@ -993,10 +966,23 @@ function finalize(cfg, built, attempt) {
     avgSpread: +(dSet.reduce((a, b) => a + b, 0) / dSet.length).toFixed(2),
     mixedBoxRatio: +(mixedBoxes / Math.max(1, N)).toFixed(3),
     categoryConfusion: +(typesUsed / Math.max(1, catsUsed)).toFixed(2),
+    generationQuality: { targetOpeningSets, openingTargetMet: targetOpeningSets == null || openingSets <= targetOpeningSets },
+    orderPacing: {
+      profile: schedule.profile,
+      requestedProfile: schedule.requestedProfile || schedule.profile,
+      authoredProgressBasis: schedule.authoredProgressBasis,
+      authoredBlocks: schedule.authoredBlocks,
+      guaranteedQueueUpperBound: schedule.guaranteedQueueUpperBound,
+      authoringFallback: schedule.authoringFallback,
+      replayVerified: Boolean(sim),
+      actualPeakQueue: sim ? sim.maxQueue : null,
+      queueEvents: sim ? sim.queueEvents : [],
+      phaseSummaries: sim ? sim.phaseSummaries : [],
+    },
     score: 0,
   };
 
-  /* --- Diem do kho 1..100 --- */
+  /* --- Diem do kho 1..100: heuristic descriptor, NOT predicted player loss. --- */
   //
   // CHIN TRUC chuan hoa ve [0,1]. Trong so bam theo THIET KE MOI: do kho den tu
   // THONG TIN BI GIAU va KHONG GIAN XOAY XO CHAT, khong tu do dai van dau.
@@ -1009,7 +995,7 @@ function finalize(cfg, built, attempt) {
   //   spread        0.08  ti le bo 1+1+1
   //   confusion     0.08  nhieu loai item trong cung mot nhom hang
   //   interleave    0.07  ti le Thung chua item lan lon
-  //   strictness    0.07  Khay khop dung loai + gioi han nuoc di
+  //   timePressure  0.07  ap luc timer thuc te (khong tinh moveLimitSlack cu)
   const nHidden = clamp(hiddenBoxes / 60, 0, 1);
   // Cua so Khay: bac thang chu khong tuyen tinh (do duoc: buoc nhay ty le thua nam
   // giua cua so 3 va 2, roi giua 2 va 1). Nhan them do PHU: neu cua so da om gan het
@@ -1031,32 +1017,34 @@ function finalize(cfg, built, attempt) {
     clamp((typesUsed - 1) / Math.max(1, S - 1), 0, 1) *
     clamp((difficulty.categoryConfusion - 1) / Math.max(1, MAX_TYPES_PER_CAT - 1), 0, 1);
   const nInter = difficulty.mixedBoxRatio;
-  const nStrict = clamp(
-    strictRatio * 0.6 +
-      (cfg.moveLimitSlack == null ? 0 : clamp((1.8 - cfg.moveLimitSlack) / 0.75, 0, 1) * 0.4),
-    0, 1
-  );
+  // Time pressure is real; legacy move-limit slack is not enforced in gameplay.
+  const nTime = cfg.secondsPerMove == null ? 0 : clamp((10 - cfg.secondsPerMove) / 7.3, 0, 1);
 
   difficulty.components = {
     hiddenDepth: +nHidden.toFixed(3), windowTightness: +nWindow.toFixed(3),
     slotPressure: +nSlot.toFixed(3), opening: +nOpen.toFixed(3),
     volume: +nVol.toFixed(3), spread: +nSpread.toFixed(3),
     confusion: +nConf.toFixed(3), interleave: +nInter.toFixed(3),
-    strictness: +nStrict.toFixed(3),
+    timePressure: +nTime.toFixed(3),
   };
   difficulty.score = clamp(
     Math.round(100 * (
       0.22 * nHidden + 0.16 * nWindow + 0.12 * nSlot + 0.10 * nOpen +
-      0.10 * nVol + 0.08 * nSpread + 0.08 * nConf + 0.07 * nInter + 0.07 * nStrict
+      0.10 * nVol + 0.08 * nSpread + 0.08 * nConf + 0.07 * nInter + 0.07 * nTime
     )), 1, 100);
 
   /* --- Meta: gioi han nuoc di / thoi gian --- */
-  const moveLimit = cfg.moveLimitSlack == null ? null : Math.ceil(parMoves * cfg.moveLimitSlack);
-  const timeToPlay =
-    cfg.secondsPerMove == null ? null : Math.round((parMoves * cfg.secondsPerMove + 20) / 5) * 5;
+  const moveLimit = null;
+  const automationAllowanceSeconds = Math.ceil(S * 7 / cfg.conveyorMaxActive);
+  const timeToPlay = cfg.secondsPerMove == null ? null
+    : Math.ceil((parMoves * cfg.secondsPerMove + 20 + automationAllowanceSeconds) / 5) * 5;
+  const timerBudget = timeToPlay == null ? null : {
+    actionSecondsPerMove: cfg.secondsPerMove, automationAllowanceSeconds,
+    baseSeconds: 20, referenceMoves: parMoves, totalSeconds: timeToPlay,
+  };
 
   return {
-    version: 'solvable-gen-2.0',
+    version: 'solvable-gen-2.1-timed',
     seed: cfg.seed,
     attempt,
     config: cfg,
@@ -1083,6 +1071,7 @@ function finalize(cfg, built, attempt) {
     rules: {
       moveLimit,
       timeToPlay,
+      timerBudget,
       undoCount: cfg.undoCount,
       queueCapacity: cfg.queueCapacity,
       trayMatchMode: cfg.trayMatchMode,

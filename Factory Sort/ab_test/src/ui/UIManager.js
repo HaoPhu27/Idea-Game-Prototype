@@ -26,7 +26,10 @@ class UIManager {
             this.handleItemDragStart.bind(this)
         );
         this.trayRenderer = new TrayRenderer('trays-container');
-        this.trayRenderer.onTick = this.checkQueuePickup.bind(this);
+        this.trayRenderer.onTick = (now) => {
+            this.updateLevelClock(now);
+            this.checkQueuePickup(now);
+        };
         this.conveyorRenderer = new ConveyorRenderer('conveyor-belt');
         this.queueRenderer = new QueueRenderer();
         this.tutorialManager = new TutorialManager(this, this.engine);
@@ -49,6 +52,9 @@ class UIManager {
         this.overlayLose = document.getElementById('overlay-lose');
         this.loseReason = document.getElementById('lose-reason');
         this.moveLimitDisplay = document.getElementById('move-limit');
+        this.timerDisplay = document.getElementById('timer-display');
+        this.timerPill = document.getElementById('stat-timer');
+        this.tierDisplay = document.getElementById('tier-display');
         this.overlayLoading = document.getElementById('overlay-loading');
         this.overlayLevelSelect = document.getElementById('overlay-level-select');
         this.levelGrid = document.getElementById('level-grid');
@@ -114,6 +120,11 @@ class UIManager {
     }
 
     bindEvents() {
+        document.addEventListener('visibilitychange', () => {
+            this._clockLastTime = performance.now();
+            this._clockWasPaused = true;
+            this.renderTimer();
+        });
         this.btnNewGame.addEventListener('click', () => {
             this.audio.tap();
             this.currentLevel = 1;
@@ -200,8 +211,49 @@ class UIManager {
         this.moveLimitDisplay.classList.remove('low');
     }
 
+    isClockPaused() {
+        return document.hidden || ['overlay-loading', 'overlay-help', 'overlay-level-select']
+            .some(id => {
+                const el = document.getElementById(id);
+                return el && !el.classList.contains('hidden');
+            });
+    }
+
+    updateLevelClock(now = performance.now()) {
+        const paused = this.isClockPaused();
+        if (!paused && !this._clockWasPaused && this._clockObservedStarted &&
+            Number.isFinite(this._clockLastTime)) {
+            this.engine.advanceClock(Math.max(0, now - this._clockLastTime) / 1000);
+        }
+        this._clockLastTime = now;
+        this._clockWasPaused = paused;
+        this._clockObservedStarted = this.engine.clockStarted;
+        this.renderTimer();
+    }
+
+    renderTimer() {
+        if (!this.timerDisplay || !this.timerPill) return;
+        const remaining = this.engine.timeRemainingSeconds;
+        const timed = Number.isFinite(remaining);
+        const secs = Math.max(0, Math.ceil(timed ? remaining : 0));
+        this.timerDisplay.textContent = timed
+            ? `${Math.floor(secs / 60).toString().padStart(2, '0')}:${(secs % 60).toString().padStart(2, '0')}`
+            : '∞';
+        this.timerPill.classList.toggle('timer-low', timed && remaining <= this.engine.timeLimitSeconds * 0.2);
+        this.timerPill.classList.toggle('timer-critical', timed && remaining <= 10);
+        const status = this.engine.gameState === 'WON' ? 'Hoàn thành'
+            : this.engine.gameState === 'LOST' ? 'Đã kết thúc'
+            : !this.engine.clockStarted ? 'Nhặt vật đầu tiên để bắt đầu'
+            : this.isClockPaused() ? 'Tạm dừng'
+            : !this.engine.hasPlayerWorkRemaining() ? 'Đang giao hàng — thời gian tạm dừng'
+            : 'Thời gian còn lại';
+        const label = timed ? `${status}: ${this.timerDisplay.textContent}` : `${status} — không giới hạn thời gian`;
+        this.timerPill.title = label;
+        this.timerPill.setAttribute('aria-label', label);
+    }
+
     showWinCelebration() {
-        const elapsedSec = Math.max(1, Math.floor((performance.now() - this.levelStartTime) / 1000));
+        const elapsedSec = Math.max(0, Math.floor(this.engine.elapsedPlaySeconds || 0));
         const mins = Math.floor(elapsedSec / 60).toString().padStart(2, '0');
         const secs = (elapsedSec % 60).toString().padStart(2, '0');
 
@@ -245,11 +297,17 @@ class UIManager {
                 if (this.loseReason) {
                     this.loseReason.textContent = this.engine.loseReason || 'Không còn nước đi hợp lệ. Hãy thử lại màn này.';
                 }
+                const timeout = this.engine.loseReason?.startsWith('Hết thời gian');
+                const title = document.getElementById('lose-title');
+                const banner = document.getElementById('lose-banner');
+                if (title) title.textContent = timeout ? 'HẾT THỜI GIAN!' : 'HẾT CHỖ ĐIỀU PHỐI!';
+                if (banner) banner.textContent = timeout ? '⏱ CA LÀM ĐÃ KẾT THÚC ⏱' : '⚠️ DÂY CHUYỀN QUÁ TẢI ⚠️';
                 this.overlayLose.classList.remove('hidden');
             } else {
                 this.overlayWin.classList.add('hidden');
                 this.overlayLose.classList.add('hidden');
             }
+            this.renderTimer();
         };
         
         this.engine.onMoveCountUpdated = (count) => {
@@ -357,6 +415,12 @@ class UIManager {
 
     async startNewLevel(isRetry = false) {
         this._resetAnimationState();
+        // Freeze the previous level before yielding to paint the loading overlay.
+        // Its conveyor ticks must not create deliveries using the new epoch.
+        this.engine.setGameState('IDLE');
+        this._clockLastTime = null;
+        this._clockWasPaused = true;
+        this._clockObservedStarted = false;
         const levelEpoch = this._animationEpoch;
         this.overlayWin.classList.add('hidden');
         this.overlayLose.classList.add('hidden');
@@ -376,6 +440,13 @@ class UIManager {
         this.queueRenderer.render([]);
         this.trayRenderer.reset();
         this.engine.startLevel(levelData);
+        this._clockLastTime = performance.now();
+        const tier = levelData.config?.tier || configForLevelNumber(this.currentLevel).tier;
+        if (this.tierDisplay) {
+            this.tierDisplay.textContent = ({ tutorial: 'HƯỚNG DẪN', onboarding: 'LÀM QUEN', acclimation: 'LUYỆN TẬP',
+                normal: 'NORMAL', hard: 'HARD', superhard: 'SUPER HARD' })[tier] || 'NORMAL';
+            this.tierDisplay.dataset.tier = tier;
+        }
         this.levelDisplay.textContent = this.currentLevel;
         this.moveDisplay.textContent = "0";
         this.renderMoveLimit();
@@ -383,6 +454,7 @@ class UIManager {
         
         this.updateRender();
         this.overlayLoading.classList.add('hidden');
+        this.renderTimer();
 
         if (this.currentLevel === 1) {
             this.tutorialManager.startLevel1Tutorial();
@@ -627,6 +699,7 @@ class UIManager {
             }
         }
 
+        if (this.engine.startClock()) this._clockLastTime = performance.now();
         if (e) {
             if (e.preventDefault) e.preventDefault();
             if (e.pointerId !== undefined && slotEl && slotEl.setPointerCapture) {

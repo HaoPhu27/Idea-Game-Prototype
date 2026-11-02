@@ -38,6 +38,11 @@ window.addEventListener('unhandledrejection', function(e) {
                     <span id="move-display" class="hud-value">0</span>
                     <span id="move-limit" class="hud-sub"></span>
                 </div>
+                <div id="stat-timer" class="hud-pill timer-pill" role="timer" aria-label="Nhặt vật đầu tiên để bắt đầu">
+                    <span class="hud-icon" aria-hidden="true">⏱</span>
+                    <span id="timer-display" class="hud-value">∞</span>
+                </div>
+                <span id="tier-display" class="tier-badge">HƯỚNG DẪN</span>
             </div>
 
             <div class="hud-right">
@@ -172,8 +177,8 @@ window.addEventListener('unhandledrejection', function(e) {
         
         <div id="overlay-lose" class="overlay hidden">
             <div class="overlay-card lose-card">
-                <div class="hazard-strip-banner">⚠️ DÂY CHUYỀN QUÁ TẢI ⚠️</div>
-                <h2>HẾT CHỖ ĐIỀU PHỐI!</h2>
+                <div id="lose-banner" class="hazard-strip-banner">⚠️ DÂY CHUYỀN QUÁ TẢI ⚠️</div>
+                <h2 id="lose-title">HẾT CHỖ ĐIỀU PHỐI!</h2>
                 <p id="lose-reason" class="lose-reason-text">Hàng chờ đã đầy 5/5 thùng, không còn chỗ trống để luân chuyển hàng hóa.</p>
                 <div class="card-actions">
                     <button id="btn-retry" class="btn btn-danger-industrial btn-large">TÁI KHỞI ĐỘNG CA LÀM ↺</button>
@@ -301,6 +306,13 @@ window.addEventListener('unhandledrejection', function(e) {
                         <div class="rule-text">
                             <strong>Giao hàng lên Băng chuyền</strong>
                             <p>Khay hàng chạy ngang qua thùng khớp loại sẽ tự nhận hàng (hoặc kéo thả trực tiếp).</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">⏱</div>
+                        <div class="rule-text">
+                            <strong>Thời gian của màn chơi</strong>
+                            <p>Ở màn có giới hạn thời gian, đồng hồ bắt đầu khi nhặt món đầu tiên; hết giờ là thua. Mở trợ giúp hoặc ẩn tab sẽ tạm dừng đồng hồ. Khi đã gom xong và chỉ còn giao hàng tự động, bạn không bị trừ thêm giờ.</p>
                         </div>
                     </div>
                 </div>
