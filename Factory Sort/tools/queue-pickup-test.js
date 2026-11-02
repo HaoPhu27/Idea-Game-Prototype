@@ -14,6 +14,9 @@ const trays = ['far', 'near', 'other'].map(id => ({ id, canAccept: () => true })
 const visuals = trays.map(t => ({ id: t.id, el: {}, inZone: t.id !== 'far' }));
 const deliveries = [];
 const ui = {
+    _deliveryAnimating: false,
+    _queueFlightActive: false,
+    _drainQueueFlights() {},
     engine: { gameState: 'PLAYING', getQueue: () => [box], conveyor: { getAllActiveTrays: () => trays } },
     trayRenderer: { trayElements: visuals, isInDeliveryZone: t => t.inZone },
     triggerQueueDelivery: (b, t) => deliveries.push([b.id, t.id]),
@@ -24,11 +27,11 @@ visuals[1].isReceiving = true;
 deliveries.length = 0;
 method.call(ui, 1000);
 assert.deepEqual(deliveries, [['box-unrelated-id', 'other']], 'receiving tray must not block another eligible tray');
-ui._animating = true;
+ui._deliveryAnimating = true;
 deliveries.length = 0;
 method.call(ui, 1000);
 assert.equal(deliveries.length, 0, 'only one delivery transaction at a time');
-ui._animating = false;
+ui._deliveryAnimating = false;
 box.queueEnteredTime = 900;
 method.call(ui, 1000);
 assert.equal(deliveries.length, 0, 'newly arriving box must settle first');

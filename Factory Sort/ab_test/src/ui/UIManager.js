@@ -87,7 +87,7 @@ class UIManager {
             startX: 0,
             startY: 0
         };
-        this._animating = false;
+        this._resetAnimationState();
         this.GHOST_LIFT = 28;
         this._renderQueued = false;
         this._boLuotFlip = false;
@@ -268,8 +268,10 @@ class UIManager {
         };
         
         this.engine.onTrayDelivered = (trayId, box) => {
+            const epoch = this._animationEpoch;
             if (this.tutorialManager) this.tutorialManager.onTrayDelivered(trayId, box);
             this.trayRenderer.animateTrayExit(trayId, () => {
+                if (epoch !== this._animationEpoch) return;
                 // Khay chua box da vao trong cua OUT -> hoan tat exit tren engine va cho phep khay moi di ra tu cua IN
                 this.engine.completeTrayExit(trayId);
                 this.conveyorRenderer.animateShift();
@@ -354,6 +356,8 @@ class UIManager {
     }
 
     async startNewLevel(isRetry = false) {
+        this._resetAnimationState();
+        const levelEpoch = this._animationEpoch;
         this.overlayWin.classList.add('hidden');
         this.overlayLose.classList.add('hidden');
         this.overlayLoading.classList.remove('hidden');
@@ -365,6 +369,7 @@ class UIManager {
         // Yield to browser to show loading
         await new Promise(r => setTimeout(r, 50));
         
+        if (levelEpoch !== this._animationEpoch) return;
         // Duong cong do kho nam TRON VEN trong configForLevelNumber() cua bo sinh man.
         const levelData = LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
         
@@ -391,7 +396,6 @@ class UIManager {
         this._renderQueued = true;
         requestAnimationFrame(() => {
             this._renderQueued = false;
-            if (this._animating) return;
             this._renderNow();
         });
     }
@@ -544,7 +548,7 @@ class UIManager {
     // --- Layer 1 Input (Tap) ---
     handleSlotTap(boxId, itemIndex) {
         if (this.dragState.isDragging || this.itemDragState.isDragging) return;
-        if (this._animating) return;
+        if (this._isBoxBusy(boxId) || (this.engine.selectedSource && this._isBoxBusy(this.engine.selectedSource.boxId))) return;
         
         // During tutorial, enforce allowed target to prevent accidental wrong placement
         if (this.tutorialManager && this.tutorialManager.active) {
@@ -572,10 +576,12 @@ class UIManager {
 
             if (this.engine.selectTarget(boxId, itemIndex)) {
                 this.audio.swap();
-                this._animating = true;
+                this._busyBoxes.add(String(sourceId));
+                this._busyBoxes.add(String(boxId));
+                const epoch = this._animationEpoch;
                 const targetBox = this.engine.getBox(boxId);
                 this.boxRenderer.animateItemTransfer(sourceId, boxId, () => {
-                    this._finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox);
+                    this._finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox, epoch);
                 });
             } else {
                 // Invalid or deselected
@@ -602,7 +608,8 @@ class UIManager {
 
     // --- Layer 1 Input: Item Drag & Drop ---
     handleItemDragStart(boxId, slotIndex, slotEl, e) {
-        if (this._animating) return;
+        if (this.engine.gameState !== 'PLAYING') return;
+        if (this._isBoxBusy(boxId)) return;
         if (this.dragState.isDragging || this.itemDragState.isDragging) return;
         if (!this.engine.isAccessible(boxId)) return;
 
@@ -759,7 +766,7 @@ class UIManager {
         });
 
         // If targetBoxId is valid
-        if (targetBoxId !== null && targetBoxId !== srcBoxId) {
+        if (targetBoxId !== null && targetBoxId !== srcBoxId && !this._isBoxBusy(targetBoxId) && !this._isBoxBusy(srcBoxId)) {
             // Tutorial check
             if (this.tutorialManager && this.tutorialManager.active) {
                 if (this.tutorialManager.isAllowedDrop && !this.tutorialManager.isAllowedDrop(srcBoxId, targetBoxId)) {
@@ -786,9 +793,13 @@ class UIManager {
             const success = this.engine.moveItem(srcBoxId, srcSlotIndex, targetBoxId, targetSlotIndex);
             if (success) {
                 this.audio.swap();
-                this._animating = true;
+                this._busyBoxes.add(String(srcBoxId));
+                this._busyBoxes.add(String(targetBoxId));
+                const epoch = this._animationEpoch;
                 if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
 
+                // Detach this flight from the reusable active-drag ghost.
+                if (ghost) ghost.id = '';
                 if (ghost && targetSlotEl) {
                     const targetRect = targetSlotEl.getBoundingClientRect();
                     ghost.style.transition = 'all 0.14s cubic-bezier(0.2, 0.9, 0.4, 1)';
@@ -802,9 +813,10 @@ class UIManager {
                 }
 
                 setTimeout(() => {
-                    if (ghost) ghost.style.display = 'none';
+                    if (epoch !== this._animationEpoch) return;
+                    if (ghost) ghost.remove();
                     const targetBox = this.engine.getBox(targetBoxId);
-                    this._finalizeMoveAfterDrag(srcBoxId, targetBoxId, willEmpty, targetBox);
+                    this._finalizeMoveAfterDrag(srcBoxId, targetBoxId, willEmpty, targetBox, epoch);
                 }, 140);
                 return;
             }
@@ -841,73 +853,76 @@ class UIManager {
         }
     }
 
-    _finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox) {
-        const finishTransfer = () => {
-            if (targetBox && targetBox.isWrapped) {
-                const domBox = document.querySelector(`.box[data-box-id="${boxId}"]`);
-                if (domBox) {
-                    const catConfig = getCategoryConfig(targetBox.getCategory());
-                    const itemType = targetBox.getItemType() || (targetBox.items.length > 0 ? targetBox.items[0] : null);
-                    const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
-                    if (catConfig) {
-                        domBox.style.setProperty('--cat-color', catConfig.color);
-                        let logo = domBox.querySelector('.box-logo');
-                        if (!logo) {
-                            logo = document.createElement('div');
-                            logo.className = 'box-logo';
-                            domBox.appendChild(logo);
-                        }
-                        logo.style.setProperty('--cat-color', catConfig.color);
-                        logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
-                    }
-                    domBox.classList.add('wrapped');
-                }
-                
-                setTimeout(() => {
-                    const currentQueue = this.engine.getQueue();
-                    const nextSlotIdx = currentQueue.length;
-                    const domBoxCurrent = document.querySelector(`.box[data-box-id="${boxId}"]`);
-                    const wrapColEl = domBoxCurrent ? domBoxCurrent.closest('.box-column') : null;
-                    if (wrapColEl && wrapColEl.dataset.colIndex !== undefined) {
-                        this._lastAffectedColIndex = Number(wrapColEl.dataset.colIndex);
-                    }
+    _isBoxBusy(id) {
+        return this._busyBoxes.has(String(id));
+    }
 
-                    this.queueRenderer.animateBoxToQueue(targetBox, nextSlotIdx, domBoxCurrent, () => {
-                        targetBox.queueEnteredTime = performance.now();
-                        this.engine.moveBoxToQueue(targetBox);
-                        this._animating = false;
-                        this.updateRender();
-                    });
-                }, 550);
-            } else {
-                this._animating = false;
-                this.updateRender();
-            }
-        };
+    _resetAnimationState() {
+        this._animationEpoch = (this._animationEpoch || 0) + 1;
+        this._busyBoxes = new Set();
+        this._pendingQueueBoxes = [];
+        this._queueFlightActive = false;
+        this._deliveryAnimating = false;
+        document.querySelectorAll('.item-drag-ghost, .item-animating, .flying-queue-box').forEach(el => el.remove());
+        document.body.classList.remove('is-dragging', 'is-item-dragging');
+        if (this.itemDragState) this.itemDragState.isDragging = false;
+        if (this.dragState) this.dragState.isDragging = false;
+    }
 
-        if (willEmpty) {
-            const srcDom = document.querySelector(`.box[data-box-id="${sourceId}"]`);
-            if (srcDom) {
-                const emptyColEl = srcDom.closest('.box-column');
-                if (emptyColEl && emptyColEl.dataset.colIndex !== undefined) {
-                    this._lastAffectedColIndex = Number(emptyColEl.dataset.colIndex);
-                }
-                this.vfx.praise(srcDom, 'DỌN GỌN! 🧹', 1);
-                srcDom.classList.add('disappearing');
-                if (navigator.vibrate) navigator.vibrate(20);
-                setTimeout(() => {
-                    finishTransfer();
-                }, 200);
-            } else {
-                finishTransfer();
+    _drainQueueFlights() {
+        if (this._queueFlightActive || this._deliveryAnimating || !this._pendingQueueBoxes.length || this.engine.gameState !== 'PLAYING') return;
+        const box = this._pendingQueueBoxes[0];
+        const queue = this.engine.getQueue();
+        if (queue.length >= this.engine.maxQueueSize) {
+            const trays = this.engine.conveyor.getAllActiveTrays();
+            // Existing queued deliveries must free a physical slot first.
+            if (queue.some(b => trays.some(t => t.canAccept(b))) || this._deliveryAnimating) return;
+            this.engine.loseReason = 'Hàng chờ đã đầy, không còn chỗ nhận thùng đã đóng gói.';
+            this.engine.setGameState('LOST');
+            return;
+        }
+        this._pendingQueueBoxes.shift();
+        if (this.engine.getBox(box.id) !== box || queue.includes(box)) {
+            this._busyBoxes.delete(String(box.id));
+            this._drainQueueFlights();
+            return;
+        }
+        const epoch = this._animationEpoch;
+        this._queueFlightActive = true;
+        const domBox = document.querySelector(`.box[data-box-id="${box.id}"]`);
+        if (domBox) domBox.style.visibility = 'hidden';
+        this.queueRenderer.animateBoxToQueue(box, queue.length, domBox, () => {
+            if (epoch !== this._animationEpoch) return;
+            this._queueFlightActive = false;
+            this._busyBoxes.delete(String(box.id));
+            if (this.engine.gameState === 'PLAYING') {
+                box.queueEnteredTime = performance.now();
+                this.engine.moveBoxToQueue(box);
             }
-        } else {
-            finishTransfer();
+            this.updateRender();
+            this._drainQueueFlights();
+        });
+    }
+
+    _finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox, epoch = this._animationEpoch) {
+        if (epoch !== this._animationEpoch) return;
+        this._busyBoxes.delete(String(sourceId));
+        // State already committed; let other boxes render and accept input now.
+        this._busyBoxes.delete(String(boxId));
+        this.updateRender();
+        if (targetBox && targetBox.isWrapped) {
+            this._busyBoxes.add(String(boxId));
+            setTimeout(() => {
+                if (epoch !== this._animationEpoch || this.engine.gameState !== 'PLAYING') return;
+                if (!this._pendingQueueBoxes.includes(targetBox)) this._pendingQueueBoxes.push(targetBox);
+                this._drainQueueFlights();
+            }, 550);
         }
     }
-    
+
     // --- Layer 2 Input (Drag) ---
     handleDragStart(boxId, e) {
+        if (this._isBoxBusy(boxId)) return;
         if (!this.engine.startDragWrappedBox(boxId)) return;
         
         if (e) {
@@ -1057,7 +1072,8 @@ class UIManager {
      */
     checkQueuePickup(now = performance.now()) {
         if (this.engine.gameState !== 'PLAYING') return;
-        if (this._animating) return;
+        this._drainQueueFlights();
+        if (this._deliveryAnimating || this._queueFlightActive) return;
 
         const queue = this.engine.getQueue();
         if (queue.length === 0) return;
@@ -1092,7 +1108,8 @@ class UIManager {
     }
 
     triggerQueueDelivery(box, tray, slotEl, trayEl) {
-        this._animating = true;
+        this._deliveryAnimating = true;
+        const epoch = this._animationEpoch;
 
         const trayObj = this.trayRenderer.trayElements.find(t => t.id === tray.id);
         if (trayObj) {
@@ -1103,9 +1120,11 @@ class UIManager {
         if (navigator.vibrate) navigator.vibrate(15);
 
         this.queueRenderer.animateBoxToTray(box, slotEl, trayEl, () => {
+            if (epoch !== this._animationEpoch) return;
             slotEl.classList.remove('dispatching');
             this.engine.deliverQueueBox(box.id, tray.id);
-            this._animating = false;
+            this._deliveryAnimating = false;
+            this._drainQueueFlights();
 
             const now = performance.now();
             if (this.lastDeliveryTime && (now - this.lastDeliveryTime < 3400)) {
