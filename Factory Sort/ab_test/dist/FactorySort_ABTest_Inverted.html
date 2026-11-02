@@ -2896,12 +2896,6 @@ window.addEventListener('unhandledrejection', function(e) {
                     <span id="level-display" class="hud-value">1</span>
                     <span class="level-pill-arrow">▼</span>
                 </div>
-                <div id="stat-moves" class="hud-pill moves-pill" title="Số nước đi đã sử dụng">
-                    <span class="hud-icon">🎯</span>
-                    <span class="hud-label">NƯỚC</span>
-                    <span id="move-display" class="hud-value">0</span>
-                    <span id="move-limit" class="hud-sub"></span>
-                </div>
                 <div id="stat-timer" class="hud-pill timer-pill" role="timer" aria-label="Nhặt vật đầu tiên để bắt đầu">
                     <span class="hud-icon" aria-hidden="true">⏱</span>
                     <span id="timer-display" class="hud-value">∞</span>
@@ -8033,7 +8027,6 @@ class UIManager {
         // DOM Elements
         this.levelDisplay = document.getElementById('level-display');
         this.btnHeaderLevel = document.getElementById('btn-header-level');
-        this.moveDisplay = document.getElementById('move-display');
         this.btnNewGame = document.getElementById('btn-new-game');
         this.btnSelectLevel = document.getElementById('btn-select-level');
         this.btnNextLevel = document.getElementById('btn-next-level');
@@ -8047,7 +8040,6 @@ class UIManager {
         this.overlayWin = document.getElementById('overlay-win');
         this.overlayLose = document.getElementById('overlay-lose');
         this.loseReason = document.getElementById('lose-reason');
-        this.moveLimitDisplay = document.getElementById('move-limit');
         this.timerDisplay = document.getElementById('timer-display');
         this.timerPill = document.getElementById('stat-timer');
         this.tierDisplay = document.getElementById('tier-display');
@@ -8201,12 +8193,6 @@ class UIManager {
         });
     }
     
-    renderMoveLimit() {
-        if (!this.moveLimitDisplay) return;
-        this.moveLimitDisplay.textContent = '';
-        this.moveLimitDisplay.classList.remove('low');
-    }
-
     updateConveyorSpeed() {
         const boardEmpty = !this.engine.boxes.some(box => !box.isEmpty());
         this.trayRenderer.speedMultiplier = this.engine.gameState === 'PLAYING' && boardEmpty ? 1.5 : 1;
@@ -8311,12 +8297,6 @@ class UIManager {
             this.renderTimer();
         };
         
-        this.engine.onMoveCountUpdated = (count) => {
-            this.moveDisplay.textContent = count;
-            this.renderMoveLimit();
-            this.vfx.bump('stat-moves');
-        };
-
         this.engine.onQueueUpdated = (queue) => {
             this.queueRenderer.render(queue);
             this.vfx.bump('queue-counter');
@@ -8449,8 +8429,6 @@ class UIManager {
             this.tierDisplay.dataset.tier = tier;
         }
         this.levelDisplay.textContent = this.currentLevel;
-        this.moveDisplay.textContent = "0";
-        this.renderMoveLimit();
         this._boLuotFlip = true;
         
         this.updateRender();

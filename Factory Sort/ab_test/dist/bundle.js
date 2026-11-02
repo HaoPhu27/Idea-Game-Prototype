@@ -4844,7 +4844,6 @@ class UIManager {
         // DOM Elements
         this.levelDisplay = document.getElementById('level-display');
         this.btnHeaderLevel = document.getElementById('btn-header-level');
-        this.moveDisplay = document.getElementById('move-display');
         this.btnNewGame = document.getElementById('btn-new-game');
         this.btnSelectLevel = document.getElementById('btn-select-level');
         this.btnNextLevel = document.getElementById('btn-next-level');
@@ -4858,7 +4857,6 @@ class UIManager {
         this.overlayWin = document.getElementById('overlay-win');
         this.overlayLose = document.getElementById('overlay-lose');
         this.loseReason = document.getElementById('lose-reason');
-        this.moveLimitDisplay = document.getElementById('move-limit');
         this.timerDisplay = document.getElementById('timer-display');
         this.timerPill = document.getElementById('stat-timer');
         this.tierDisplay = document.getElementById('tier-display');
@@ -5012,12 +5010,6 @@ class UIManager {
         });
     }
     
-    renderMoveLimit() {
-        if (!this.moveLimitDisplay) return;
-        this.moveLimitDisplay.textContent = '';
-        this.moveLimitDisplay.classList.remove('low');
-    }
-
     updateConveyorSpeed() {
         const boardEmpty = !this.engine.boxes.some(box => !box.isEmpty());
         this.trayRenderer.speedMultiplier = this.engine.gameState === 'PLAYING' && boardEmpty ? 1.5 : 1;
@@ -5122,12 +5114,6 @@ class UIManager {
             this.renderTimer();
         };
         
-        this.engine.onMoveCountUpdated = (count) => {
-            this.moveDisplay.textContent = count;
-            this.renderMoveLimit();
-            this.vfx.bump('stat-moves');
-        };
-
         this.engine.onQueueUpdated = (queue) => {
             this.queueRenderer.render(queue);
             this.vfx.bump('queue-counter');
@@ -5260,8 +5246,6 @@ class UIManager {
             this.tierDisplay.dataset.tier = tier;
         }
         this.levelDisplay.textContent = this.currentLevel;
-        this.moveDisplay.textContent = "0";
-        this.renderMoveLimit();
         this._boLuotFlip = true;
         
         this.updateRender();
