@@ -6472,11 +6472,11 @@ const TUTORIAL_LEVELS = {
     },
     2: {
         tip: 'Vuốt ⬊ để nhà cao lên đến Stage Limit',
-        title: 'Chia đôi tầng, thêm một nhà',
+        title: 'Hoàn tất chu kỳ, số nhà gấp đôi',
         captions: [
-            'Stage Limit là số tầng tối đa của màn. Khi tất cả nhà đạt giới hạn, lượt tiếp theo bắt đầu tách từng nhà.',
-            'Mỗi lần tách, một nhà chia thành hai nhà, mỗi nhà giữ nửa số tầng. Ví dụ: 10 tầng → 5 + 5 tầng; 2 tầng → 1 + 1 tầng.',
-            'Cả cụm trượt 1 ô trước. Nhà mới mọc cạnh nhà gốc theo hướng vừa vuốt: vuốt ⬊ thì tách về ⬊, vuốt ⬋ thì tách về ⬋.'
+            'Stage Limit là giới hạn số tầng. Khi tất cả nhà đạt giới hạn, lượt tiếp theo bắt đầu chu kỳ tách.',
+            'Mỗi lượt, một nhà tách thành hai. Tách hết các nhà ban đầu, tổng số nhà tăng gấp đôi: 1 → 2; 2 → 3 → 4.',
+            'Cả cụm trượt 1 ô trước. Nhà mới xuất hiện ở ô kề theo hướng vừa vuốt: vuốt ⬊ tách về ⬊, vuốt ⬋ tách về ⬋.'
         ],
         button: 'Thử tách nhà!'
     }
@@ -6756,7 +6756,7 @@ class Tutorial {
             panel.querySelector('.steps-row').after(note);
         }
         note.hidden = parseInt(this.app?.state?.id, 10) !== 2;
-        note.textContent = 'Nếu ô kề theo hướng vuốt bị chặn hoặc đã có nhà, nhà mới mọc ở hướng ngược lại. Cả hai phía bị chặn thì lượt đi không thực hiện được. Mỗi lượt chỉ tách một nhà theo thứ tự tạo. Phủ kín khu vàng, mỗi ô một nhà, để thắng!';
+        note.textContent = 'Hai nhà sau tách có số tầng bằng nửa nhà ban đầu (làm tròn xuống), ví dụ 10 tầng → 5 + 5 tầng. Các nhà tách lần lượt theo thứ tự tạo. Nếu ô kề theo hướng vuốt bị chặn hoặc có nhà, thử phía đối diện; cả hai phía bị chặn thì không đi được. Phủ kín khu vàng, mỗi ô một nhà, để thắng!';
         const button = this._el('btn-steps-ok');
         if (button) button.textContent = config.button;
     }
