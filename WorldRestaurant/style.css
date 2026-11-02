@@ -1011,3 +1011,17 @@ button:active {
 
 
 
+
+/* Split rules accompany the level 2 three-image tutorial. */
+.split-rule-note {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #F5EBDD;
+    color: #2A211B;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.split-rule-note[hidden] { display: none; }
