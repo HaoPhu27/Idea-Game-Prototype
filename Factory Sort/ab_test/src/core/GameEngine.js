@@ -1,3 +1,4 @@
+import { boosterSnapshot, boosterMatchingInvariant, boosterProveSolvable } from './BoosterSolver.js';
 import { Box } from './Box.js';
 import { Conveyor } from './Conveyor.js';
 import { Tray } from './Tray.js';
@@ -18,6 +19,9 @@ export class GameEngine {
         this.timeRemainingSeconds = null;
         this.elapsedPlaySeconds = 0;
         this.clockStarted = false;
+        this.freezeRemainingSeconds = 0;
+        this.extraTrayUsed = false;
+        this.lastBoosterError = '';
         
         // Callbacks for UI
         this.onBoxUpdated = null;
@@ -30,6 +34,7 @@ export class GameEngine {
     }
 
     startLevel(levelConfig) {
+        this.boosterReferenceSolution = (levelConfig.referenceSolution || []).map(m => ({ ...m }));
         this.boxes = levelConfig.boxes.map((boxData, idx) => {
             const box = new Box(idx);
             box.items = boxData.items;
@@ -80,6 +85,11 @@ export class GameEngine {
             this.effectiveRows = this.visibleRows;
         }
 
+        this.maxQueueSize = 5;
+        this.extraTrayUsed = false;
+        this.freezeRemainingSeconds = 0;
+        this.lastBoosterError = '';
+
         // Reset hang cho (staging queue 5 slots)
         this.queue = [];
         this.loseReason = '';
@@ -120,6 +130,9 @@ export class GameEngine {
     advanceClock(deltaSeconds) {
         if (this.gameState !== 'PLAYING' || !this.clockStarted ||
             !Number.isFinite(deltaSeconds) || deltaSeconds <= 0 || !this.hasPlayerWorkRemaining()) return;
+        const frozen = Math.min(deltaSeconds, this.freezeRemainingSeconds);
+        this.freezeRemainingSeconds -= frozen;
+        deltaSeconds -= frozen;
         const charged = this.timeRemainingSeconds === null
             ? deltaSeconds : Math.min(deltaSeconds, this.timeRemainingSeconds);
         this.elapsedPlaySeconds += charged;
@@ -134,6 +147,124 @@ export class GameEngine {
         }
     }
     
+    _boosterFail(reason) { this.lastBoosterError = reason; return false; }
+
+    _boosterReady() {
+        return this.gameState === 'PLAYING' && !this.hasPendingTrayExits();
+    }
+
+    _boosterChanged() {
+        this.lastBoosterError = '';
+        this.deselectSource(); this.cancelDrag();
+        if (this.onBoosterUpdated) this.onBoosterUpdated();
+    }
+
+    freezeTime() {
+        if (!this._boosterReady() || this.timeRemainingSeconds === null || this.freezeRemainingSeconds > 0 || !this.hasPlayerWorkRemaining())
+            return this._boosterFail('Không thể đóng băng lúc này.');
+        this.startClock();
+        this.freezeRemainingSeconds = 30;
+        this._boosterChanged(); return true;
+    }
+
+    addExtraTray() {
+        if (!this._boosterReady() || this.extraTrayUsed) return this._boosterFail('Đã thêm ô chờ ở màn này.');
+        this.extraTrayUsed = true; this.maxQueueSize = 6;
+        if (this.onQueueUpdated) this.onQueueUpdated(this.queue);
+        this._boosterChanged(); return true;
+    }
+
+    shuffleItems(rng = Math.random) {
+        if (!this._boosterReady()) return this._boosterFail('Chờ giao hàng hoàn tất.');
+        const eligible = this.boxes.filter(b => !b.isWrapped && this.isAccessible(b.id));
+        const positions = eligible.flatMap(b => b.slots.map((it, slot) => ({ b, slot, it })).filter(p => p.it !== null));
+        if (positions.length < 2 || new Set(positions.map(p => p.it)).size < 2)
+            return this._boosterFail('Không đủ vật phẩm để xáo trộn.');
+        const originals = positions.map(p => p.it);
+        const deadline = Date.now() + 180;
+        for (let attempt = 0; attempt < 12 && Date.now() < deadline; attempt++) {
+            const items = originals.slice();
+            for (let i = items.length - 1; i > 0; i--) {
+                const value = rng();
+                const j = Math.floor(Math.min(0.999999999, Math.max(0, Number.isFinite(value) ? value : 0)) * (i + 1));
+                [items[i], items[j]] = [items[j], items[i]];
+            }
+            if (items.every((it, i) => it === originals[i])) continue;
+            positions.forEach((p, i) => { p.b.slots[p.slot] = items[i]; });
+            // Shuffle never bypasses the normal wrap/flight transaction. Keep
+            // new triples out of candidates; players finish them through normal moves.
+            const createsWrapped = eligible.some(b => b.items.length === 3 && b.items.every(it => it === b.items[0]));
+            // Explore several random candidates before spending the remaining
+            // proof budget on one layout; an inconclusive proof never mutates play.
+            const slices = [15, 15, 20, 25, 35];
+            const proofDeadline = attempt < slices.length ? Math.min(deadline, Date.now() + slices[attempt]) : deadline;
+            const solved = !createsWrapped && boosterProveSolvable(boosterSnapshot(this), proofDeadline);
+            if (solved) {
+                this._boosterChanged();
+                for (const b of eligible) {
+                    const wrapped = b.checkWrapped();
+                    if (this.onBoxUpdated) this.onBoxUpdated(b);
+                    if (wrapped) {
+                        if (this.onBoxWrapped) this.onBoxWrapped(b);
+                        else this.moveBoxToQueue(b);
+                    }
+                }
+                this.checkConditions(); return true;
+            }
+            positions.forEach((p, i) => { p.b.slots[p.slot] = originals[i]; });
+        }
+        return this._boosterFail('Chưa tìm được cách xáo trộn bảo đảm giải được; bàn giữ nguyên.');
+    }
+
+    removeTray(trayId) {
+        if (!this._boosterReady()) return this._boosterFail('Chờ giao hàng hoàn tất.');
+        const tray = this.conveyor.getAllActiveTrays().find(t => t.id === trayId && !t.isFull());
+        if (!tray || !tray.targetItemId) return this._boosterFail('Chọn khay trống đang trên băng chuyền.');
+        const snapshot = boosterSnapshot(this);
+        if (!boosterMatchingInvariant(snapshot)) return this._boosterFail('Số vật phẩm và đơn hàng không khớp.');
+        const ordered = [];
+        const maxRows = Math.max(0, ...this.columns.map(c => c.length));
+        for (let row = maxRows - 1; row >= 0; row--) for (const col of this.columns) {
+            const b = this.boxes.find(b => String(b.id) === String(col[row]));
+            if (b) ordered.push(b);
+        }
+        ordered.push(...this.queue);
+        const picks = [];
+        for (const b of ordered) for (let slot = 0; slot < b.slots.length; slot++) {
+            if (b.slots[slot] === tray.targetItemId && picks.length < 3) picks.push({ b, slot });
+        }
+        if (picks.length !== 3) return this._boosterFail('Không tìm thấy đủ 3 vật phẩm đúng loại.');
+        const oldBoxes = this.boxes.slice(), oldQueue = this.queue.slice();
+        const oldColumns = this.columns.map(c => c.slice());
+        const oldTrays = this.conveyor.allTrays.slice();
+        const affected = [...new Set(picks.map(p => p.b))];
+        const originals = affected.map(b => ({ b, slots: b.slots.slice(), wrapped: b.isWrapped }));
+        for (const { b, slot } of picks) { b.slots[slot] = null; b.isWrapped = false; }
+        for (const b of affected) {
+            if (b.isEmpty()) {
+                this.boxes = this.boxes.filter(x => x !== b); this.queue = this.queue.filter(x => x !== b); this._removeFromColumn(b.id);
+            } else if (this.queue.includes(b)) {
+                // A partial pack is playable again; it cannot occupy a wrapped queue slot.
+                this.queue = this.queue.filter(x => x !== b); this.boxes.push(b);
+                const col = this.columns.reduce((a, c) => c.length < a.length ? c : a, this.columns[0]);
+                if (col) col.unshift(b.id);
+                else this.columns.push([b.id]);
+            }
+        }
+        this.conveyor.removeTray(tray.id);
+        if (!boosterProveSolvable(boosterSnapshot(this))) {
+            this.boxes = oldBoxes; this.queue = oldQueue; this.columns = oldColumns; this.conveyor.allTrays = oldTrays;
+            for (const o of originals) { o.b.slots = o.slots; o.b.isWrapped = o.wrapped; }
+            return this._boosterFail('Chưa chứng minh được bàn còn giải được; chưa xóa khay hay vật phẩm.');
+        }
+        this._boosterChanged();
+        for (const b of affected) if (this.onBoxUpdated) this.onBoxUpdated(b, b.isEmpty());
+        if (this.onQueueUpdated) this.onQueueUpdated(this.queue);
+        if (this.onTrayExited) this.onTrayExited(tray.id);
+        if (!this.onTrayDelivered) while (this.tryAutoFillTray()) {}
+        this.checkConditions(); return true;
+    }
+
     setGameState(newState) {
         this.gameState = newState;
         if (this.onGameStateChanged) this.onGameStateChanged(newState);
@@ -180,7 +311,7 @@ export class GameEngine {
             const queueCanClear = this.queue.some(b => activeTrays.some(t => t.canAccept(b))) ||
                                   activeTrays.some(t => t.canAccept(box));
             if (!queueCanClear) {
-                this.loseReason = 'Hàng chờ đã đầy (5/5 slots)!';
+                this.loseReason = `Hàng chờ đã đầy (${this.maxQueueSize}/${this.maxQueueSize} slots)!`;
                 this.setGameState('LOST');
                 return false;
             }
@@ -461,7 +592,7 @@ export class GameEngine {
 
         // 2. Kiem tra tran hang cho
         if (this.queue.length > this.maxQueueSize) {
-            this.loseReason = 'Hàng chờ đã đầy (5/5 slots)!';
+            this.loseReason = `Hàng chờ đã đầy (${this.maxQueueSize}/${this.maxQueueSize} slots)!`;
             this.setGameState('LOST');
             return;
         }
@@ -504,7 +635,7 @@ export class GameEngine {
         // 6. Chi khi khong con nuoc di, khong giao duoc khay, va khong dua duoc thung xuong hang cho: moi xem la thua
         if (!canMoveOnBoard) {
             if (this.queue.length >= this.maxQueueSize) {
-                this.loseReason = 'Hàng chờ đã đầy (5/5 slots)!';
+                this.loseReason = `Hàng chờ đã đầy (${this.maxQueueSize}/${this.maxQueueSize} slots)!`;
             } else {
                 this.loseReason = 'Không còn ô trống để hoán đổi đồ vật.';
             }

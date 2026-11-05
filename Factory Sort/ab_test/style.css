@@ -2860,3 +2860,24 @@ body.is-item-dragging * {
 }
 
 
+
+
+/* Four level boosters remain reachable below the board on small screens. */
+#booster-bar { flex: 0 0 auto; padding: 3px 10px calc(4px + env(safe-area-inset-bottom, 0px)); background: rgba(15,23,42,.88); z-index: 10; }
+.booster-buttons { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; }
+.booster-button { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 66px; padding: 3px 1px; border: 1px solid #6b9aa9; border-radius: 12px; background: linear-gradient(#294655,#142733); color: #fff; font: inherit; cursor: pointer; touch-action: manipulation; }
+.booster-button img { width: 29px; height: 29px; object-fit: contain; }
+.booster-button span { font-size: 11px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
+.booster-detail { font-size: 10px; color: #bce9f2; line-height: 1.3; }
+.booster-button:disabled { opacity: .45; cursor: default; }
+.booster-button.active, .booster-button:focus-visible { outline: 3px solid #ffe17b; outline-offset: -2px; }
+#booster-status { min-height: 15px; padding-top: 2px; text-align: center; font-size: 10px; line-height: 1.3; color: #e0f7ff; }
+.timer-pill.timer-frozen { background: #164e63; border-color: #67e8f9; box-shadow: 0 0 12px #22d3ee66; }
+.removable-tray { cursor: pointer; outline: 3px solid #facc15; outline-offset: 2px; }
+.removable-tray:focus-visible { outline: 4px solid #fff; }
+[data-layout="inverted"] #boxes-area { padding-bottom: 4px; }
+@media (max-height: 680px) {
+    .booster-button { min-height: 53px; border-radius: 9px; }
+    .booster-button img { width: 21px; height: 21px; }
+    #booster-bar { padding-top: 2px; }
+}

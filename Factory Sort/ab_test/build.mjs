@@ -15,6 +15,7 @@ const JS_FILES = [
   'src/core/Box.js',
   'src/core/Tray.js',
   'src/core/Conveyor.js',
+  'src/core/BoosterSolver.js',
   'src/core/GameEngine.js',
   'src/generator/Solver.js',
   'src/generator/CuratedLevelSeeds.js',

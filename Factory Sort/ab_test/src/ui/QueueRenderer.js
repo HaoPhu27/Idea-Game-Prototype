@@ -8,19 +8,28 @@ export class QueueRenderer {
         this.maxSlots = 5;
     }
 
-    render(queue = []) {
+    render(queue = [], capacity = this.maxSlots) {
         if (!this.slotsContainer) return;
 
+        this.maxSlots = capacity;
+        // Capacity belongs to the engine and resets with each level.
+        while (this.slotsContainer.children && this.slotsContainer.children.length < this.maxSlots) {
+            const slot = document.createElement('div');
+            slot.className = 'queue-slot';
+            slot.dataset.slot = this.slotsContainer.children.length;
+            this.slotsContainer.appendChild(slot);
+        }
+        while (this.slotsContainer.children && this.slotsContainer.children.length > this.maxSlots) this.slotsContainer.lastElementChild.remove();
         const count = queue.length;
         if (this.counterEl) {
             this.counterEl.textContent = `${count}/${this.maxSlots}`;
-            this.counterEl.classList.toggle('warning', count === 4);
-            this.counterEl.classList.toggle('danger', count >= 5);
+            this.counterEl.classList.toggle('warning', count === this.maxSlots - 1);
+            this.counterEl.classList.toggle('danger', count >= this.maxSlots);
         }
 
         if (this.areaEl) {
-            this.areaEl.classList.toggle('warning', count === 4);
-            this.areaEl.classList.toggle('danger', count >= 5);
+            this.areaEl.classList.toggle('warning', count === this.maxSlots - 1);
+            this.areaEl.classList.toggle('danger', count >= this.maxSlots);
         }
 
         const slotEls = this.slotsContainer.querySelectorAll('.queue-slot');

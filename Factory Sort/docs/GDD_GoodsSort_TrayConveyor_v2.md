@@ -573,3 +573,32 @@ Chưa có sound effect hay nhạc nền.
 ---
 
 *Source code prototype: thư mục `src/` — `core/` (GameEngine, Box, Tray, Conveyor), `data/` (ItemCatalog), `generator/` (LevelGenerator, Solver), `ui/` (UIManager, BoxRenderer, TrayRenderer, ConveyorRenderer).*
+
+## 14. Booster đã chốt — hợp đồng runtime
+
+Bốn booster áp dụng cho Factory Sort; không thay luật match theo `targetItemId` và không thêm đơn hàng. Prototype cung cấp nút dùng trực tiếp, chưa gắn kho vật phẩm hay thanh toán.
+
+| Booster | Hành vi | Giới hạn và lý do |
+|---|---|---|
+| Freeze Time | Dừng **global level timer** trong 30 giây chơi đang hoạt động. Conveyor, thao tác item, gói và giao hàng tiếp tục chạy. | Không cộng dồn trong khi hiệu lực; không dùng ở màn không có timer. Khoảng tạm dừng do tab nền/modal không đốt hiệu lực. Frame vượt mốc 30 giây chỉ trừ timer cho phần thời gian dư. |
+| Shuffle | Xáo trộn item trong các thùng **đang hiển thị, chưa wrapped**; bảo toàn số lượng từng loại. Không đụng item ẩn hoặc thùng đã gói trong queue. | Không chỉ kiểm tra số lượng chia hết cho ba: trạng thái sau shuffle phải có chứng nhận giải được với cột ẩn, cửa sổ đơn hàng và dung lượng queue hiện tại. Nếu chưa chứng minh được trong ngân sách hữu hạn, giữ nguyên bàn và báo không thể xáo an toàn. |
+| Extra Tray | Thêm **một slot queue**, mặc định 5 → 6, đến hết màn. | Chỉ một lần mỗi màn, retry/màn mới trở về 5. Không tạo tray order trên conveyor; cách hiểu này tránh thay đổi tổng số bộ cần giao. Counter, ngưỡng cảnh báo và kiểm tra tràn dùng capacity thực tế. |
+| Remove Tray | Người chơi chọn một tray **đang hiện trên conveyor, chưa nhận hàng**. Xóa tray ấy và đúng ba item có cùng `targetItemId`. | Không dùng category thay cho item cụ thể. Không nhận tray đã đầy hoặc nằm ngoài cửa sổ đang hoạt động. Thao tác là một giao dịch: không được xóa đơn trước rồi mới phát hiện thiếu item. |
+
+**Ưu tiên Remove Tray:** duyệt vị trí thùng từ trên xuống dưới; các cột cùng hàng lấy từ trái sang phải. `columns[c][0]` là đáy nên cần duyệt ngược chiều cao. Phạm vi tính toàn bộ cột, kể cả thùng bị che, rồi mới đến queue khi cần. Thùng wrapped bị lấy một phần phải mở lại; nếu ở queue thì trả phần dư thành thùng chưa wrapped về đầu cột ngắn nhất để tiếp tục thao tác. Không để lại một thùng wrapped một/hai item hoặc thùng chưa wrapped trong queue. Toàn bộ phép chuyển này cũng phải qua chứng nhận giải được; nếu không thì hoàn tác. Xóa thùng rỗng khỏi cột, cập nhật vùng lộ ra, queue và cửa sổ conveyor theo cùng một lần commit trạng thái.
+
+**Bất biến sau booster:** với mỗi item type, tổng item còn trong cột và queue bằng `3 × số tray chưa được nhận hàng` của type đó. Tray đã nhận thùng đang chạy về OUT đã thanh toán bộ item của nó nên không được tính lại. Giữ được số bộ là điều kiện cần; chứng nhận giải được còn phải mô phỏng khóa thùng ẩn, wrap tự động, thứ tự cửa sổ tray và giới hạn queue. Bộ sinh màn không cần thêm bộ item hay thêm tray cho Extra Tray; solver dùng dung lượng queue hiện thời thay vì cố định năm.
+
+**An toàn tương tác:** không kích hoạt booster trong lúc đang kéo item/thùng, gói hàng, bay vào queue hoặc giao hàng. Remove Tray có chế độ chọn rõ ràng và đường hủy; chuyển màn/retry hủy lựa chọn cũ. Các nút bị khóa khi loading, modal/tutorial chặn thao tác hoặc game đã kết thúc. Lý do là tránh callback animation cũ ghi lại thùng/đơn vừa bị booster xóa.
+
+**Giới hạn chứng minh:** solver có ngân sách hữu hạn. Hết ngân sách là “chưa chứng minh”, không phải chứng minh thua; không được áp dụng candidate đó chỉ vì đủ số lượng. Việc từ chối một thao tác chưa chứng minh được là chủ đích để bảo vệ invariant và tính giải được, không tái sinh hoặc sửa thùng ẩn ngoài phạm vi đã chốt.
+
+Kiểm tra hồi quy: `node tools/booster-test.js`, cùng các kiểm tra timer, tray matching, queue và level reset hiện có. Agent chính nghiệm thu kết quả chạy và build trước khi triển khai.
+
+**Vì sao queue thường không bị lấy một phần:** khi invariant đúng, item của mỗi loại trong các thùng wrapped ở queue luôn là bội số của ba. Tổng item còn lại của loại đó cũng là bội số của ba, nên tổng trong toàn bộ cột là bội số của ba. Vì Remove duyệt hết cột trước queue, hoặc đã lấy đủ ba trong cột, hoặc cột không còn item loại ấy và lấy nguyên một bộ ba đầu tiên của queue. Partial queue vì vậy không xảy ra từ một trạng thái hợp lệ theo thứ tự ưu tiên hiện hành; đường mở lại/trả phần dư chỉ là phòng vệ cho trạng thái trung gian hoặc dữ liệu cũ và vẫn cần chứng nhận. Ngược lại, partial **wrapped trên cột** có thể xảy ra trong khoảng chờ animation đóng gói: lấy một singleton ở trên rồi hai item trong thùng wrapped kế tiếp. Thùng còn lại phải mở để ghép tiếp.
+
+**Cách chứng nhận runtime:** trước tiên replay các nước còn hợp lệ của `referenceSolution` trên chính trạng thái hiện tại, không tin mặc định lời giải gốc sau khi đã dùng booster. Mọi bước phải còn đúng điều kiện nhìn thấy, item nguồn, chỗ trống và wrap. Sau đó thử kế hoạch gom trọn từng bộ ba với các lựa chọn thứ tự/buffer khác nhau, và tìm kiếm từng item cho các trạng thái nhỏ. Chỉ công nhận khi mô phỏng đi đến thắng hoàn toàn; điểm heuristic chỉ sắp thứ tự tìm kiếm, không thay chứng nhận. Ngân sách thời gian tường là tối đa khoảng **180 ms cho toàn bộ lượt Shuffle** và **120 ms cho chứng nhận Remove Tray**; thiết bị chậm hoặc thế cờ phức tạp có thể bị từ chối an toàn dù có lời giải.
+
+**Phạm vi xáo chính xác:** Shuffle chỉ hoán vị giữa những slot đang có item của thùng hiện/chưa wrapped. Slot rỗng giữ nguyên, nên số item và vị trí chỗ trống của từng thùng được giữ lại. Candidate tạo sẵn một triple wrapped mới bị loại; việc này tránh bỏ qua lifecycle animation đóng gói → bay vào queue hiện hữu. Candidate không đổi bàn cũng không được coi là dùng thành công.
+
+**Đo nghiệm thu có giới hạn:** agent chính kiểm tra 10 seed tại từng màn 25, 29, 35 và 49. Số lượt được chứng nhận Shuffle/Remove lần lượt là 10/9, 10/10, 9/10 và 10/10 (mỗi số trên tổng 10 lượt). Đây là mẫu kiểm tra khả năng sử dụng, không phải bảo đảm mọi thế cờ/thiết bị đều được chấp nhận. Những lượt không được chứng nhận giữ nguyên trạng thái.

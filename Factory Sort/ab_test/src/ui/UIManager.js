@@ -35,6 +35,7 @@ class UIManager {
         this.queueRenderer = new QueueRenderer();
         this.tutorialManager = new TutorialManager(this, this.engine);
         
+        this.removeTrayMode = false;
         // DOM Elements
         this.levelDisplay = document.getElementById('level-display');
         this.btnHeaderLevel = document.getElementById('btn-header-level');
@@ -119,6 +120,32 @@ class UIManager {
     }
 
     bindEvents() {
+        document.querySelectorAll('[data-booster]').forEach(button => {
+            button.addEventListener('click', () => this.useBooster(button.dataset.booster));
+        });
+        const selectRemoval = event => {
+            if (!this.removeTrayMode) return;
+            const element = event.target.closest('.tray[data-tray-id]');
+            if (!element || (event.type === 'keydown' && !['Enter', ' '].includes(event.key))) return;
+            event.preventDefault();
+            this.updateLevelClock();
+            const tray = this.engine.conveyor.getAllActiveTrays().find(t => String(t.id) === element.dataset.trayId);
+            if (!tray || tray.isFull() || this.boostersBlocked()) return;
+            const removed = this.engine.removeTray(tray.id);
+            if (removed) this.removeTrayMode = false;
+            this.setBoosterStatus(removed ? 'Đã xóa khay và đúng 3 vật tương ứng.' : (this.engine.lastBoosterError || 'Chưa thể xóa an toàn khay này. Hãy thử khay khác.'));
+            this.updateRender();
+            this.renderBoosters();
+        };
+        document.getElementById('trays-container')?.addEventListener('click', selectRemoval);
+        document.getElementById('trays-container')?.addEventListener('keydown', selectRemoval);
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && this.removeTrayMode) {
+                this.removeTrayMode = false;
+                this.setBoosterStatus('Đã hủy chọn khay.');
+                this.renderBoosters();
+            }
+        });
         document.addEventListener('visibilitychange', () => {
             this._clockLastTime = performance.now();
             this._clockWasPaused = true;
@@ -227,6 +254,7 @@ class UIManager {
         this._clockWasPaused = paused;
         this._clockObservedStarted = this.engine.clockStarted;
         this.renderTimer();
+        this.renderBoosters();
     }
 
     renderTimer() {
@@ -237,6 +265,7 @@ class UIManager {
         this.timerDisplay.textContent = timed
             ? `${Math.floor(secs / 60).toString().padStart(2, '0')}:${(secs % 60).toString().padStart(2, '0')}`
             : '∞';
+        this.timerPill.classList.toggle('timer-frozen', this.engine.freezeRemainingSeconds > 0);
         this.timerPill.classList.toggle('timer-low', timed && remaining <= this.engine.timeLimitSeconds * 0.2);
         this.timerPill.classList.toggle('timer-critical', timed && remaining <= 10);
         const status = this.engine.gameState === 'WON' ? 'Hoàn thành'
@@ -244,10 +273,86 @@ class UIManager {
             : !this.engine.clockStarted ? 'Nhặt vật đầu tiên để bắt đầu'
             : this.isClockPaused() ? 'Tạm dừng'
             : !this.engine.hasPlayerWorkRemaining() ? 'Đang giao hàng — thời gian tạm dừng'
+            : this.engine.freezeRemainingSeconds > 0 ? `Đóng băng ${Math.ceil(this.engine.freezeRemainingSeconds)}s`
             : 'Thời gian còn lại';
         const label = timed ? `${status}: ${this.timerDisplay.textContent}` : `${status} — không giới hạn thời gian`;
         this.timerPill.title = label;
         this.timerPill.setAttribute('aria-label', label);
+    }
+
+    setBoosterStatus(message) {
+        const status = document.getElementById('booster-status');
+        if (status) status.textContent = message;
+    }
+
+    boostersBlocked() {
+        return this.engine.gameState !== 'PLAYING' || this.isClockPaused() || this.tutorialManager?.active ||
+            this.itemDragState?.isDragging || this.dragState?.isDragging || this.engine.draggedBoxId !== null ||
+            this._busyBoxes?.size > 0 || this._pendingQueueBoxes?.length > 0 ||
+            this._queueFlightActive || this._deliveryAnimating || this.engine.hasPendingTrayExits();
+    }
+
+    useBooster(kind) {
+        if (kind === 'remove' && this.removeTrayMode) {
+            this.removeTrayMode = false;
+            this.setBoosterStatus('Đã hủy chọn khay.');
+            this.renderBoosters();
+            return;
+        }
+        this.updateLevelClock();
+        if (this.boostersBlocked()) return;
+        this.engine.deselectSource();
+        if (kind === 'remove') {
+            this.removeTrayMode = true;
+            this.setBoosterStatus('Chọn một khay trống trên băng chuyền. Bấm lại hoặc Esc để hủy.');
+        } else {
+            this.removeTrayMode = false;
+            const methods = { freeze: 'freezeTime', shuffle: 'shuffleItems', extra: 'addExtraTray' };
+            const success = this.engine[methods[kind]]?.();
+            const messages = { freeze: 'Dừng đồng hồ 30 giây; băng chuyền vẫn chạy.',
+                shuffle: 'Đã xáo vật trong các thùng đang hiện.', extra: 'Thêm 1 ô hàng chờ đến hết màn.' };
+            this.setBoosterStatus(success ? messages[kind] : (this.engine.lastBoosterError || 'Chưa thể dùng booster an toàn ở trạng thái này.'));
+            if (success) this.audio.tap();
+        }
+        this.updateRender();
+        this.renderTimer();
+        this.renderBoosters();
+    }
+
+    renderBoosters() {
+        if (!document.querySelectorAll) return;
+        const blocked = this.boostersBlocked();
+        if (blocked && this.removeTrayMode) {
+            this.removeTrayMode = false;
+            this.setBoosterStatus('Đã hủy chọn khay.');
+        }
+        const frozen = this.engine.freezeRemainingSeconds > 0;
+        document.querySelectorAll('[data-booster]').forEach(button => {
+            const kind = button.dataset.booster;
+            button.disabled = blocked || (kind === 'freeze' && (frozen || !Number.isFinite(this.engine.timeRemainingSeconds))) ||
+                (kind === 'extra' && this.engine.extraTrayUsed) ||
+                (kind === 'remove' && !this.engine.conveyor.getAllActiveTrays().some(t => !t.isFull()));
+            button.classList.toggle('active', kind === 'remove' && this.removeTrayMode);
+            if (kind === 'remove') button.setAttribute('aria-pressed', String(this.removeTrayMode));
+            const detail = button.querySelector('.booster-detail');
+            if (detail && kind === 'freeze') detail.textContent = frozen ? `${Math.ceil(this.engine.freezeRemainingSeconds)}s` : '30 giây';
+            if (detail && kind === 'extra') detail.textContent = this.engine.extraTrayUsed ? 'Đã thêm' : '+1 ô chờ';
+        });
+        document.getElementById('trays-container')?.classList.toggle('remove-tray-mode', this.removeTrayMode);
+        document.querySelectorAll('.tray[data-tray-id]').forEach(element => {
+            const tray = this.engine.conveyor.getAllActiveTrays().find(t => String(t.id) === element.dataset.trayId);
+            const selectable = this.removeTrayMode && tray && !tray.isFull();
+            element.classList.toggle('removable-tray', !!selectable);
+            if (selectable) {
+                element.setAttribute('role', 'button');
+                element.setAttribute('tabindex', '0');
+                element.setAttribute('aria-label', `Xóa khay ${getItemEmoji(tray.targetItemId)} và 3 vật tương ứng`);
+            } else {
+                element.removeAttribute('role');
+                element.removeAttribute('tabindex');
+                element.removeAttribute('aria-label');
+            }
+        });
     }
 
     showWinCelebration() {
@@ -309,7 +414,7 @@ class UIManager {
         };
         
         this.engine.onQueueUpdated = (queue) => {
-            this.queueRenderer.render(queue);
+            this.queueRenderer.render(queue, this.engine.maxQueueSize);
             this.vfx.bump('queue-counter');
         };
         
@@ -522,8 +627,9 @@ class UIManager {
             }
         }
         
-        this.queueRenderer.render(this.engine.getQueue());
+        this.queueRenderer.render(this.engine.getQueue(), this.engine.maxQueueSize);
         this.trayRenderer.render(this.engine.conveyor.getAllActiveTrays(), highlightTray, rejectTray);
+        this.renderBoosters();
         if (this.tutorialManager && this.tutorialManager.active) {
             this.tutorialManager.updatePositions();
         }
@@ -609,6 +715,7 @@ class UIManager {
 
     // --- Layer 1 Input (Tap) ---
     handleSlotTap(boxId, itemIndex) {
+        if (this.removeTrayMode) return;
         if (this.dragState.isDragging || this.itemDragState.isDragging) return;
         if (this._isBoxBusy(boxId) || (this.engine.selectedSource && this._isBoxBusy(this.engine.selectedSource.boxId))) return;
         
@@ -670,6 +777,7 @@ class UIManager {
 
     // --- Layer 1 Input: Item Drag & Drop ---
     handleItemDragStart(boxId, slotIndex, slotEl, e) {
+        if (this.removeTrayMode) return;
         if (this.engine.gameState !== 'PLAYING') return;
         if (this._isBoxBusy(boxId)) return;
         if (this.dragState.isDragging || this.itemDragState.isDragging) return;
@@ -921,6 +1029,8 @@ class UIManager {
     }
 
     _resetAnimationState() {
+        this.removeTrayMode = false;
+        this.setBoosterStatus('');
         if (this.trayRenderer) this.trayRenderer.speedMultiplier = 1;
         this._animationEpoch = (this._animationEpoch || 0) + 1;
         this._busyBoxes = new Set();
@@ -986,6 +1096,7 @@ class UIManager {
 
     // --- Layer 2 Input (Drag) ---
     handleDragStart(boxId, e) {
+        if (this.removeTrayMode) return;
         if (this._isBoxBusy(boxId)) return;
         if (!this.engine.startDragWrappedBox(boxId)) return;
         
@@ -1135,6 +1246,7 @@ class UIManager {
      * di ngang qua dung vi tri slot cua Thung trong hang cho thi moi bat dau giao hang.
      */
     checkQueuePickup(now = performance.now()) {
+        if (this.removeTrayMode) return;
         if (this.engine.gameState !== 'PLAYING') return;
         this._drainQueueFlights();
         if (this._deliveryAnimating || this._queueFlightActive) return;

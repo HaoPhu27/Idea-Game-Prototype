@@ -7,10 +7,10 @@ window.GAMES = [
     "genre": "Sort / Puzzle",
     "status": "Prototype",
     "play": "Factory Sort/ab_test/dist/FactorySort_ABTest_Inverted.html",
-    "version": "clean-hud-v9",
+    "version": "boosters-v10",
     "dev": "Factory Sort/ab_test/index.html",
     "thumb": "launcher/thumbs/factory-sort-inverted.svg",
-    "updated": "2026-11-02"
+    "updated": "2026-11-05"
   },
   {
     "id": "slime-sort",
