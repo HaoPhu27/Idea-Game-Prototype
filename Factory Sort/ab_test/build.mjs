@@ -22,6 +22,7 @@ const JS_FILES = [
   'src/generator/OrderPacing.js',
   'src/generator/SolvableLevelGenerator.js',
   'src/generator/LevelGenerator.js',
+  'src/ui/ItemArt.js',
   'src/ui/AudioManager.js',
   'src/ui/VFXManager.js',
   'src/ui/BoxRenderer.js',

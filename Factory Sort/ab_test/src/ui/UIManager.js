@@ -9,6 +9,7 @@ import { TutorialManager } from './TutorialManager.js';
 import { AudioManager } from './AudioManager.js';
 import { VFXManager } from './VFXManager.js';
 import { getCategoryConfig, getItemEmoji } from '../data/ItemCatalog.js';
+import { applyItemArt } from './ItemArt.js';
 
 class UIManager {
     constructor() {
@@ -829,6 +830,7 @@ class UIManager {
             document.body.appendChild(ghost);
         }
         ghost.textContent = getItemEmoji(itemId);
+        applyItemArt(ghost, itemId);
         ghost.style.display = 'flex';
         ghost.style.transition = 'none';
         ghost.style.left = `${e ? e.clientX : 0}px`;

@@ -1,7 +1,19 @@
 /**
  * AudioManager.js
  * Hệ thống âm thanh tổng hợp 100% bằng Web Audio API thuần (Zero external files).
- * Mô phỏng âm thanh cơ khí nhà máy, băng chuyền, đóng gói và chuông xuất xưởng.
+ * Presentation layer only - no game state, callbacks, input or timers here.
+ * Reference feedback palette recreates the Sort&Ship feel.
+ *
+ * Reference sound mappings:
+ *   tap            -> 900Hz square .06s gain .08
+ *   swap           -> 220->140 triangle .09s .2 (drop)  [+ tiny noise optional]
+ *   reject         -> 200->150 saw .14s .12
+ *   wrap           -> 320->1000 sine .16s .25 + 1300 triangle .08s .1 delayed .12
+ *   deliver/combo  -> [523,659,784,1046] triangle .28s spaced .08 (combo pitch scales, max 6)
+ *   win            -> [523,659,784,1046,784,1046,1318] triangle .3s spaced .11
+ *   lose           -> 420->140 saw .5s .18 + 300->90 triangle .6s .14 at .1
+ *   star           -> 1568 sine .3s .2
+ * No autoplay BGM. ctx / sfxGain kept safe.
  */
 
 export class AudioManager {
@@ -93,79 +105,89 @@ export class AudioManager {
         osc.stop(t + duration + 0.03);
     }
 
-    /** Chạm vào món đồ trong thùng (Click cơ khí nhẹ) */
+    /**
+     * Tap / pickup: click tone 900Hz square .06s gain .08 (reference)
+     */
     tap() {
-        this.blip(520, 0.05, 'triangle', 0.06);
-        this.blip(1040, 0.03, 'sine', 0.03);
+        this.blip(900, 0.06, 'square', 0.08);
     }
 
-    /** Đặt món đồ vào thùng đích thành công (Servo cơ khí trượt) */
+    /**
+     * Swap / drop: 220->140 triangle .09s .2 (reference) + tiny noise sparkle
+     */
     swap() {
-        this.blip(380, 0.08, 'triangle', 0.07, 0, 560);
-        this.blip(820, 0.06, 'sine', 0.03, 0.02);
+        this.blip(220, 0.09, 'triangle', 0.2, 0, 140);
+        this.blip(1500, 0.02, 'square', 0.02, 0.01);
     }
 
-    /** Thùng đủ 3 món -> Đóng gói & dán băng keo (Tiếng pop áp suất khí nén) */
-    wrap() {
-        this.blip(450, 0.12, 'sawtooth', 0.05, 0, 220);
-        this.blip(720, 0.16, 'triangle', 0.09, 0.04, 1150);
-        this.blip(1440, 0.18, 'sine', 0.04, 0.08);
-    }
-
-    /** Thao tác sai hoặc ô không thể thả (Buzzer cảnh báo xưởng) */
+    /**
+     * Reject: 200->150 saw .14s .12 (reference)
+     */
     reject() {
-        this.blip(180, 0.16, 'sawtooth', 0.07, 0, 110);
-        this.blip(130, 0.22, 'triangle', 0.08, 0.04);
+        this.blip(200, 0.14, 'sawtooth', 0.12, 0, 150);
     }
 
-    /** Khay trên băng chuyền nhận thùng hàng (Tiếng chốt khóa & chuông xuất xưởng) */
+    /**
+     * Wrap: 320->1000 sine .16s .25 + 1300 triangle .08s .1 delayed .12 (reference)
+     */
+    wrap() {
+        this.blip(320, 0.16, 'sine', 0.25, 0, 1000);
+        this.blip(1300, 0.08, 'triangle', 0.1, 0.12);
+    }
+
+    /**
+     * Deliver / order done: [523,659,784,1046] triangle .28s spaced .08 (reference)
+     */
     deliver() {
-        this.blip(660, 0.12, 'triangle', 0.08);
-        this.blip(1320, 0.22, 'sine', 0.07, 0.04);
+        const notes = [523, 659, 784, 1046];
+        notes.forEach((f, i) => {
+            this.blip(f, 0.28, 'triangle', 0.18, i * 0.08);
+        });
     }
 
-    /** Tiếng băng chuyền cơ khí chạy đưa thùng hàng trượt lên */
+    /**
+     * Tiếng băng chuyền cơ khí chạy đưa thùng hàng trượt lên (presentation)
+     */
     conveyorRoll() {
         this.blip(160, 0.75, 'triangle', 0.05, 0, 120);
         this.blip(220, 0.60, 'sawtooth', 0.02, 0.04, 180);
     }
 
     /**
-     * Dãy chuông combo khi xuất hàng liên tiếp
-     * Càng nhiều combo, nốt nhạc càng cao và trong trẻo
+     * Combo: deliver order-done chord with slight pitch scale, max 6 (reference acceptable)
      */
     combo(step = 1) {
         const k = Math.min(Math.max(1, step), 6);
-        const freqs = [1046.5, 1318.5, 1568.0, 1760.0, 2093.0, 2349.3];
-        const f = freqs[k - 1] || 1568.0;
-
-        this.blip(f * 0.5, 0.22, 'triangle', 0.08);
-        this.blip(f, 0.32, 'sine', 0.08, 0.03);
-        this.blip(f * 1.5, 0.26, 'sine', 0.04, 0.08);
+        const scale = 1 + (k - 1) * 0.06;
+        const base = [523, 659, 784, 1046];
+        base.forEach((f, i) => {
+            this.blip(f * scale, 0.28, 'triangle', 0.18, i * 0.08);
+        });
     }
 
-    /** Sao thưởng chiến thắng (Chime kim loại rực rỡ) */
+    /**
+     * Star: 1568 sine .3s .2 (reference)
+     */
     star(idx = 0) {
-        const f = [784, 988, 1319][idx] || 1319;
-        this.blip(f, 0.26, 'sine', 0.09, idx * 0.12);
-        this.blip(f * 1.5, 0.24, 'triangle', 0.04, idx * 0.12 + 0.04);
+        const delay = (idx || 0) * 0.12;
+        this.blip(1568, 0.3, 'sine', 0.2, delay);
     }
 
-    /** Thắng toàn màn - Khúc hoan ca xuất xưởng 5 nốt + hồi còi ngân vang */
+    /**
+     * Win: [523,659,784,1046,784,1046,1318] triangle .3s spaced .11 (reference)
+     */
     win() {
-        const chord = [523.25, 659.25, 783.99, 1046.5, 1318.5];
-        chord.forEach((f, i) => {
-            this.blip(f, 0.32, 'triangle', 0.07, i * 0.09);
-            this.blip(f * 2, 0.38, 'sine', 0.04, i * 0.09 + 0.03);
+        const seq = [523, 659, 784, 1046, 784, 1046, 1318];
+        seq.forEach((f, i) => {
+            this.blip(f, 0.3, 'triangle', 0.18, i * 0.11);
         });
-        this.blip(2093, 0.6, 'sine', 0.06, 0.5);
-        this.blip(2637, 0.7, 'sine', 0.04, 0.6);
     }
 
-    /** Thua - Dây chuyền quá tải tắt máy (Hợp âm hạ dần) */
+    /**
+     * Lose: 420->140 saw .5s .18 + 300->90 triangle .6s .14 at .1 (reference)
+     */
     lose() {
-        [370, 311, 247].forEach((f, i) => {
-            this.blip(f, 0.38, 'sawtooth', 0.06, i * 0.18, f * 0.85);
-        });
+        this.blip(420, 0.5, 'sawtooth', 0.18, 0, 140);
+        this.blip(300, 0.6, 'triangle', 0.14, 0.1, 90);
     }
 }

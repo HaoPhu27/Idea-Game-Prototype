@@ -1,4 +1,5 @@
 import { getCategoryConfig, getItemEmoji, getCategoryIcon } from '../data/ItemCatalog.js';
+import { applyItemArt } from './ItemArt.js';
 
 export class QueueRenderer {
     constructor() {
@@ -61,6 +62,7 @@ export class QueueRenderer {
                     boxEl.dataset.boxId = String(box.id);
                 }
                 boxEl.querySelector('.queue-box-icon').textContent = displayEmoji;
+                applyItemArt(boxEl.querySelector('.queue-box-icon'), itemType);
                 boxEl.style.setProperty('--cat-color', catColor);
                 boxEl.title = catConfig ? catConfig.label : '';
             } else {
@@ -105,6 +107,7 @@ export class QueueRenderer {
         ghost.style.top = `${fromRect.top}px`;
         ghost.style.transformOrigin = 'center center';
         ghost.innerHTML = `<span class="queue-box-icon" style="font-size:28px;">${displayEmoji}</span>`;
+        applyItemArt(ghost.querySelector?.('.queue-box-icon'), itemType);
         document.body.appendChild(ghost);
 
         const dx = toRect.left + toRect.width / 2 - (fromRect.left + fromRect.width / 2);
@@ -149,6 +152,7 @@ export class QueueRenderer {
         ghost.style.top = `${fromRect.top}px`;
         ghost.style.transformOrigin = 'center center';
         ghost.innerHTML = `<span class="queue-box-icon">${displayEmoji}</span>`;
+        applyItemArt(ghost.querySelector?.('.queue-box-icon'), itemType);
         document.body.appendChild(ghost);
 
         // Hide source slot box during flight

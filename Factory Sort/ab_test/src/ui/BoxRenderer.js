@@ -1,4 +1,5 @@
 import { getItemEmoji, getCategoryConfig, getCategoryByItemId } from '../data/ItemCatalog.js';
+import { applyItemArt } from './ItemArt.js';
 
 export class BoxRenderer {
     constructor(containerId, onSlotTap, onDragStart, onItemDragStart) {
@@ -227,6 +228,7 @@ export class BoxRenderer {
         if (logoEl) {
             if (catConfig) logoEl.style.setProperty('--cat-color', catConfig.color);
             logoEl.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
+            applyItemArt(logoEl.querySelector('.box-logo-icon'), itemType);
         }
 
         const slots = el.querySelectorAll('.slot');
@@ -240,6 +242,7 @@ export class BoxRenderer {
             slots[i].classList.toggle('placeholder', !has);
             slots[i].dataset.slotIndex = i;
             slots[i].dataset.hasItem = has ? 'true' : 'false';
+            applyItemArt(slots[i], has ? item : null);
             slots[i].classList.toggle('selected', has && !!selectedSource && selectedSource.boxId === box.id && selectedSource.itemIndex === i);
         }
     }
@@ -328,7 +331,8 @@ export class BoxRenderer {
         const h = Math.max(50, Math.floor(room / rows));
 
         // Tỉ lệ hộp 3D cân đối, chiều cao thoải mái không bị ép dẹp
-        const capped = Math.min(h, Math.round(slotW * 3.2), 104);
+        // Reference-UI-only cap: keep cartons within a short wood-shelf band (~50-64px).
+        const capped = Math.min(h, Math.round(slotW * 1.45), 64);
         this.container.style.setProperty('--box-h', `${Math.max(50, capped)}px`);
         this.container.style.setProperty('--stack-gap', `${gap}px`);
         this.container.style.setProperty('--peek-h', `${peekH}px`);
@@ -350,6 +354,8 @@ export class BoxRenderer {
         const fly = document.createElement('div');
         fly.className = 'item-animating';
         fly.textContent = srcSlot.textContent;
+        fly.classList.toggle('item-art', srcSlot.classList.contains('item-art'));
+        fly.style.setProperty('--item-art', srcSlot.style.getPropertyValue('--item-art'));
         fly.style.left = `${from.left}px`;
         fly.style.top = `${from.top}px`;
         document.body.appendChild(fly);

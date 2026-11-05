@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { applyItemArt } from '../ab_test/src/ui/ItemArt.js';
 
 // Instantiate the real UI prototype without starting a browser or level generator.
 const source = readFileSync(new URL('../ab_test/src/ui/UIManager.js', import.meta.url), 'utf8');
@@ -17,7 +18,7 @@ const document = {
 const UI = vm.runInNewContext(`(${classSource})`, {
     document, navigator: {}, performance: { now: () => 1000 },
     setTimeout: fn => { timers.push(fn); }, requestAnimationFrame: fn => fn(),
-    getItemEmoji: item => item, getCategoryConfig: () => null,
+    getItemEmoji: item => item, getCategoryConfig: () => null, applyItemArt,
 });
 
 function harness() {

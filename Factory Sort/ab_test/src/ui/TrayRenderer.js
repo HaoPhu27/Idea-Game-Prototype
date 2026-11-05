@@ -1,4 +1,5 @@
 import { getCategoryConfig, getItemEmoji, getCategoryIcon } from '../data/ItemCatalog.js';
+import { applyItemArt } from './ItemArt.js';
 
 export class TrayRenderer {
     constructor(containerId) {
@@ -439,6 +440,7 @@ export class TrayRenderer {
                         ? getItemEmoji(tray.targetItemId)
                         : (catConfig ? catConfig.icon : getCategoryIcon(tray.categoryId));
                     illustEl.textContent = icon;
+                    applyItemArt(illustEl, tray.targetItemId || null);
                 } else if (illustEl) {
                     illustEl.remove();
                 }

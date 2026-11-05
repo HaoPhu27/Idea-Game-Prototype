@@ -7,7 +7,7 @@ window.GAMES = [
     "genre": "Sort / Puzzle",
     "status": "Prototype",
     "play": "Factory Sort/ab_test/dist/FactorySort_ABTest_Inverted.html",
-    "version": "factory-daylight-v11",
+    "version": "sortship-ui-v12",
     "dev": "Factory Sort/ab_test/index.html",
     "thumb": "launcher/thumbs/factory-sort-inverted.svg",
     "updated": "2026-11-05"

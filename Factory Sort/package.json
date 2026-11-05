@@ -8,6 +8,7 @@
     "start": "node tools/server.mjs",
     "test": "node tools/selftest.js && node tools/booster-test.js && node tools/booster-ui-test.js",
     "test:boosters": "node tools/booster-test.js && node tools/booster-ui-test.js",
+    "test:ui": "node tools/item-art-test.js",
     "demo": "node tools/demo.js",
     "build": "node ab_test/build.mjs",
     "build:abtest": "node ab_test/build.mjs"
