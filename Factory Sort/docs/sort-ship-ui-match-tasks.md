@@ -31,7 +31,7 @@ Mẫu người dùng: `D:/Downloads/sort-ship-v0.10-standalone.html`. Agent chí
 
 ## Agent chính nghiệm thu
 
-Đối chiếu screenshot mẫu / đích ở cùng viewport, lần lượt: palette+dot, nét viền/bóng, HUD, conveyor, kệ/slot, item, booster, modal và feedback. Kiểm tra source core/generator không đổi; chạy toàn bộ regression, build; xác nhận item art/callback/queue capacity hoạt động. Push commit riêng và theo dõi Pages. Theo dõi usage5h, dừng mọi thực thi tại60%.
+Đối chiếu screenshot mẫu / đích ở cùng viewport, lần lượt: palette+dot, nét viền/bóng, HUD, conveyor, kệ/slot, item, booster, modal và feedback. Kiểm tra source core/generator không đổi; chạy toàn bộ regression, build; xác nhận item art/callback/queue capacity hoạt động. Push commit riêng và theo dõi Pages.
 
 ## Kết quả thực thi và review
 

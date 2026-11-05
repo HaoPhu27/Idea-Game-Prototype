@@ -40,7 +40,6 @@ SVG phù hợp vì các asset này là hình khối, biểu tượng và nền p
 2. Chạy build, tests hiện có; xác minh standalone không còn img src tương đối, mọi ảnh decode được.
 3. Soi trực tiếp desktop và 360×640: nền không mờ, item nổi bật, đủ 4 nút, queue 5/6, focus và disabled rõ.
 4. Chỉ commit thay đổi nhiệm vụ, push và theo dõi Pages đến thành công.
-5. Đọc usage giữa chặng; dừng mọi worker khi phiên 5 giờ usedPercent ≥60.
 
 ## Kết quả nghiệm thu
 
