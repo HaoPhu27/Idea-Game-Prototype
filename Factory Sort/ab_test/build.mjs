@@ -96,26 +96,46 @@ if (!LINK_REGEX.test(html)) throw new Error('[FACTORY SORT] ab_test/index.html t
 if (!SCRIPT_REGEX.test(html)) throw new Error('[FACTORY SORT] ab_test/index.html thieu the script');
 
 const MIME = {
-  '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp',
-  '.woff2': 'font/woff2',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+  '.gif': 'image/gif', '.svg': 'image/svg+xml', '.avif': 'image/avif',
+  '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf',
 };
+
+function resolveAssetDataUri(rel) {
+  // Tài nguyên nằm cùng mã nguồn trong ab_test/assets/.
+  const clean = rel.replace(/^\.\//, '');
+  const abs = path.join(DIR, clean);
+  if (!fs.existsSync(abs)) throw new Error(`[FACTORY SORT] Asset khong ton tai: ${rel}`);
+  const ext = path.extname(clean).toLowerCase();
+  const mime = MIME[ext];
+  if (!mime) throw new Error(`[FACTORY SORT] Khong biet MIME cho ${rel}`);
+  const b64 = fs.readFileSync(abs).toString('base64');
+  return `data:${mime};base64,${b64}`;
+}
 
 function inlineAssets(cssText) {
   return cssText.replace(/url\(\s*['"]?(assets\/[^'")]+)['"]?\s*\)/g, (m, rel) => {
-    // Tài nguyên nằm cùng mã nguồn trong ab_test/assets/.
-    const abs = path.join(DIR, rel);
-    if (!fs.existsSync(abs)) throw new Error(`[FACTORY SORT] CSS tro toi file khong ton tai: ${rel}`);
-    const ext = path.extname(rel).toLowerCase();
-    const mime = MIME[ext];
-    if (!mime) throw new Error(`[FACTORY SORT] Khong biet MIME cho ${rel}`);
-    const b64 = fs.readFileSync(abs).toString('base64');
-    return `url("data:${mime};base64,${b64}")`;
+    return `url("${resolveAssetDataUri(rel)}")`;
+  });
+}
+
+function inlineImgSrc(htmlText) {
+  // Nhúng <img src="assets/..."> thành data URI. Bắt buộc src có dấu ngoặc kép.
+  return htmlText.replace(/(<img\b[^>]*?\ssrc=)(["'])([^"']+)(\2)/gi, (m, prefix, quote, src) => {
+    const s = src.trim();
+    if (/^data:/i.test(s)) return m;
+    if (/^https?:\/\//i.test(s)) return m;
+    if (!/^(\.\/)?assets\//.test(s)) {
+      throw new Error(`[FACTORY SORT] img src khong phai asset noi bo: ${s}`);
+    }
+    return `${prefix}${quote}${resolveAssetDataUri(s)}${quote}`;
   });
 }
 
 const cssInlined = inlineAssets(css);
+const htmlInlined = inlineImgSrc(html);
 
-const standalone = html
+const standalone = htmlInlined
   .replace(LINK_REGEX, `<style>\n${cssInlined}\n</style>`)
   .replace(SCRIPT_REGEX, `<script>\n${bundle}\n</script>`);
 
@@ -124,7 +144,10 @@ if (externals) {
   throw new Error('[FACTORY SORT] Ban standalone con phu thuoc ngoai:\n  ' + externals.join('\n  '));
 }
 if (/url\(\s*['"]?assets\//.test(standalone)) {
-  throw new Error('[FACTORY SORT] Ban standalone con tro toi assets/ bang duong dan tuong doi.');
+  throw new Error('[FACTORY SORT] Ban standalone con tro toi assets/ bang duong dan tuong doi (CSS).');
+}
+if (/<img\b[^>]*?\ssrc=(["'])(\.\/)?assets\//i.test(standalone)) {
+  throw new Error('[FACTORY SORT] Ban standalone con <img src> tro toi assets/ tuong doi.');
 }
 
 const outputFile = path.join(DIST_DIR, 'FactorySort_ABTest_Inverted.html');

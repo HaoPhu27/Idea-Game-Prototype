@@ -190,7 +190,7 @@ html, body {
     margin: 0 auto;
     position: relative;
     overflow-x: clip;
-    background: url('assets/background.png') no-repeat center center;
+    background: none no-repeat center center;
     background-size: cover;
 }
 
@@ -2881,3 +2881,62 @@ body.is-item-dragging * {
     .booster-button img { width: 21px; height: 21px; }
     #booster-bar { padding-top: 2px; }
 }
+
+/* Factory daylight theme — Lite implementation of visual-refresh-plan.md */
+body[data-layout="inverted"]{background:#DCECEE;color:#173D4B}
+body[data-layout="inverted"] #game-container{background:url('assets/factory-stage.svg') no-repeat center/100% 100%}
+body[data-layout="inverted"] #game-header{background:#315B69;color:#fff;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;filter:none}
+body[data-layout="inverted"] .hud-pill,body[data-layout="inverted"] .round-btn{background:#315B69;color:#fff;border-color:#7FA6AE;box-shadow:none}
+body[data-layout="inverted"] .hud-pill .hud-label,body[data-layout="inverted"] .hud-pill .hud-value{color:#fff}
+body[data-layout="inverted"] .timer-pill.timer-low{background:#E8A33D;color:#3A2600}
+body[data-layout="inverted"] .timer-pill.timer-low .hud-value{color:#3A2600}
+body[data-layout="inverted"] .timer-pill.timer-critical{background:#C0392B;color:#fff}
+body[data-layout="inverted"] .timer-pill.timer-critical .hud-value{color:#fff}
+body[data-layout="inverted"] .timer-pill.timer-frozen{background:#2FA8C7;color:#062A33}
+body[data-layout="inverted"] .timer-pill.timer-frozen .hud-value{color:#062A33}
+body[data-layout="inverted"] .conveyor-track{background:#28434D;box-shadow:0 2px 0 rgba(0,0,0,.12)}
+body[data-layout="inverted"] .conveyor-cleat-belt{background-color:#28434D;background-image:repeating-linear-gradient(180deg,transparent 0 29px,rgba(127,166,174,.18) 29px 31px,transparent 31px 32px);filter:none}
+body[data-layout="inverted"] .conveyor-roller-bed{background-image:repeating-linear-gradient(90deg,rgba(127,166,174,.35) 0 2px,transparent 2px 14px);filter:none}
+body[data-layout="inverted"] .conveyor-side-beam{background:#7FA6AE;filter:none;box-shadow:none}
+body[data-layout="inverted"] .t-slot-channel{background:#7FA6AE}
+body[data-layout="inverted"] .conveyor-top-terminal,body[data-layout="inverted"] .nose-curved-belt{background:#315B69;box-shadow:none;filter:none}
+body[data-layout="inverted"] .conveyor-bottom-peek{background:linear-gradient(180deg,rgba(40,67,77,0) 0%,#28434D 100%)}
+body[data-layout="inverted"] .conveyor-bottom-peek::before,body[data-layout="inverted"] .conveyor-bottom-peek::after{background:linear-gradient(180deg,rgba(40,67,77,0),#28434D)}
+body[data-layout="inverted"] #conveyor-belt{background:#28434D;box-shadow:0 1px 0 rgba(0,0,0,.15)}
+body[data-layout="inverted"] #belt-band{stroke:#315B69}
+body[data-layout="inverted"] #belt-cleat{stroke:rgba(127,166,174,.25)}
+body[data-layout="inverted"] #belt-rail-o,body[data-layout="inverted"] #belt-rail-i{stroke:#7FA6AE}
+body[data-layout="inverted"] .port-out{background:linear-gradient(90deg,#315B69,rgba(49,91,105,0))}
+body[data-layout="inverted"] .port-in{background:linear-gradient(270deg,#315B69,rgba(49,91,105,0))}
+body[data-layout="inverted"] .port-in .port-label,body[data-layout="inverted"] .port-out .port-label{color:#DCECEE}
+body[data-layout="inverted"] #queue-area{background:#A9C8D0;border-color:#7FA6AE}
+body[data-layout="inverted"] .queue-slot{background:#A9C8D0;box-shadow:inset 0 1px 2px rgba(23,61,75,.25)}
+body[data-layout="inverted"] .queue-slot.occupied{background:#A9C8D0;border-color:var(--cat-color);box-shadow:none}
+body[data-layout="inverted"] #queue-counter{background:#DCECEE;color:#173D4B}
+body[data-layout="inverted"] .queue-counter.warning{background:#E8A33D;color:#3A2600}
+body[data-layout="inverted"] .queue-counter.danger{background:#C0392B;color:#fff}
+body[data-layout="inverted"] #booster-bar{background:#C5DDE1}
+body[data-layout="inverted"] .booster-button{background:#fff;color:#173D4B;border-color:#7FA6AE;min-height:60px;transition:background .12s ease,color .12s ease}
+body[data-layout="inverted"] .booster-button img{width:32px;height:32px}
+body[data-layout="inverted"] .booster-button .booster-label,body[data-layout="inverted"] .booster-button .booster-detail{color:#173D4B}
+body[data-layout="inverted"] .booster-button[data-booster="freeze"]{border-bottom:3px solid #2FA8C7}
+body[data-layout="inverted"] .booster-button[data-booster="shuffle"]{border-bottom:3px solid #4CAF7D}
+body[data-layout="inverted"] .booster-button[data-booster="extra"]{border-bottom:3px solid #E8A33D}
+body[data-layout="inverted"] .booster-button[data-booster="remove"]{border-bottom:3px solid #E2725B}
+body[data-layout="inverted"] .booster-button:disabled{opacity:.7}
+body[data-layout="inverted"] .booster-button:disabled .booster-label,body[data-layout="inverted"] .booster-button:disabled .booster-detail{color:#173D4B}
+body[data-layout="inverted"] .booster-button:hover:not(:disabled){background:#EAF4F5}
+body[data-layout="inverted"] .booster-button:active:not(:disabled){background:#DCECEE}
+body[data-layout="inverted"] .booster-button:focus-visible{outline:3px solid #F2C94C;outline-offset:2px;box-shadow:0 0 0 2px #173D4B}
+body[data-layout="inverted"] #booster-status{color:#173D4B}
+body[data-layout="inverted"] .game-footer{color:#173D4B}
+@media (max-height:680px){body[data-layout="inverted"] .booster-button{min-height:52px}body[data-layout="inverted"] .booster-button img{width:26px;height:26px}}
+@media (prefers-reduced-motion:reduce){body[data-layout="inverted"] .booster-button{transition:none}}
+
+/* Mobile fit and final contrast polish — River */
+@media(max-width:640px){body[data-layout="inverted"] #game-header{height:52px;min-height:52px;flex-wrap:nowrap;padding:0 8px;gap:6px}body[data-layout="inverted"] #game-header .hud-left{flex:1 1 auto;min-width:0;flex-wrap:nowrap;gap:4px}body[data-layout="inverted"] #game-header .hud-right{flex:0 0 auto;margin-left:0;gap:4px}body[data-layout="inverted"] #game-header .hud-pill{padding:3px 5px;gap:3px}body[data-layout="inverted"] #game-header .hud-value{font-size:13px}body[data-layout="inverted"] #game-header .tier-badge{font-size:8px;margin-left:0;overflow:hidden;text-overflow:ellipsis}body[data-layout="inverted"] .round-btn{width:32px;height:32px}body[data-layout="inverted"] .tutorial-banner{top:calc(68px + env(safe-area-inset-top,0px))}}
+body[data-layout="inverted"] .port-in,body[data-layout="inverted"] .port-out{color:#DCECEE}
+body[data-layout="inverted"] #queue-area{box-shadow:0 2px 0 rgba(23,61,75,.16)}
+body[data-layout="inverted"] .conveyor-side-beam .t-slot-channel{background:#6B939D;box-shadow:none}
+body[data-layout="inverted"] .booster-button.active{outline:3px solid #173D4B;background:#FFF5CF}
+body[data-layout="inverted"] .conveyor-roller-bed{background-color:#28434D;background-image:repeating-linear-gradient(180deg,transparent 0 29px,rgba(127,166,174,.18) 29px 31px,transparent 31px 32px);filter:none;box-shadow:none}

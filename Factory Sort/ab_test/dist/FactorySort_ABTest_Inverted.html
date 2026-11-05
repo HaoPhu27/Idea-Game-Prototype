@@ -197,7 +197,7 @@ html, body {
     margin: 0 auto;
     position: relative;
     overflow-x: clip;
-    background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABWZkRUNSJJPjAOWrYpkAAAN0SURBVHgB5cRjtCVn2oDh+3mravPY57RtxLYzM0kGydi2bdu2EYxi22bbPH2szap6n2/Vj7PWXr06mWimZ773x3WxePFiah144IEcfPDBJA488EASBxxwAAceeCBPxQEHHMCBBx5I4uCDDyZx4IEHsnjxYmqZdDoNQDqdBkBVieMYgGdTHMeoKgCZTAaATCaD8TyPXC5HpVIBwPM8EsAC4JvAvUAE6FMBRMC9wDeBBZ7nkQAol8vkcjmMMZg4jikWi6TTaQDiOCaO4/fFcfzAy1/+8vd9/vOfP+j3v/+994c//IGn4ve//733+c9//qCXv/zl74vj+IE4jt8XxzEA6XSaYrFIHMeYSqUCQKVSAUiJyBWnnHLKN7/1rW9lzzjjDGbNmoUxBoCnwhjDrFmzOOOMM/jWt76VPeWUU74pIlcAqUqlAkClUsGk02kmpdPpr5122mmnv+Y1r6GzsxOAZ0NnZyevec1rOO20007PZDJfzmQyTDLGGBLGmGXAO1760pcC8O/w4he/GFV9t7V2sbWWhLHWkrDWvv5Vr3qV5/s+AP8OqVSKV7ziFZ4x5vXGGBIGIAGcvnz5cgD+nZYvXw5wOkDCiAgJEZnV3t4OwL9Tc3MzqjpFVUkYgASQ8n0fgH+nXC6HiDSKCAkDsD8ZgP3JAOxPBmB/MgD7kwHYnwzA/mQA9icDsD8ZgP3JAOxPBiABVKMoAuDfqVwuA0wAJAxAAtg2ODgIwL/T4OAgwDaAhAFIAFc+/PDDAPw7Pfroo6jqNapKwogICRH52W9+85vYWgvAv0MURfzud7+LjTG/NMaQMKpKQlUfEZEf//GPfwTg3+HPf/4zwA+stY9Ya0mYcrnMpHK5/P6rrrrqyt/85jfs2bMHgGfDnj17+M1vfsNVV111ZaVS+VClUmGSSafTAKTTaYCqqp5xzTXXvP9973tf6YorrmDr1q0APB1bt27liiuu4H3ve1/pmmuueb+qngFU0+k0AOl0GuN5HrlcjkqlAoDneXie9y3P8w744x//+K2Pf/zjD77iFa/g6fj4xz/+4B//+MdveZ53gOd53/I8D4BKpUIul8PzPIy1lmKxSCaTASCOYxLAWuD9wAGAPB3AAcD7gbVxHJMASKfTFItF4jjGlMtlAMrlMgAigud5ADybPM9DRACoVCoAVCoV/g9RpIlm084ewwAAAABJRU5ErkJggg==") no-repeat center center;
+    background: none no-repeat center center;
     background-size: cover;
 }
 
@@ -2889,6 +2889,65 @@ body.is-item-dragging * {
     #booster-bar { padding-top: 2px; }
 }
 
+/* Factory daylight theme — Lite implementation of visual-refresh-plan.md */
+body[data-layout="inverted"]{background:#DCECEE;color:#173D4B}
+body[data-layout="inverted"] #game-container{background:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MDAiIGhlaWdodD0iMTAwMCIgdmlld0JveD0iMCAwIDYwMCAxMDAwIj4KICA8cmVjdCB3aWR0aD0iNjAwIiBoZWlnaHQ9IjEwMDAiIGZpbGw9IiNEQ0VDRUUiLz4KICA8cmVjdCB4PSIxNCIgeT0iMTQiIHdpZHRoPSI1NzIiIGhlaWdodD0iOTcyIiBmaWxsPSJub25lIiBzdHJva2U9IiM3RkE2QUUiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxyZWN0IHg9IjI2IiB5PSIyNiIgd2lkdGg9IjU0OCIgaGVpZ2h0PSI5NDgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0MzRENFMCIgc3Ryb2tlLXdpZHRoPSIxIi8+CiAgPGcgZmlsbD0iIzMxNUI2OSI+CiAgICA8Y2lyY2xlIGN4PSIzNCIgY3k9IjEyMCIgcj0iNCIvPgogICAgPGNpcmNsZSBjeD0iMzQiIGN5PSIyNDAiIHI9IjQiLz4KICAgIDxjaXJjbGUgY3g9IjM0IiBjeT0iMzYwIiByPSI0Ii8+CiAgICA8Y2lyY2xlIGN4PSIzNCIgY3k9IjQ4MCIgcj0iNCIvPgogICAgPGNpcmNsZSBjeD0iMzQiIGN5PSI2MDAiIHI9IjQiLz4KICAgIDxjaXJjbGUgY3g9IjM0IiBjeT0iNzIwIiByPSI0Ii8+CiAgICA8Y2lyY2xlIGN4PSIzNCIgY3k9Ijg0MCIgcj0iNCIvPgogICAgPGNpcmNsZSBjeD0iNTY2IiBjeT0iMTgwIiByPSI0Ii8+CiAgICA8Y2lyY2xlIGN4PSI1NjYiIGN5PSIzMDAiIHI9IjQiLz4KICAgIDxjaXJjbGUgY3g9IjU2NiIgY3k9IjQyMCIgcj0iNCIvPgogICAgPGNpcmNsZSBjeD0iNTY2IiBjeT0iNTQwIiByPSI0Ii8+CiAgICA8Y2lyY2xlIGN4PSI1NjYiIGN5PSI2NjAiIHI9IjQiLz4KICAgIDxjaXJjbGUgY3g9IjU2NiIgY3k9Ijc4MCIgcj0iNCIvPgogICAgPGNpcmNsZSBjeD0iNTY2IiBjeT0iOTAwIiByPSI0Ii8+CiAgPC9nPgogIDxyZWN0IHg9IjE0IiB5PSI2MCIgd2lkdGg9IjgiIGhlaWdodD0iODgwIiBmaWxsPSIjMzE1QjY5IiBvcGFjaXR5PSIwLjE4Ii8+CiAgPHJlY3QgeD0iNTc4IiB5PSI2MCIgd2lkdGg9IjgiIGhlaWdodD0iODgwIiBmaWxsPSIjMzE1QjY5IiBvcGFjaXR5PSIwLjE4Ii8+CiAgPHJlY3QgeD0iMTQiIHk9IjYwIiB3aWR0aD0iNTcyIiBoZWlnaHQ9IjgiIGZpbGw9IiMzMTVCNjkiIG9wYWNpdHk9IjAuMTAiLz4KICA8cmVjdCB4PSIxNCIgeT0iOTMyIiB3aWR0aD0iNTcyIiBoZWlnaHQ9IjgiIGZpbGw9IiMzMTVCNjkiIG9wYWNpdHk9IjAuMTAiLz4KPC9zdmc+Cg==") no-repeat center/100% 100%}
+body[data-layout="inverted"] #game-header{background:#315B69;color:#fff;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;filter:none}
+body[data-layout="inverted"] .hud-pill,body[data-layout="inverted"] .round-btn{background:#315B69;color:#fff;border-color:#7FA6AE;box-shadow:none}
+body[data-layout="inverted"] .hud-pill .hud-label,body[data-layout="inverted"] .hud-pill .hud-value{color:#fff}
+body[data-layout="inverted"] .timer-pill.timer-low{background:#E8A33D;color:#3A2600}
+body[data-layout="inverted"] .timer-pill.timer-low .hud-value{color:#3A2600}
+body[data-layout="inverted"] .timer-pill.timer-critical{background:#C0392B;color:#fff}
+body[data-layout="inverted"] .timer-pill.timer-critical .hud-value{color:#fff}
+body[data-layout="inverted"] .timer-pill.timer-frozen{background:#2FA8C7;color:#062A33}
+body[data-layout="inverted"] .timer-pill.timer-frozen .hud-value{color:#062A33}
+body[data-layout="inverted"] .conveyor-track{background:#28434D;box-shadow:0 2px 0 rgba(0,0,0,.12)}
+body[data-layout="inverted"] .conveyor-cleat-belt{background-color:#28434D;background-image:repeating-linear-gradient(180deg,transparent 0 29px,rgba(127,166,174,.18) 29px 31px,transparent 31px 32px);filter:none}
+body[data-layout="inverted"] .conveyor-roller-bed{background-image:repeating-linear-gradient(90deg,rgba(127,166,174,.35) 0 2px,transparent 2px 14px);filter:none}
+body[data-layout="inverted"] .conveyor-side-beam{background:#7FA6AE;filter:none;box-shadow:none}
+body[data-layout="inverted"] .t-slot-channel{background:#7FA6AE}
+body[data-layout="inverted"] .conveyor-top-terminal,body[data-layout="inverted"] .nose-curved-belt{background:#315B69;box-shadow:none;filter:none}
+body[data-layout="inverted"] .conveyor-bottom-peek{background:linear-gradient(180deg,rgba(40,67,77,0) 0%,#28434D 100%)}
+body[data-layout="inverted"] .conveyor-bottom-peek::before,body[data-layout="inverted"] .conveyor-bottom-peek::after{background:linear-gradient(180deg,rgba(40,67,77,0),#28434D)}
+body[data-layout="inverted"] #conveyor-belt{background:#28434D;box-shadow:0 1px 0 rgba(0,0,0,.15)}
+body[data-layout="inverted"] #belt-band{stroke:#315B69}
+body[data-layout="inverted"] #belt-cleat{stroke:rgba(127,166,174,.25)}
+body[data-layout="inverted"] #belt-rail-o,body[data-layout="inverted"] #belt-rail-i{stroke:#7FA6AE}
+body[data-layout="inverted"] .port-out{background:linear-gradient(90deg,#315B69,rgba(49,91,105,0))}
+body[data-layout="inverted"] .port-in{background:linear-gradient(270deg,#315B69,rgba(49,91,105,0))}
+body[data-layout="inverted"] .port-in .port-label,body[data-layout="inverted"] .port-out .port-label{color:#DCECEE}
+body[data-layout="inverted"] #queue-area{background:#A9C8D0;border-color:#7FA6AE}
+body[data-layout="inverted"] .queue-slot{background:#A9C8D0;box-shadow:inset 0 1px 2px rgba(23,61,75,.25)}
+body[data-layout="inverted"] .queue-slot.occupied{background:#A9C8D0;border-color:var(--cat-color);box-shadow:none}
+body[data-layout="inverted"] #queue-counter{background:#DCECEE;color:#173D4B}
+body[data-layout="inverted"] .queue-counter.warning{background:#E8A33D;color:#3A2600}
+body[data-layout="inverted"] .queue-counter.danger{background:#C0392B;color:#fff}
+body[data-layout="inverted"] #booster-bar{background:#C5DDE1}
+body[data-layout="inverted"] .booster-button{background:#fff;color:#173D4B;border-color:#7FA6AE;min-height:60px;transition:background .12s ease,color .12s ease}
+body[data-layout="inverted"] .booster-button img{width:32px;height:32px}
+body[data-layout="inverted"] .booster-button .booster-label,body[data-layout="inverted"] .booster-button .booster-detail{color:#173D4B}
+body[data-layout="inverted"] .booster-button[data-booster="freeze"]{border-bottom:3px solid #2FA8C7}
+body[data-layout="inverted"] .booster-button[data-booster="shuffle"]{border-bottom:3px solid #4CAF7D}
+body[data-layout="inverted"] .booster-button[data-booster="extra"]{border-bottom:3px solid #E8A33D}
+body[data-layout="inverted"] .booster-button[data-booster="remove"]{border-bottom:3px solid #E2725B}
+body[data-layout="inverted"] .booster-button:disabled{opacity:.7}
+body[data-layout="inverted"] .booster-button:disabled .booster-label,body[data-layout="inverted"] .booster-button:disabled .booster-detail{color:#173D4B}
+body[data-layout="inverted"] .booster-button:hover:not(:disabled){background:#EAF4F5}
+body[data-layout="inverted"] .booster-button:active:not(:disabled){background:#DCECEE}
+body[data-layout="inverted"] .booster-button:focus-visible{outline:3px solid #F2C94C;outline-offset:2px;box-shadow:0 0 0 2px #173D4B}
+body[data-layout="inverted"] #booster-status{color:#173D4B}
+body[data-layout="inverted"] .game-footer{color:#173D4B}
+@media (max-height:680px){body[data-layout="inverted"] .booster-button{min-height:52px}body[data-layout="inverted"] .booster-button img{width:26px;height:26px}}
+@media (prefers-reduced-motion:reduce){body[data-layout="inverted"] .booster-button{transition:none}}
+
+/* Mobile fit and final contrast polish — River */
+@media(max-width:640px){body[data-layout="inverted"] #game-header{height:52px;min-height:52px;flex-wrap:nowrap;padding:0 8px;gap:6px}body[data-layout="inverted"] #game-header .hud-left{flex:1 1 auto;min-width:0;flex-wrap:nowrap;gap:4px}body[data-layout="inverted"] #game-header .hud-right{flex:0 0 auto;margin-left:0;gap:4px}body[data-layout="inverted"] #game-header .hud-pill{padding:3px 5px;gap:3px}body[data-layout="inverted"] #game-header .hud-value{font-size:13px}body[data-layout="inverted"] #game-header .tier-badge{font-size:8px;margin-left:0;overflow:hidden;text-overflow:ellipsis}body[data-layout="inverted"] .round-btn{width:32px;height:32px}body[data-layout="inverted"] .tutorial-banner{top:calc(68px + env(safe-area-inset-top,0px))}}
+body[data-layout="inverted"] .port-in,body[data-layout="inverted"] .port-out{color:#DCECEE}
+body[data-layout="inverted"] #queue-area{box-shadow:0 2px 0 rgba(23,61,75,.16)}
+body[data-layout="inverted"] .conveyor-side-beam .t-slot-channel{background:#6B939D;box-shadow:none}
+body[data-layout="inverted"] .booster-button.active{outline:3px solid #173D4B;background:#FFF5CF}
+body[data-layout="inverted"] .conveyor-roller-bed{background-color:#28434D;background-image:repeating-linear-gradient(180deg,transparent 0 29px,rgba(127,166,174,.18) 29px 31px,transparent 31px 32px);filter:none;box-shadow:none}
+
 </style>
 
 <script>
@@ -3019,10 +3078,10 @@ window.addEventListener('unhandledrejection', function(e) {
         
         <section id="booster-bar" aria-label="Booster">
             <div class="booster-buttons">
-                <button type="button" class="booster-button" data-booster="freeze" title="Dừng đồng hồ màn 30 giây. Băng chuyền vẫn chạy."><img src="assets/powerup_freeze.png" alt=""><span>Freeze Time</span><small class="booster-detail">30 giây</small></button>
-                <button type="button" class="booster-button" data-booster="shuffle" title="Xáo vật trong thùng đang hiện, chưa đóng gói; giữ nguyên số lượng và khả năng giải."><img src="assets/powerup_swap.png" alt=""><span>Shuffle</span><small class="booster-detail">Xáo vật</small></button>
-                <button type="button" class="booster-button" data-booster="extra" title="Thêm 1 ô hàng chờ đến hết màn; không thêm đơn hàng."><img src="assets/powerup_wand.png" alt=""><span>Extra Tray</span><small class="booster-detail">+1 ô chờ</small></button>
-                <button type="button" class="booster-button" data-booster="remove" aria-pressed="false" title="Chọn khay trống để xóa cùng đúng 3 vật tương ứng, ưu tiên từ trên xuống."><img src="assets/powerup_hammer.png" alt=""><span>Remove Tray</span><small class="booster-detail">Chọn khay</small></button>
+                <button type="button" class="booster-button" data-booster="freeze" title="Dừng đồng hồ màn 30 giây. Băng chuyền vẫn chạy."><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjM0IiByPSIyMiIgZmlsbD0iI0VBRjZGQiIgc3Ryb2tlPSIjMzE1QjY5IiBzdHJva2Utd2lkdGg9IjMiLz4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjM0IiByPSIxNiIgZmlsbD0iI0JGRTZGMiIvPgogIDxyZWN0IHg9IjI2IiB5PSI3IiB3aWR0aD0iMTIiIGhlaWdodD0iNyIgcng9IjIiIGZpbGw9IiM3RkM0REMiIHN0cm9rZT0iIzMxNUI2OSIgc3Ryb2tlLXdpZHRoPSIzIi8+CiAgPGxpbmUgeDE9IjMyIiB5MT0iMzQiIHgyPSIzMiIgeTI9IjIyIiBzdHJva2U9IiMzMTVCNjkiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPGxpbmUgeDE9IjMyIiB5MT0iMzQiIHgyPSI0MSIgeTI9IjM4IiBzdHJva2U9IiMzMTVCNjkiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPGNpcmNsZSBjeD0iMzIiIGN5PSIzNCIgcj0iMyIgZmlsbD0iI0ZGRDg2QiIgc3Ryb2tlPSIjMzE1QjY5IiBzdHJva2Utd2lkdGg9IjIiLz4KICA8ZyBzdHJva2U9IiM0RkE4QzkiIHN0cm9rZS13aWR0aD0iMi41IiBzdHJva2UtbGluZWNhcD0icm91bmQiPgogICAgPGxpbmUgeDE9IjE0IiB5MT0iMTIiIHgyPSIyMiIgeTI9IjIwIi8+CiAgICA8bGluZSB4MT0iMjIiIHkxPSIxMiIgeDI9IjE0IiB5Mj0iMjAiLz4KICAgIDxsaW5lIHgxPSIxNCIgeTE9IjE2IiB4Mj0iMjIiIHkyPSIxNiIvPgogICAgPGxpbmUgeDE9IjE4IiB5MT0iMTIiIHgyPSIxOCIgeTI9IjIwIi8+CiAgPC9nPgogIDxnIHN0cm9rZT0iIzRGQThDOSIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+CiAgICA8bGluZSB4MT0iNDgiIHkxPSI0OCIgeDI9IjU2IiB5Mj0iNTYiLz4KICAgIDxsaW5lIHgxPSI1NiIgeTE9IjQ4IiB4Mj0iNDgiIHkyPSI1NiIvPgogICAgPGxpbmUgeDE9IjQ4IiB5MT0iNTIiIHgyPSI1NiIgeTI9IjUyIi8+CiAgICA8bGluZSB4MT0iNTIiIHkxPSI0OCIgeDI9IjUyIiB5Mj0iNTYiLz4KICA8L2c+CiAgPGNpcmNsZSBjeD0iMjYiIGN5PSIyOCIgcj0iMyIgZmlsbD0iI0ZGRkZGRiIvPgo8L3N2Zz4K" alt=""><span>Freeze Time</span><small class="booster-detail">30 giây</small></button>
+                <button type="button" class="booster-button" data-booster="shuffle" title="Xáo vật trong thùng đang hiện, chưa đóng gói; giữ nguyên số lượng và khả năng giải."><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8cmVjdCB4PSI4IiB5PSI4IiB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIxMiIgZmlsbD0iI0U3RjZFNCIgc3Ryb2tlPSIjMzE1QjY5IiBzdHJva2Utd2lkdGg9IjMiLz4KICA8cGF0aCBkPSJNMTYgMjIgSDM0IiBzdHJva2U9IiMzRkEyNEIiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIi8+CiAgPHBhdGggZD0iTTI4IDE0IEw0MCAyMiBMMjggMzAiIHN0cm9rZT0iIzNGQTI0QiIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbGw9Im5vbmUiLz4KICA8cGF0aCBkPSJNNDggNDIgSDMwIiBzdHJva2U9IiMyRjdFM0EiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIi8+CiAgPHBhdGggZD0iTTM2IDM0IEwyNCA0MiBMMzYgNTAiIHN0cm9rZT0iIzJGN0UzQSIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbGw9Im5vbmUiLz4KICA8cGF0aCBkPSJNMjIgMTIgTDMwIDIyIiBzdHJva2U9IiMzMTVCNjkiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPHBhdGggZD0iTTQyIDUyIEwzNCA0MiIgc3Ryb2tlPSIjMzE1QjY5IiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K" alt=""><span>Shuffle</span><small class="booster-detail">Xáo vật</small></button>
+                <button type="button" class="booster-button" data-booster="extra" title="Thêm 1 ô hàng chờ đến hết màn; không thêm đơn hàng."><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8cmVjdCB4PSI2IiB5PSIxNiIgd2lkdGg9IjQwIiBoZWlnaHQ9IjM0IiByeD0iNiIgZmlsbD0iI0ZGRjRENiIgc3Ryb2tlPSIjMzE1QjY5IiBzdHJva2Utd2lkdGg9IjMiLz4KICA8cmVjdCB4PSIxMCIgeT0iMjIiIHdpZHRoPSIxMCIgaGVpZ2h0PSIyMiIgcng9IjMiIGZpbGw9IiNGRkUwOEEiIHN0cm9rZT0iIzMxNUI2OSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHJlY3QgeD0iMjMiIHk9IjIyIiB3aWR0aD0iMTAiIGhlaWdodD0iMjIiIHJ4PSIzIiBmaWxsPSIjRkZFMDhBIiBzdHJva2U9IiMzMTVCNjkiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxyZWN0IHg9IjM2IiB5PSIyMiIgd2lkdGg9IjYiIGhlaWdodD0iMjIiIHJ4PSIzIiBmaWxsPSIjRkZFMDhBIiBzdHJva2U9IiMzMTVCNjkiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxjaXJjbGUgY3g9IjQ4IiBjeT0iNDYiIHI9IjEzIiBmaWxsPSIjNTlDNDZBIiBzdHJva2U9IiMzMTVCNjkiIHN0cm9rZS13aWR0aD0iMyIvPgogIDxsaW5lIHgxPSI0OCIgeTE9IjM5IiB4Mj0iNDgiIHkyPSI1MyIgc3Ryb2tlPSIjRkZGRkZGIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxsaW5lIHgxPSI0MSIgeTE9IjQ2IiB4Mj0iNTUiIHkyPSI0NiIgc3Ryb2tlPSIjRkZGRkZGIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K" alt=""><span>Extra Tray</span><small class="booster-detail">+1 ô chờ</small></button>
+                <button type="button" class="booster-button" data-booster="remove" aria-pressed="false" title="Chọn khay trống để xóa cùng đúng 3 vật tương ứng, ưu tiên từ trên xuống."><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8cmVjdCB4PSI2IiB5PSIxNiIgd2lkdGg9IjQwIiBoZWlnaHQ9IjM0IiByeD0iNiIgZmlsbD0iI0ZGRTlERSIgc3Ryb2tlPSIjMzE1QjY5IiBzdHJva2Utd2lkdGg9IjMiLz4KICA8cmVjdCB4PSIxMCIgeT0iMjIiIHdpZHRoPSIxMCIgaGVpZ2h0PSIyMiIgcng9IjMiIGZpbGw9IiNGRkQ2QzIiIHN0cm9rZT0iIzMxNUI2OSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHJlY3QgeD0iMjMiIHk9IjIyIiB3aWR0aD0iMTAiIGhlaWdodD0iMjIiIHJ4PSIzIiBmaWxsPSIjRkZENkMyIiBzdHJva2U9IiMzMTVCNjkiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxyZWN0IHg9IjM2IiB5PSIyMiIgd2lkdGg9IjYiIGhlaWdodD0iMjIiIHJ4PSIzIiBmaWxsPSIjRkZENkMyIiBzdHJva2U9IiMzMTVCNjkiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxjaXJjbGUgY3g9IjQ4IiBjeT0iNDYiIHI9IjEzIiBmaWxsPSIjRjA4MjY4IiBzdHJva2U9IiMzMTVCNjkiIHN0cm9rZS13aWR0aD0iMyIvPgogIDxsaW5lIHgxPSI0MSIgeTE9IjQ2IiB4Mj0iNTUiIHkyPSI0NiIgc3Ryb2tlPSIjRkZGRkZGIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K" alt=""><span>Remove Tray</span><small class="booster-detail">Chọn khay</small></button>
             </div>
             <div id="booster-status" role="status" aria-live="polite"></div>
         </section>
