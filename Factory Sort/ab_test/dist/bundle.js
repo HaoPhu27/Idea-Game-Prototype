@@ -3451,6 +3451,88 @@ class AudioManager {
     /**
      * Tap / pickup: click tone 900Hz square .06s gain .08 (reference)
      */
+    /**
+     * White-noise burst (reference WebAudio buffer): highpass-filtered, gain fades 1-i/n.
+     * Sound-on guard; connected to sfxGain; start time = current + delay.
+     */
+    noise(duration, volume = 0.2, delay = 0, hp = 800) {
+        if (!this.on) return;
+        this.ensure();
+        if (!this.ctx || !this.sfxGain) return;
+
+        const t = this.ctx.currentTime + (delay || 0);
+        const n = Math.max(1, Math.floor(this.ctx.sampleRate * duration));
+        const buffer = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < n; i++) {
+            data[i] = (Math.random() * 2 - 1) * (1 - i / n);
+        }
+
+        const src = this.ctx.createBufferSource();
+        src.buffer = buffer;
+
+        const filt = this.ctx.createBiquadFilter();
+        filt.type = 'highpass';
+        filt.frequency.value = hp;
+
+        const g = this.ctx.createGain();
+        g.gain.value = volume;
+
+        src.connect(filt).connect(g).connect(this.sfxGain);
+        src.start(t);
+        src.stop(t + duration + 0.03);
+    }
+
+    /**
+     * Pickup: blip 500->900 sine .09s .18
+     */
+    pickup() {
+        this.blip(500, 0.09, 'sine', 0.18, 0, 900);
+    }
+
+    /**
+     * Drop: blip 220->140 triangle .09s .2 + noise .05s .08 hp1500
+     */
+    drop() {
+        this.blip(220, 0.09, 'triangle', 0.2, 0, 140);
+        this.noise(0.05, 0.08, 0, 1500);
+    }
+
+    /**
+     * Land: blip 180->120 triangle .08s .22 + noise .04s .1 hp1200
+     */
+    land() {
+        this.blip(180, 0.08, 'triangle', 0.22, 0, 120);
+        this.noise(0.04, 0.1, 0, 1200);
+    }
+
+    /**
+     * Whoosh: noise .22s .14 hp400 + blip 600->1400 sine .2s .06
+     */
+    whoosh() {
+        this.noise(0.22, 0.14, 0, 400);
+        this.blip(600, 0.2, 'sine', 0.06, 0, 1400);
+    }
+
+    /**
+     * Ting: blip 1318 sine .35s .22 + blip 2636 sine .25s .07
+     */
+    ting() {
+        this.blip(1318, 0.35, 'sine', 0.22);
+        this.blip(2636, 0.25, 'sine', 0.07);
+    }
+
+    /**
+     * Warn: blip 330 square .12s .08 at 0 and .18
+     */
+    warn() {
+        this.blip(330, 0.12, 'square', 0.08, 0);
+        this.blip(330, 0.12, 'square', 0.08, 0.18);
+    }
+
+    /**
+     * Tap / pickup: click tone 900Hz square .06s gain .08 (reference)
+     */
     tap() {
         this.blip(900, 0.06, 'square', 0.08);
     }
@@ -3459,8 +3541,7 @@ class AudioManager {
      * Swap / drop: 220->140 triangle .09s .2 (reference) + tiny noise sparkle
      */
     swap() {
-        this.blip(220, 0.09, 'triangle', 0.2, 0, 140);
-        this.blip(1500, 0.02, 'square', 0.02, 0.01);
+        this.drop();
     }
 
     /**
@@ -3475,6 +3556,7 @@ class AudioManager {
      */
     wrap() {
         this.blip(320, 0.16, 'sine', 0.25, 0, 1000);
+        this.noise(0.14, 0.12, 0.04, 2500);
         this.blip(1300, 0.08, 'triangle', 0.1, 0.12);
     }
 
@@ -3539,199 +3621,597 @@ class AudioManager {
 // --- src/ui/VFXManager.js ---
 /**
  * VFXManager.js
- * Presentation-only visual feedback for the Sort&Ship feel.
+ * Presentation-only visual feedback (canvas particles + DOM text/toast).
  * Warm reference palette: #ffd15c / #ff8a3d / #fffdf7 / #4fae5a / #e4574b
- * No neon rings/glow, no mechanical emoji ladder, no fabricated score/coin.
- * Effects only self-remove nodes. No game callbacks/state/input/timers.
+ * No neon rings, no fabricated score/coin, no game callbacks/state/input.
  */
+
+const PALETTE = ['#ffd15c', '#ff8a3d', '#fffdf7', '#4fae5a', '#e4574b'];
+const MAX_PARTICLES = 240;
+const TRAIL_THROTTLE = 32;
 
 class VFXManager {
     constructor() {
         this.container = document.getElementById('play-area') || document.body;
         this.gameContainer = document.getElementById('game-container') || document.body;
-        this.PALETTE = ['#ffd15c', '#ff8a3d', '#fffdf7', '#4fae5a', '#e4574b'];
+        this.PALETTE = PALETTE;
+
+        this.canvas = null;
+        this.ctx = null;
+        this.particles = [];
+        this.rafId = null;
+        this.lastTs = 0;
+        this.lastTrail = 0;
+        this.timers = new Set();
+        this.nodes = new Set();
+        this.anims = new Set();
+        this.effectTargets = new Set();
+        this._resizeObserver = null;
+        this._reduced = false;
+        try {
+            this._reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        } catch (_) {
+            this._reduced = false;
+        }
     }
 
     _reducedMotion() {
-        try {
-            return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        } catch (_) {
-            return false;
-        }
+        return this._reduced;
     }
 
-    /**
-     * Bảng bậc thang Combo (Combo Ladder)
-     * Warm reference palette, no neon glow, no emoji tags.
-     */
-    static get COMBO_TIERS() {
+    _setTimeout(fn, ms) {
+        const id = setTimeout(() => { this.timers.delete(id); fn(); }, ms);
+        this.timers.add(id);
+        return id;
+    }
+
+    _track(el) {
+        this.nodes.add(el);
+        return el;
+    }
+
+    _trackTarget(el) {
+        if (el && el.classList) this.effectTargets.add(el);
+        return el;
+    }
+
+    /** Lazily create canvas inside #game-container. */
+    _ensureCanvas() {
+        if (this.canvas) return this.canvas;
+        if (typeof document === 'undefined' || !this.gameContainer) return null;
+        try {
+            const cv = document.createElement('canvas');
+            cv.className = 'fx-canvas';
+            cv.setAttribute('aria-hidden', 'true');
+            cv.style.position = 'absolute';
+            cv.style.inset = '0';
+            cv.style.pointerEvents = 'none';
+            this.gameContainer.appendChild(cv);
+            this.canvas = cv;
+            this.ctx = cv.getContext ? cv.getContext('2d') : null;
+            if (this.ctx) {
+                this._sizeCanvas();
+                if (typeof ResizeObserver === 'function') {
+                    try {
+                        this._resizeObserver = new ResizeObserver(() => this._sizeCanvas());
+                        this._resizeObserver.observe(this.gameContainer);
+                    } catch (_) { this._resizeObserver = null; }
+                }
+            } else {
+                try { cv.remove && cv.remove(); } catch (_) {}
+                this.canvas = null;
+            }
+        } catch (_) {
+            this.canvas = null;
+            this.ctx = null;
+        }
+        return this.canvas;
+    }
+
+    _sizeCanvas() {
+        if (!this.canvas) return;
+        const cw = this.gameContainer.clientWidth || 0;
+        const ch = this.gameContainer.clientHeight || 0;
+        const rect = (!cw || !ch) && this.gameContainer.getBoundingClientRect ? this.gameContainer.getBoundingClientRect() : { width: cw, height: ch };
+        const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+        const w = Math.max(1, Math.round(cw || rect.width || 1));
+        const h = Math.max(1, Math.round(ch || rect.height || 1));
+        this.canvas.width = w * dpr;
+        this.canvas.height = h * dpr;
+        this.canvas.style.width = w + 'px';
+        this.canvas.style.height = h + 'px';
+        if (this.ctx) {
+            this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        this._stageW = w;
+        this._stageH = h;
+    }
+
+    /** Convert viewport/client coords to canvas-local stage coords. */
+    _toLocal(clientX, clientY) {
+        const rect = this.gameContainer.getBoundingClientRect ? this.gameContainer.getBoundingClientRect() : { left: 0, top: 0, width: 1, height: 1 };
+        const sx = rect.width ? (this._stageW || rect.width) / rect.width : 1;
+        const sy = rect.height ? (this._stageH || rect.height) / rect.height : 1;
         return [
-            { at: 1, scale: 1.00, color: '#fffdf7' },
-            { at: 2, scale: 1.14, color: '#ffd15c' },
-            { at: 3, scale: 1.30, color: '#ff8a3d' },
-            { at: 4, scale: 1.48, color: '#4fae5a' },
-            { at: 5, scale: 1.68, color: '#e4574b' },
+            (clientX - rect.left) * sx,
+            (clientY - rect.top) * sy,
         ];
     }
 
-    getTier(combo) {
-        const tiers = VFXManager.COMBO_TIERS;
-        let t = tiers[0];
-        for (const item of tiers) {
-            if (combo >= item.at) t = item;
+    _targetCenter(target) {
+        if (!target) return [(this._stageW || 0) / 2, (this._stageH || 0) / 2];
+        const r = (target.getBoundingClientRect && typeof target.getBoundingClientRect === 'function') ? target.getBoundingClientRect() : target;
+        if (!r || !isFinite(r.left) || !isFinite(r.top) || !isFinite(r.width) || !isFinite(r.height)) {
+            return [(this._stageW || 0) / 2, (this._stageH || 0) / 2];
         }
-        return t;
+        this._trackTarget(target);
+        return this._toLocal(r.left + r.width / 2, r.top + r.height / 2);
+    }
+
+    _bumpCount() {
+        if (this.canvas) this.canvas.dataset.particles = String(this.particles.length);
+    }
+
+    _emit(p) {
+        if (this._reduced) return;
+        if (!this.ctx) return;
+        if (this.particles.length >= MAX_PARTICLES) return;
+        this.particles.push(Object.assign({
+            life: 1, decay: 1.6, g: 600, size: 4, shape: 'c', rot: 0, vr: 0, color: '#fff',
+            x: 0, y: 0, vx: 0, vy: 0,
+        }, p));
+        this._bumpCount();
+        this._ensureRaf();
+    }
+
+    _ensureRaf() {
+        if (this.rafId != null) return;
+        if (this.particles.length === 0) return;
+        if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return;
+        this.rafId = window.requestAnimationFrame((ts) => this._frame(ts));
+    }
+
+    _frame(ts) {
+        this.rafId = null;
+        const dt = Math.min(0.05, (ts - (this.lastTs || ts)) / 1000);
+        this.lastTs = ts;
+        this._tick(dt);
+        this._draw();
+        if (this.particles.length > 0) {
+            this._ensureRaf();
+        } else {
+            this.lastTs = 0;
+        }
+    }
+
+    _tick(dt) {
+        const ps = this.particles;
+        for (let i = 0; i < ps.length; i++) {
+            const p = ps[i];
+            p.vy += p.g * dt;
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.rot += p.vr * dt;
+            p.life -= p.decay * dt;
+        }
+        this.particles = ps.filter((p) => p.life > 0 && p.y < (this._stageH || 900) + 200);
+        this._bumpCount();
+    }
+
+    _draw() {
+        if (!this.ctx || !this.canvas) return;
+        const w = this._stageW || this.canvas.width;
+        const h = this._stageH || this.canvas.height;
+        this.ctx.clearRect(0, 0, w, h);
+        const ps = this.particles;
+        if (!ps.length) return;
+        for (let i = 0; i < ps.length; i++) {
+            const p = ps[i];
+            this.ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+            this.ctx.fillStyle = p.color;
+            this.ctx.save();
+            this.ctx.translate(p.x, p.y);
+            this.ctx.rotate(p.rot);
+            if (p.shape === 'c') {
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, p.size / 2, 0, 7);
+                this.ctx.fill();
+            } else {
+                this.ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+            }
+            this.ctx.restore();
+        }
+        this.ctx.globalAlpha = 1;
+    }
+
+    _add(p) { this._emit(p); }
+    _burst(x, y, colors, n = 14, speed = 220, opt = {}) {
+        if (this._reduced) return;
+        const cap = Math.min(n, MAX_PARTICLES - this.particles.length);
+        for (let i = 0; i < cap; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const v = speed * (0.4 + Math.random() * 0.8);
+            this._emit(Object.assign({
+                x, y,
+                vx: Math.cos(a) * v,
+                vy: Math.sin(a) * v - 80,
+                color: colors[i % colors.length],
+                size: 3 + Math.random() * 4,
+                shape: Math.random() < 0.5 ? 'c' : 'r',
+                rot: Math.random() * 6,
+                vr: (Math.random() - 0.5) * 10,
+                decay: 1.4 + Math.random(),
+            }, opt));
+        }
+    }
+    _puff(x, y, color = 'rgba(255,255,255,.9)', n = 8) {
+        if (this._reduced) return;
+        const cap = Math.min(n, MAX_PARTICLES - this.particles.length);
+        for (let i = 0; i < cap; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const v = 40 + Math.random() * 60;
+            this._emit({
+                x, y,
+                vx: Math.cos(a) * v,
+                vy: Math.sin(a) * v - 20,
+                color,
+                size: 5 + Math.random() * 6,
+                shape: 'c',
+                g: -60,
+                decay: 2.2,
+            });
+        }
     }
 
     /**
-     * Chữ khen thưởng bay lên (outlined brown/orange floating text).
-     * No score/coin fabricated, no emoji tier tags appended.
+     * Round particle burst (canvas). Kept API: burst(target, color, count).
+     */
+    burst(target, color = '#ffd15c', count = 10) {
+        if (!target) return;
+        this._ensureCanvas();
+        const [x, y] = this._targetCenter(target);
+        const colors = color ? [color] : PALETTE;
+        const n = Math.max(4, Math.min(24, Math.round(count || 10)));
+        this._burst(x, y, colors, n, 220);
+    }
+
+    /**
+     * Praise text: sentence-case, centered, clamped into stage bounds. .9s lifetime.
+     * No score/coin/emoji tier suffix.
      */
     praise(target, text, combo = 1) {
-        if (!target) return;
-        const rect = target.getBoundingClientRect ? target.getBoundingClientRect() : target;
-        const parentRect = this.gameContainer.getBoundingClientRect();
-
-        const n = Math.max(1, combo || 1);
-        const tier = this.getTier(n);
-
+        if (!target || !text) return;
+        const tier = this.getTier(combo);
         const el = document.createElement('div');
         el.className = 'factory-praise';
-        el.textContent = text || '';
-
+        this._ensureCanvas();
+        const cleaned = String(text).replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim();
+        const pretty = cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : '';
+        el.textContent = pretty;
         el.style.setProperty('--pz', tier.scale);
         el.style.setProperty('--pc', tier.color);
-
-        const cx = (rect.left - parentRect.left) + rect.width / 2;
-        const cy = (rect.top - parentRect.top) + rect.height / 2;
-
-        el.style.left = `${cx}px`;
-        el.style.top = `${cy}px`;
+        el.style.position = 'absolute';
+        el.style.transform = 'translate(-50%, -50%)';
+        this._track(el);
 
         if (this._reducedMotion()) {
             el.style.animation = 'none';
             el.style.opacity = '1';
         }
 
+        const c = this._targetCenter(target);
+        let cx = c[0];
+        const cy = c[1];
+        el.style.left = cx + 'px';
+        el.style.top = cy + 'px';
+
         this.gameContainer.appendChild(el);
-        setTimeout(() => el.remove(), 900);
+
+        // Clamp horizontally by actual text width and stage bounds.
+        try {
+            const w = el.offsetWidth || 0;
+            const half = w / 2 + 8;
+            const stageW = this._stageW || this.gameContainer.clientWidth || half * 2;
+            cx = Math.max(half, Math.min(stageW - half, cx));
+            el.style.left = cx + 'px';
+        } catch (_) {}
+
+        this._setTimeout(() => this._removeNode(el), 900);
     }
 
     /**
-     * Round paper particle burst (8-14 particles) from actual target.
-     * Soft/simple thin ring only - no neon glow ring.
-     * Uses custom --dx/--dy props, sizes 3-6px, bounded count, cleanup 750ms.
-     */
-    burst(target, color = '#ffd15c', count = 10) {
-        if (!target) return;
-        const rect = target.getBoundingClientRect ? target.getBoundingClientRect() : target;
-        const parentRect = this.gameContainer.getBoundingClientRect();
-
-        const cx = (rect.left - parentRect.left) + rect.width / 2;
-        const cy = (rect.top - parentRect.top) + rect.height / 2;
-        const radius = Math.max(22, Math.min(rect.width, rect.height) * 0.45);
-
-        const reduced = this._reducedMotion();
-
-        // Soft simple thin ring (not flashy / not neon glow)
-        if (!reduced) {
-            const ring = document.createElement('div');
-            ring.className = 'vfx-ring';
-            ring.style.left = `${cx}px`;
-            ring.style.top = `${cy}px`;
-            ring.style.width = `${radius}px`;
-            ring.style.height = `${radius}px`;
-            ring.style.border = '2px solid #ffd15c';
-            ring.style.opacity = '0.5';
-            this.gameContainer.appendChild(ring);
-            setTimeout(() => ring.remove(), 750);
-        }
-
-        // Bounded round paper particles (8-14)
-        const raw = Math.round(count || 10);
-        const N = Math.max(8, Math.min(14, raw));
-        const palette = (color && this.PALETTE.includes(color)) ? [color] : this.PALETTE;
-
-        for (let k = 0; k < N; k++) {
-            const angle = (Math.PI * 2 * k) / N + (Math.random() * 0.4 - 0.2);
-            const dist = radius * (1.2 + Math.random() * 0.9);
-            const dx = (Math.cos(angle) * dist).toFixed(1);
-            const dy = (Math.sin(angle) * dist).toFixed(1);
-            const size = (3 + Math.random() * 3).toFixed(1);
-
-            const spark = document.createElement('div');
-            spark.className = 'vfx-spark';
-            spark.style.left = `${cx}px`;
-            spark.style.top = `${cy}px`;
-            spark.style.width = `${size}px`;
-            spark.style.height = `${size}px`;
-            spark.style.borderRadius = '50%';
-            spark.style.backgroundColor = palette[k % palette.length];
-            spark.style.setProperty('--dx', `${dx}px`);
-            spark.style.setProperty('--dy', `${dy}px`);
-
-            if (reduced) {
-                spark.style.animation = 'none';
-                spark.style.opacity = '0';
-            } else {
-                spark.style.animationDelay = `${(Math.random() * 0.05).toFixed(2)}s`;
-            }
-
-            this.gameContainer.appendChild(spark);
-            setTimeout(() => spark.remove(), 750);
-        }
-    }
-
-    /**
-     * Hiệu ứng nảy đàn hồi (Bump) ~ .45s, respects prefers-reduced-motion.
+     * Bump: avoids overwriting a moving tray's inline transform.
+     * Uses class + WAAPI composite:add when available; never reassigns transform.
      */
     bump(elOrId) {
         const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
-        if (!el) return;
+        if (!el || !el.classList) return;
         el.classList.remove('bump');
-        void el.offsetWidth; // Force reflow
+        try { void el.offsetWidth; } catch (_) {}
         el.classList.add('bump');
-        setTimeout(() => el.classList.remove('bump'), 450);
+        this._setTimeout(() => { if (el.classList) el.classList.remove('bump'); }, 450);
+        if (!this._reducedMotion() && typeof el.animate === 'function') {
+            try {
+                const a = el.animate(
+                    [{ scale: '1' }, { scale: '1.12' }, { scale: '1' }],
+                    { duration: 450, easing: 'ease-out' }
+                );
+                if (a) {
+                    this.anims.add(a);
+                    const drop = () => this.anims.delete(a);
+                    a.onfinish = drop;
+                    a.oncancel = drop;
+                }
+            } catch (_) {}
+        }
     }
 
     /**
-     * Warm paper confetti (36 rectangles), safe cleanup unchanged.
+     * Confetti falling into the full container (canvas).
      */
     confetti(container = null) {
         const parent = container || this.gameContainer || document.body;
-        const colors = ['#ffd15c', '#ff8a3d', '#fffdf7', '#4fae5a', '#e4574b'];
-        const COUNT = 36;
-        const reduced = this._reducedMotion();
-
-        for (let i = 0; i < COUNT; i++) {
-            const conf = document.createElement('div');
-            conf.className = 'vfx-confetti';
-            const color = colors[Math.floor(Math.random() * colors.length)];
-            const left = Math.random() * 100;
-            const delay = Math.random() * 0.6;
-            const duration = 1.4 + Math.random() * 1.0;
-            const sizeW = 6 + Math.random() * 6;
-            const sizeH = 10 + Math.random() * 8;
-
-            conf.style.left = `${left}%`;
-            conf.style.top = '-20px';
-            conf.style.width = `${sizeW}px`;
-            conf.style.height = `${sizeH}px`;
-            conf.style.backgroundColor = color;
-            conf.style.animationDuration = `${duration}s`;
-            conf.style.animationDelay = `${delay}s`;
-            conf.style.transform = `rotate(${Math.random() * 360}deg)`;
-
-            if (reduced) {
-                conf.style.animation = 'none';
-                conf.style.opacity = '0';
-            }
-
-            parent.appendChild(conf);
-            setTimeout(() => conf.remove(), (duration + delay) * 1000 + 100);
+        this._trackTarget(parent);
+        if (parent !== this.gameContainer && parent.classList) {
+            parent.classList.add('vfx-confetti-fallback');
+            this._setTimeout(() => parent.classList && parent.classList.remove('vfx-confetti-fallback'), 1500);
+        }
+        this._ensureCanvas();
+        const cols = ['#e4574b', '#4f8de0', '#f4d03f', '#5cb85c', '#9463c9', '#ef6fae', '#ff8a3d'];
+        const n = 90;
+        const cap = Math.min(n, MAX_PARTICLES - this.particles.length);
+        for (let i = 0; i < cap; i++) {
+            this._emit({
+                x: Math.random() * (this._stageW || 390),
+                y: -20 - Math.random() * 200,
+                vx: (Math.random() - 0.5) * 120,
+                vy: 80 + Math.random() * 120,
+                color: cols[i % cols.length],
+                size: 5 + Math.random() * 5,
+                shape: 'r',
+                rot: Math.random() * 6,
+                vr: (Math.random() - 0.5) * 8,
+                g: 180,
+                decay: 0.32,
+            });
         }
     }
+
+    // ---------- context effects ----------
+    pickup(target) {
+        if (!target) return;
+        this._ensureCanvas();
+        const el = target;
+        this._trackTarget(el);
+        if (el.classList) {
+            el.classList.remove('fx-pickup');
+            try { void el.offsetWidth; } catch (_) {}
+            el.classList.add('fx-pickup');
+            this._setTimeout(() => el.classList && el.classList.remove('fx-pickup'), 250);
+        }
+        const [x, y] = this._targetCenter(el);
+        this._puff(x, y, '#ffd15c', 5);
+        this._puff(x, y, 'rgba(255,253,247,.9)', 5);
+    }
+
+    land(target) {
+        if (!target) return;
+        this._ensureCanvas();
+        const el = target;
+        this._trackTarget(el);
+        if (el.classList) {
+            el.classList.remove('fx-land');
+            try { void el.offsetWidth; } catch (_) {}
+            el.classList.add('fx-land');
+            this._setTimeout(() => el.classList && el.classList.remove('fx-land'), 300);
+        }
+        const [x, y] = this._targetCenter(el);
+        this._puff(x, y, 'rgba(255,255,255,.9)', 8);
+    }
+
+    invalid(target, message) {
+        if (!target) return;
+        this._ensureCanvas();
+        const el = target;
+        this._trackTarget(el);
+        if (el.classList) {
+            el.classList.remove('fx-invalid');
+            try { void el.offsetWidth; } catch (_) {}
+            el.classList.add('fx-invalid');
+            this._setTimeout(() => el.classList && el.classList.remove('fx-invalid'), 450);
+        }
+        if (message) this.toast(message);
+    }
+
+    pack(target) {
+        if (!target) return;
+        this._ensureCanvas();
+        const el = target;
+        this._trackTarget(el);
+        if (el.classList) {
+            el.classList.remove('fx-pack');
+            try { void el.offsetWidth; } catch (_) {}
+            el.classList.add('fx-pack');
+            this._setTimeout(() => el.classList && el.classList.remove('fx-pack'), 350);
+        }
+        const [x, y] = this._targetCenter(el);
+        this._puff(x, y, 'rgba(255,255,255,.9)', 8);
+        this._burst(x, y, ['#ffd15c', '#ff8a3d', '#fffdf7'], 12, 220);
+    }
+
+    delivery(target) {
+        this._ensureCanvas();
+        const el = target;
+        this._trackTarget(el);
+        if (el && el.classList) {
+            el.classList.remove('fx-delivery');
+            try { void el.offsetWidth; } catch (_) {}
+            el.classList.add('fx-delivery');
+            this._setTimeout(() => el.classList && el.classList.remove('fx-delivery'), 450);
+        }
+        let x = (this._stageW || 0) / 2;
+        let y = (this._stageH || 0) / 2;
+        if (el) {
+            const c = this._targetCenter(el);
+            x = c[0];
+            y = c[1];
+        }
+        this._burst(x, y, ['#ffd15c', '#fffdf7', '#ff8a3d', '#4fae5a'], 14, 220);
+    }
+
+    booster(kind, target) {
+        this._ensureCanvas();
+        const el = target;
+        this._trackTarget(el);
+        const cls = 'fx-booster-' + String(kind || 'default').replace(/[^a-z0-9_-]/gi, '');
+        if (el && el.classList) {
+            el.classList.add(cls);
+            this._setTimeout(() => el.classList && el.classList.remove(cls), 450);
+        }
+        let x = (this._stageW || 0) / 2;
+        let y = (this._stageH || 0) / 2;
+        if (el) {
+            const c = this._targetCenter(el);
+            x = c[0];
+            y = c[1];
+        }
+        const colors = kind === 'freeze' ? ['#8fd0ff', '#cfeeff', '#fffdf7'] : kind === 'shuffle' ? ['#4fae5a', '#a8e6a3', '#fffdf7'] : kind === 'extra' ? ['#ffd15c', '#ffb347', '#fffdf7'] : kind === 'remove' ? ['#e4574b', '#ff8a3d', '#fffdf7'] : ['#ff8a3d', '#ffd15c', '#fffdf7'];
+        this._burst(x, y, colors, 20, 220);
+    }
+
+    warning(target) {
+        if (target) {
+            const el = target;
+            this._trackTarget(el);
+            if (el.classList) {
+                el.classList.remove('fx-warning');
+                try { void el.offsetWidth; } catch (_) {}
+                el.classList.add('fx-warning');
+                this._setTimeout(() => el.classList && el.classList.remove('fx-warning'), 450);
+            }
+        }
+        const el = this.gameContainer;
+        this._trackTarget(el);
+        if (el && el.classList) {
+            el.classList.add('fx-warning-stage');
+            this._setTimeout(() => el && el.classList.remove('fx-warning-stage'), 450);
+        }
+        this.toast('Hàng chờ sắp đầy — ưu tiên khay đang chờ.');
+    }
+
+    lose(reason) {
+        const el = this.gameContainer;
+        this._trackTarget(el);
+        if (el && el.classList) {
+            el.classList.remove('fx-quake');
+            try { void el.offsetWidth; } catch (_) {}
+            el.classList.add('fx-quake');
+            this._setTimeout(() => el && el.classList.remove('fx-quake'), 250);
+        }
+        if (reason) this.toast(reason);
+    }
+
+    toast(message) {
+        if (!message) return;
+        const el = document.createElement('div');
+        el.className = 'fx-toast';
+        el.setAttribute('role', 'status');
+        el.setAttribute('aria-live', 'polite');
+        el.textContent = String(message);
+        const parent = this.gameContainer || document.body;
+        parent.appendChild(el);
+        this._track(el);
+        if (this._toastTimer) { clearTimeout(this._toastTimer); this.timers.delete(this._toastTimer); }
+        if (this._toastEl && this._toastEl !== el) this._removeNode(this._toastEl);
+        this._toastEl = el;
+        this._toastTimer = this._setTimeout(() => {
+            this._removeNode(el);
+            if (this._toastEl === el) { this._toastEl = null; this._toastTimer = null; }
+        }, 1500);
+    }
+
+    trail(clientX, clientY, color = '#ffd15c') {
+        if (this._reducedMotion()) return;
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        if (now - this.lastTrail < TRAIL_THROTTLE) return;
+        this.lastTrail = now;
+        this._ensureCanvas();
+        const [x, y] = this._toLocal(clientX, clientY);
+        this._emit({
+            x, y,
+            vx: (Math.random() - 0.5) * 30,
+            vy: (Math.random() - 0.5) * 30,
+            color,
+            size: 3 + Math.random() * 3,
+            g: 0,
+            decay: 3,
+        });
+    }
+
+    _removeNode(el) {
+        if (!el) return;
+        try { el.remove && el.remove(); } catch (_) {}
+        this.nodes.delete(el);
+        if (this._toastEl === el) this._toastEl = null;
+    }
+
+    reset() {
+        if (this.rafId != null) {
+            try { window.cancelAnimationFrame(this.rafId); } catch (_) {}
+            this.rafId = null;
+        }
+        this.particles.length = 0;
+        this.lastTs = 0;
+        this.lastTrail = 0;
+        if (this.ctx && this.canvas) {
+            try { this.ctx.clearRect(0, 0, this._stageW || this.canvas.width, this._stageH || this.canvas.height); } catch (_) {}
+        }
+        this._bumpCount();
+        for (const id of Array.from(this.timers)) {
+            try { clearTimeout(id); } catch (_) {}
+        }
+        this.timers.clear();
+        this._toastTimer = null;
+        for (const a of Array.from(this.anims)) {
+            try { a.cancel && a.cancel(); } catch (_) {}
+        }
+        this.anims.clear();
+        for (const el of Array.from(this.effectTargets)) {
+            if (el && el.classList) {
+                el.classList.remove('bump', 'fx-pickup', 'fx-land', 'fx-invalid', 'fx-pack', 'fx-delivery', 'fx-warning', 'fx-warning-stage', 'fx-quake', 'fx-booster-freeze', 'fx-booster-shuffle', 'fx-booster-extra', 'fx-booster-remove', 'vfx-confetti-fallback');
+            }
+        }
+        this.effectTargets.clear();
+        for (const el of Array.from(this.nodes)) {
+            if (el && el.classList) {
+                el.classList.remove('factory-praise', 'fx-toast', 'fx-pickup', 'fx-land', 'fx-invalid', 'fx-pack', 'fx-delivery', 'fx-warning', 'bump');
+            }
+            this._removeNode(el);
+        }
+        this.nodes.clear();
+        this._toastEl = null;
+    }
 }
+
+/**
+ * Combo ladder (unchanged tiers, warm palette, no emoji tags).
+ */
+VFXManager.COMBO_TIERS = [
+    { at: 1, scale: 1.00, color: '#fffdf7' },
+    { at: 2, scale: 1.14, color: '#ffd15c' },
+    { at: 3, scale: 1.30, color: '#ff8a3d' },
+    { at: 4, scale: 1.48, color: '#4fae5a' },
+    { at: 5, scale: 1.68, color: '#e4574b' },
+];
+
+VFXManager.prototype.getTier = function (combo) {
+    const tiers = VFXManager.COMBO_TIERS;
+    let t = tiers[0];
+    for (let i = 0; i < tiers.length; i++) {
+        if (combo >= tiers[i].at) t = tiers[i];
+    }
+    return t;
+};
 
 
 // --- src/ui/BoxRenderer.js ---
@@ -3761,11 +4241,13 @@ class BoxRenderer {
                 const boxEl = e.target.closest('.box:not(.peek-box)');
                 if (!boxEl) return;
                 const boxId = boxEl.dataset.boxId;
+                // F4 UI bugfix: hand the native event through so UIManager can tell a
+                // synthetic post-pointerup click apart from a real delegated click.
                 if (slot) {
                     const i = Number(slot.dataset.slotIndex);
-                    this.onSlotTap(boxId, slot.classList.contains('placeholder') ? null : i);
+                    this.onSlotTap(boxId, slot.classList.contains('placeholder') ? null : i, e);
                 } else {
-                    this.onSlotTap(boxId, null);
+                    this.onSlotTap(boxId, null, e);
                 }
             });
 
@@ -5628,7 +6110,8 @@ class UIManager {
             sourceSlotEl: null,
             ghostEl: null,
             startX: 0,
-            startY: 0
+            startY: 0,
+            didMove: false
         };
         this._resetAnimationState();
         this.GHOST_LIFT = 28;
@@ -5668,8 +6151,15 @@ class UIManager {
             this.updateLevelClock();
             const tray = this.engine.conveyor.getAllActiveTrays().find(t => String(t.id) === element.dataset.trayId);
             if (!tray || tray.isFull() || this.boostersBlocked()) return;
+            const rect = element.getBoundingClientRect?.();
             const removed = this.engine.removeTray(tray.id);
-            if (removed) this.removeTrayMode = false;
+            if (removed) {
+                this.removeTrayMode = false;
+                this._fx('booster', 'remove', rect);
+                if (this.audio?.ting) this.audio.ting(); else this.audio.tap();
+            } else {
+                this._fx('toast', this.engine.lastBoosterError || 'Chưa thể xóa an toàn khay này. Hãy thử khay khác.');
+            }
             this.setBoosterStatus(removed ? 'Đã xóa khay và đúng 3 vật tương ứng.' : (this.engine.lastBoosterError || 'Chưa thể xóa an toàn khay này. Hãy thử khay khác.'));
             this.updateRender();
             this.renderBoosters();
@@ -5849,7 +6339,13 @@ class UIManager {
             const messages = { freeze: 'Dừng đồng hồ 30 giây; băng chuyền vẫn chạy.',
                 shuffle: 'Đã xáo vật trong các thùng đang hiện.', extra: 'Thêm 1 ô hàng chờ đến hết màn.' };
             this.setBoosterStatus(success ? messages[kind] : (this.engine.lastBoosterError || 'Chưa thể dùng booster an toàn ở trạng thái này.'));
-            if (success) this.audio.tap();
+            if (success) {
+                const anchor = kind === 'freeze' ? document.querySelector?.('.timer-pill') : document.querySelector?.(`[data-booster="${kind}"]`);
+                this._fx('booster', kind, anchor);
+                if (this.audio?.ting) this.audio.ting(); else this.audio.tap();
+            } else {
+                this._fx('toast', this.engine.lastBoosterError || 'Chưa thể dùng booster an toàn ở trạng thái này.');
+            }
         }
         this.updateRender();
         this.renderTimer();
@@ -5934,6 +6430,8 @@ class UIManager {
             } else if (state === 'LOST') {
                 this.tutorialManager.skipTutorial();
                 this.audio.lose();
+                this._fx('lose');
+                this._fx('toast', this.engine.loseReason);
                 if (this.loseReason) {
                     this.loseReason.textContent = this.engine.loseReason || 'Không còn nước đi hợp lệ. Hãy thử lại màn này.';
                 }
@@ -5952,7 +6450,16 @@ class UIManager {
         
         this.engine.onQueueUpdated = (queue) => {
             this.queueRenderer.render(queue, this.engine.maxQueueSize);
-            this.vfx.bump('queue-counter');
+            this._fx('bump', 'queue-counter');
+            // F3 presentation-only: warn once when queue pressure escalates a level.
+            const max = this.engine.maxQueueSize || 0;
+            const count = queue ? queue.length : 0;
+            const level = count >= max ? 2 : count >= max - 1 ? 1 : 0;
+            if (level > (this._queueWarningLevel || 0) && level > 0) {
+                this._fx('warning', document.getElementById('queue-area') || document.getElementById('queue-counter'));
+                this.audio?.warn?.();
+            }
+            this._queueWarningLevel = level;
         };
         
         this.engine.onBoxUpdated = (box, isRemoved = false) => {
@@ -5992,9 +6499,11 @@ class UIManager {
                 logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
             }
             el.classList.add('wrapped');
-            this.audio.wrap();
-            this.vfx.burst(el, catConfig ? catConfig.color : '#f59e0b', 16);
-            this.vfx.praise(el, 'ĐÓNG GÓI! 📦', 1);
+            // F3 presentation-only: never leave the logo span empty/emoji-less.
+            const logoIcon = el.querySelector('.box-logo span');
+            if (logoIcon && itemType) applyItemArt(logoIcon, itemType);
+            // Defer pack presentation until the box actually flies into the queue.
+            this._pendingPackFeedback.add(String(box.id));
             if (navigator.vibrate) navigator.vibrate(35);
         };
     }
@@ -6105,7 +6614,8 @@ class UIManager {
     }
 
     _renderNow() {
-        const validTargets = this.itemDragState.isDragging
+        // F4 UI bugfix: pending press must not highlight targets before the move threshold.
+        const validTargets = this.itemDragState.isDragging && this.itemDragState.didMove
             ? this.engine.getValidTargets(this.itemDragState.sourceBoxId)
             : (this.engine.selectedSource ? this.engine.getValidTargets(this.engine.selectedSource.boxId) : []);
         const hiddenCounts = this.engine.columns.map(
@@ -6145,7 +6655,7 @@ class UIManager {
         }
 
         // Ensure slot-dragging class persists on rerender
-        if (this.itemDragState.isDragging && this.itemDragState.sourceBoxId !== null) {
+        if (this.itemDragState.isDragging && this.itemDragState.didMove && this.itemDragState.sourceBoxId !== null) {
             const srcBoxEl = document.querySelector(`.box[data-box-id="${this.itemDragState.sourceBoxId}"]`);
             if (srcBoxEl) {
                 const slotEl = srcBoxEl.querySelector(`.slot[data-slot-index="${this.itemDragState.sourceSlotIndex}"]`);
@@ -6251,7 +6761,22 @@ class UIManager {
     }
 
     // --- Layer 1 Input (Tap) ---
-    handleSlotTap(boxId, itemIndex) {
+    handleSlotTap(boxId, itemIndex, event = null) {
+        // Canonicalize numeric Box.id (DOM ids are strings; engine ids are numbers).
+        boxId = this.engine.getBox(boxId)?.id ?? boxId;
+        // F4 UI bugfix: a deliberate pointer tap already ran this method on pointerup;
+        // consume the synthetic click the browser fires afterwards instead of
+        // running the same action twice. Only matching events are swallowed.
+        if (event && event.detail > 0 && this._suppressPointerClick) {
+            const suppress = this._suppressPointerClick;
+            if (performance.now() > suppress.until) {
+                this._suppressPointerClick = null;
+            } else if (String(suppress.boxId) === String(boxId) &&
+                String(suppress.slotIndex) === String(itemIndex)) {
+                this._suppressPointerClick = null;
+                return;
+            }
+        }
         if (this.removeTrayMode) return;
         if (this.dragState.isDragging || this.itemDragState.isDragging) return;
         if (this._isBoxBusy(boxId) || (this.engine.selectedSource && this._isBoxBusy(this.engine.selectedSource.boxId))) return;
@@ -6269,14 +6794,24 @@ class UIManager {
             // Select source - must tap an actual item
             if (itemIndex !== null) {
                 if (this.engine.selectSource(boxId, itemIndex)) {
-                    this.audio.tap();
+                    if (this.audio.pickup) this.audio.pickup(); else this.audio.tap();
                     if (navigator.vibrate) navigator.vibrate(12);
                     this.updateRender();
+                    // F3 presentation-only: pickup pop at the actual source slot.
+                    const srcBoxEl = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                    const srcSlotEl = srcBoxEl ? srcBoxEl.querySelector(`.slot[data-slot-index="${itemIndex}"]`) : null;
+                    if (srcSlotEl) this._fx('pickup', srcSlotEl);
                 }
             }
         } else {
             // Select target
             const sourceId = this.engine.selectedSource.boxId;
+            // F4 UI bugfix: tapping the already-selected source deselects quietly.
+            if (String(sourceId) === String(boxId)) {
+                this.engine.deselectSource();
+                this.updateRender();
+                return;
+            }
             const sourceBoxBefore = this.engine.getBox(sourceId);
             const willEmpty = sourceBoxBefore && sourceBoxBefore.items.length === 1;
 
@@ -6287,11 +6822,17 @@ class UIManager {
                 const epoch = this._animationEpoch;
                 const targetBox = this.engine.getBox(boxId);
                 this.boxRenderer.animateItemTransfer(sourceId, boxId, () => {
+                    // F3 presentation-only: land FX on the target box for tap transfers.
+                    const tapTargetEl = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                    if (tapTargetEl) this._fx('land', tapTargetEl);
+                    this.audio?.land?.();
                     this._finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox, epoch);
                 });
             } else {
                 // Invalid or deselected
                 this.audio.reject();
+                const invalidEl = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                if (invalidEl) this._fx('invalid', invalidEl, 'Ô này chưa thể nhận món đồ.');
                 this.engine.deselectSource();
                 // If they tapped a new source item, immediately select it
                 if (itemIndex !== null && sourceId !== boxId) {
@@ -6300,11 +6841,6 @@ class UIManager {
                     }
                 }
                 
-                const el = document.querySelector(`.box[data-box-id="${boxId}"]`);
-                if (el) {
-                    el.classList.add('reject');
-                    setTimeout(() => el.classList.remove('reject'), 220);
-                }
                 if (navigator.vibrate) navigator.vibrate(18);
                 
                 this.updateRender();
@@ -6314,6 +6850,7 @@ class UIManager {
 
     // --- Layer 1 Input: Item Drag & Drop ---
     handleItemDragStart(boxId, slotIndex, slotEl, e) {
+        boxId = this.engine.getBox(boxId)?.id ?? boxId;
         if (this.removeTrayMode) return;
         if (this.engine.gameState !== 'PLAYING') return;
         if (this._isBoxBusy(boxId)) return;
@@ -6342,7 +6879,13 @@ class UIManager {
             }
         }
 
+        // F4 UI bugfix: pointerdown is only a *pending* drag. Nothing visual, audible
+        // or class-based happens until the 6px move threshold is crossed.
+        this._dragSession = (this._dragSession || 0) + 1;
+        this._suppressPointerClick = null;
+
         this.itemDragState.isDragging = true;
+        this.itemDragState.didMove = false;
         this.itemDragState.sourceBoxId = boxId;
         this.itemDragState.sourceSlotIndex = slotIndex;
         this.itemDragState.itemId = itemId;
@@ -6354,10 +6897,9 @@ class UIManager {
         this.itemDragState.startX = e ? e.clientX : 0;
         this.itemDragState.startY = e ? e.clientY : 0;
 
-        slotEl.classList.add('slot-dragging');
         document.body.classList.add('is-item-dragging');
 
-        // Create or get ghost
+        // Create or get ghost, but keep it hidden until the threshold is crossed.
         let ghost = document.getElementById('item-drag-ghost');
         if (!ghost) {
             ghost = document.createElement('div');
@@ -6367,16 +6909,11 @@ class UIManager {
         }
         ghost.textContent = getItemEmoji(itemId);
         applyItemArt(ghost, itemId);
-        ghost.style.display = 'flex';
-        ghost.style.transition = 'none';
-        ghost.style.left = `${e ? e.clientX : 0}px`;
-        ghost.style.top = `${(e ? e.clientY : 0) - 22}px`;
-        ghost.style.transform = 'translate(-50%, -50%) scale(1.18)';
-        ghost.style.opacity = '1';
+        ghost.style.display = 'none';
+        ghost.style.transition = '';
+        ghost.style.transform = '';
+        ghost.style.opacity = '';
         this.itemDragState.ghostEl = ghost;
-
-        this.audio.tap();
-        if (navigator.vibrate) navigator.vibrate(10);
 
         this.updateRender();
     }
@@ -6384,6 +6921,31 @@ class UIManager {
     handleItemDragMove(e) {
         if (!this.itemDragState.isDragging) return;
         if (e.preventDefault) e.preventDefault();
+
+        // F4 UI bugfix: below the 6px threshold this stays a silent tap.
+        if (!this.itemDragState.didMove) {
+            const dx = (e.clientX || 0) - (this.itemDragState.startX || 0);
+            const dy = (e.clientY || 0) - (this.itemDragState.startY || 0);
+            if (Math.sqrt(dx * dx + dy * dy) < 6) return;
+            this.itemDragState.didMove = true;
+            const srcSlot = this.itemDragState.sourceSlotEl;
+            if (srcSlot) srcSlot.classList.add('slot-dragging');
+            const startGhost = this.itemDragState.ghostEl;
+            if (startGhost) {
+                startGhost.style.display = 'flex';
+                startGhost.style.transition = 'none';
+                startGhost.style.transform = 'translate(-50%, -50%) scale(1.18)';
+                startGhost.style.opacity = '1';
+            }
+            // Pickup feedback fires exactly once, on the crossing move.
+            this.audio.pickup ? this.audio.pickup() : this.audio.tap();
+            if (navigator.vibrate) navigator.vibrate(10);
+            if (srcSlot) this._fx('pickup', srcSlot);
+            this.updateRender();
+        }
+
+        // F3 presentation-only trail following the pointer ghost.
+        this._fx('trail', e.clientX, e.clientY - 22);
 
         const ghost = this.itemDragState.ghostEl;
         if (ghost) {
@@ -6435,11 +6997,44 @@ class UIManager {
     handleItemDragEnd(e) {
         if (!this.itemDragState.isDragging) return;
 
-        if (this.itemDragState.pointerId !== null && this.itemDragState.pointerTarget && this.itemDragState.pointerTarget.releasePointerCapture) {
-            try { this.itemDragState.pointerTarget.releasePointerCapture(this.itemDragState.pointerId); } catch (_) {}
+        // F4 UI bugfix: pointercancel aborts silently - no moveItem, no reject audio/FX.
+        if (e && e.type === 'pointercancel') {
+            const cancelGhost = this.itemDragState.ghostEl;
+            const cancelSlot = this.itemDragState.sourceSlotEl;
+            this._releaseItemDragCapture();
+            this._clearItemDragState();
+            if (cancelGhost) cancelGhost.style.display = 'none';
+            if (cancelSlot) cancelSlot.classList.remove('slot-dragging');
+            document.querySelectorAll('.box.drag-over').forEach(b => b.classList.remove('drag-over'));
+            document.querySelectorAll('.slot.drop-target-active').forEach(s => s.classList.remove('drop-target-active'));
+            document.body.classList.remove('is-item-dragging');
+            this.updateRender();
+            return;
         }
-        this.itemDragState.pointerId = null;
-        this.itemDragState.pointerTarget = null;
+
+        this._releaseItemDragCapture();
+
+        // F4 UI bugfix: a press that never crossed the 6px threshold is a tap.
+        if (!this.itemDragState.didMove) {
+            const tapBoxId = this.itemDragState.sourceBoxId;
+            const tapSlotIndex = this.itemDragState.sourceSlotIndex;
+            const tapGhost = this.itemDragState.ghostEl;
+            const tapSlotEl = this.itemDragState.sourceSlotEl;
+            this._clearItemDragState();
+            if (tapGhost) tapGhost.style.display = 'none';
+            if (tapSlotEl) tapSlotEl.classList.remove('slot-dragging');
+            document.querySelectorAll('.box.drag-over').forEach(b => b.classList.remove('drag-over'));
+            document.querySelectorAll('.slot.drop-target-active').forEach(s => s.classList.remove('drop-target-active'));
+            document.body.classList.remove('is-item-dragging');
+            this.handleSlotTap(tapBoxId, tapSlotIndex);
+            // Swallow the synthetic click the browser fires after this pointerup.
+            this._suppressPointerClick = {
+                boxId: String(tapBoxId),
+                slotIndex: tapSlotIndex,
+                until: performance.now() + 350
+            };
+            return;
+        }
 
         document.querySelectorAll('.box.drag-over').forEach(b => b.classList.remove('drag-over'));
         document.querySelectorAll('.slot.drop-target-active').forEach(s => s.classList.remove('drop-target-active'));
@@ -6470,8 +7065,12 @@ class UIManager {
         }
 
         this.itemDragState.isDragging = false;
+        this.itemDragState.didMove = false;
         requestAnimationFrame(() => {
-            requestAnimationFrame(() => document.body.classList.remove('is-item-dragging'));
+            requestAnimationFrame(() => {
+                // F4 UI bugfix: a newer drag owns the body class now.
+                if (!this.itemDragState.isDragging) document.body.classList.remove('is-item-dragging');
+            });
         });
 
         // If targetBoxId is valid
@@ -6525,6 +7124,9 @@ class UIManager {
                     if (epoch !== this._animationEpoch) return;
                     if (ghost) ghost.remove();
                     const targetBox = this.engine.getBox(targetBoxId);
+                    // F3 presentation-only: land FX at target slot/box before finalize.
+                    this._fx('land', targetSlotEl || targetBoxEl);
+                    this.audio?.land?.();
                     this._finalizeMoveAfterDrag(srcBoxId, targetBoxId, willEmpty, targetBox, epoch);
                 }, 140);
                 return;
@@ -6535,9 +7137,54 @@ class UIManager {
         this._cancelItemDrag(ghost, srcSlotEl);
     }
 
+    // F4 UI bugfix helpers: pointer-capture release and local drag-state reset.
+    _releaseItemDragCapture() {
+        const state = this.itemDragState;
+        if (!state) return;
+        if (state.pointerId !== null && state.pointerId !== undefined && state.pointerTarget &&
+            typeof state.pointerTarget.releasePointerCapture === 'function') {
+            try { state.pointerTarget.releasePointerCapture(state.pointerId); } catch (_) {}
+        }
+        state.pointerId = null;
+        state.pointerTarget = null;
+    }
+
+    _clearItemDragState() {
+        const state = this.itemDragState;
+        if (!state) return;
+        state.isDragging = false;
+        state.didMove = false;
+        state.sourceBoxId = null;
+        state.sourceSlotIndex = null;
+        state.itemId = null;
+        state.targetBoxId = null;
+        state.targetSlotIndex = null;
+        state.sourceSlotEl = null;
+        state.ghostEl = null;
+    }
+
     _cancelItemDrag(ghost, srcSlotEl) {
         this.audio.reject();
+        // F3 presentation-only: invalid-drop FX at source slot; snapback/epoch untouched.
+        if (srcSlotEl) this._fx('invalid', srcSlotEl, 'Thả vào ô trống của thùng khác.');
         if (navigator.vibrate) navigator.vibrate(18);
+
+        // F4 UI bugfix: snapshot epoch+session so the 180ms snap-back can never hide a
+        // reused ghost or touch a newer drag/level. Source class is restored now.
+        const epoch = this._animationEpoch;
+        const session = this._dragSession;
+        if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
+
+        const settle = () => {
+            if (epoch !== this._animationEpoch || session !== this._dragSession) return;
+            if (ghost) {
+                ghost.style.display = 'none';
+                ghost.style.transition = '';
+                ghost.style.transform = '';
+                ghost.style.opacity = '';
+            }
+            this.updateRender();
+        };
 
         if (ghost && srcSlotEl) {
             const rect = srcSlotEl.getBoundingClientRect();
@@ -6546,19 +7193,9 @@ class UIManager {
             ghost.style.top = `${rect.top + rect.height / 2}px`;
             ghost.style.transform = 'translate(-50%, -50%) scale(0.95)';
             ghost.style.opacity = '0.7';
-
-            setTimeout(() => {
-                ghost.style.display = 'none';
-                ghost.style.transition = '';
-                ghost.style.transform = '';
-                ghost.style.opacity = '';
-                if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
-                this.updateRender();
-            }, 180);
+            setTimeout(settle, 180);
         } else {
-            if (ghost) ghost.style.display = 'none';
-            if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
-            this.updateRender();
+            settle();
         }
     }
 
@@ -6566,15 +7203,28 @@ class UIManager {
         return this._busyBoxes.has(String(id));
     }
 
+    // F3 presentation-only: safe VFX dispatch so headless fixtures without vfx never throw.
+    _fx(name, ...args) {
+        return this.vfx?.[name]?.(...args);
+    }
+
     _resetAnimationState() {
         this.removeTrayMode = false;
         this.setBoosterStatus('');
         if (this.trayRenderer) this.trayRenderer.speedMultiplier = 1;
         this._animationEpoch = (this._animationEpoch || 0) + 1;
+        // F4 UI bugfix: bump the drag session so stale drag timers go inert, and drop
+        // any pending click-suppression carried over from the previous level.
+        this._dragSession = (this._dragSession || 0) + 1;
+        this._suppressPointerClick = null;
         this._busyBoxes = new Set();
         this._pendingQueueBoxes = [];
         this._queueFlightActive = false;
         this._deliveryAnimating = false;
+        // F3 presentation-only: reset FX-side bookkeeping (never gameplay timers).
+        this._pendingPackFeedback = new Set();
+        this._queueWarningLevel = 0;
+        this._fx('reset');
         document.querySelectorAll('.item-drag-ghost, .item-animating, .flying-queue-box').forEach(el => el.remove());
         document.body.classList.remove('is-dragging', 'is-item-dragging');
         if (this.itemDragState) this.itemDragState.isDragging = false;
@@ -6612,8 +7262,26 @@ class UIManager {
                 this.engine.moveBoxToQueue(box);
             }
             this.updateRender();
+            // F3 presentation-only: land FX only for boxes still present in queue this epoch.
+            if (epoch === this._animationEpoch && this.engine.gameState === 'PLAYING' &&
+                this.engine.getQueue().includes(box)) {
+                const slotEl = document.querySelector(`.queue-slot[data-box-id="${box.id}"]`);
+                if (slotEl) {
+                    this.audio?.land?.();
+                    this._fx('land', slotEl);
+                }
+            }
             this._drainQueueFlights();
         });
+    }
+
+    _playPackFeedback(box) {
+        if (!box || !this._pendingPackFeedback?.delete(String(box.id))) return;
+        const el = document.querySelector(`.box[data-box-id="${box.id}"]`);
+        if (!el) return;
+        this.audio?.wrap?.();
+        this._fx('pack', el);
+        this._fx('praise', el, 'Đã đóng gói!', 1);
     }
 
     _finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox, epoch = this._animationEpoch) {
@@ -6623,6 +7291,7 @@ class UIManager {
         this._busyBoxes.delete(String(boxId));
         this.updateRender();
         if (targetBox && targetBox.isWrapped) {
+            this._playPackFeedback(targetBox);
             this._busyBoxes.add(String(boxId));
             setTimeout(() => {
                 if (epoch !== this._animationEpoch || this.engine.gameState !== 'PLAYING') return;
@@ -6699,6 +7368,30 @@ class UIManager {
     
     handleDragEnd(e) {
         if (!this.dragState.isDragging) return;
+
+        // F4 UI bugfix: pointercancel ends the wrapped-box drag with no drop at all.
+        if (e && e.type === 'pointercancel') {
+            if (this.dragState.pointerId !== undefined && this.dragState.pointerId !== null &&
+                this.dragState.pointerTarget && this.dragState.pointerTarget.releasePointerCapture) {
+                try { this.dragState.pointerTarget.releasePointerCapture(this.dragState.pointerId); } catch (_) {}
+            }
+            this.dragState.pointerId = null;
+            this.dragState.pointerTarget = null;
+            this.dragState.isDragging = false;
+            this.dragState.boxId = null;
+            this.dragState.targetTrayId = null;
+            this.dragState.colIndex = null;
+            this.dragGhost.style.display = 'none';
+            this.dragGhost.style.width = '';
+            this.dragGhost.style.height = '';
+            this.dragGhost.style.transition = '';
+            this.dragGhost.style.transform = '';
+            this.dragGhost.style.opacity = '';
+            this.engine.cancelDrag();
+            document.body.classList.remove('is-dragging');
+            this.updateRender();
+            return;
+        }
         
         if (this.dragState.pointerId !== undefined && this.dragState.pointerTarget && this.dragState.pointerTarget.releasePointerCapture) {
             try { this.dragState.pointerTarget.releasePointerCapture(this.dragState.pointerId); } catch (_) {}
@@ -6751,11 +7444,10 @@ class UIManager {
                         }
                         this.engine.dropOnTray(trayId);
 
-                        const catConfig = getCategoryConfig(box.getCategory());
-                        const color = catConfig ? catConfig.color : '#38bdf8';
                         this.audio.combo(1);
-                        this.vfx.burst(trayEl, color, 14);
-                        this.vfx.praise(trayEl, 'XUẤT XƯỞNG! 🚚', 1);
+                        // F3 presentation-only: manual wrapped-tray route uses delivery VFX.
+                        this._fx('delivery', trayEl);
+                        this._fx('praise', trayEl, 'Đã giao hàng!', 1);
                     }, 300);
                     return;
                 }
@@ -6833,6 +7525,8 @@ class UIManager {
         slotEl.classList.add('dispatching');
         if (navigator.vibrate) navigator.vibrate(15);
 
+        this.audio?.whoosh?.();
+
         this.queueRenderer.animateBoxToTray(box, slotEl, trayEl, () => {
             if (epoch !== this._animationEpoch) return;
             slotEl.classList.remove('dispatching');
@@ -6848,13 +7542,12 @@ class UIManager {
             }
             this.lastDeliveryTime = now;
 
-            const catConfig = getCategoryConfig(box.getCategory());
-            const color = catConfig ? catConfig.color : '#38bdf8';
             this.audio.combo(this.comboStreak);
-            this.vfx.burst(trayEl, color, 14);
-            const slogan = this.comboStreak >= 2 ? `COMBO X${this.comboStreak}! ⚡` : 'XUẤT XƯỞNG! 🚚';
-            this.vfx.praise(trayEl, slogan, this.comboStreak);
-            this.vfx.bump('queue-counter');
+            // F3 presentation-only: delivery/tray feedback via VFXManager.
+            this._fx('delivery', trayEl);
+            const slogan = this.comboStreak >= 2 ? `Liên tiếp x${this.comboStreak}` : 'Đã giao hàng!';
+            this._fx('praise', trayEl, slogan, this.comboStreak);
+            this._fx('bump', 'queue-counter');
 
             this.updateRender();
         });

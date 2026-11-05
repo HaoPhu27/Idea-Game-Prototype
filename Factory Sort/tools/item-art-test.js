@@ -52,7 +52,7 @@ AudioManager.prototype.blip = function (...args) { calls.push(args); return orig
 const audio = Object.create(AudioManager.prototype);
 const expected = {
   tap: [900],
-  swap: [220, 1500],
+  swap: [220],
   reject: [200],
   wrap: [320, 1300],
   deliver: [523, 659, 784, 1046],

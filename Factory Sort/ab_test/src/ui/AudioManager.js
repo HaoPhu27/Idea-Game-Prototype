@@ -108,6 +108,88 @@ export class AudioManager {
     /**
      * Tap / pickup: click tone 900Hz square .06s gain .08 (reference)
      */
+    /**
+     * White-noise burst (reference WebAudio buffer): highpass-filtered, gain fades 1-i/n.
+     * Sound-on guard; connected to sfxGain; start time = current + delay.
+     */
+    noise(duration, volume = 0.2, delay = 0, hp = 800) {
+        if (!this.on) return;
+        this.ensure();
+        if (!this.ctx || !this.sfxGain) return;
+
+        const t = this.ctx.currentTime + (delay || 0);
+        const n = Math.max(1, Math.floor(this.ctx.sampleRate * duration));
+        const buffer = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < n; i++) {
+            data[i] = (Math.random() * 2 - 1) * (1 - i / n);
+        }
+
+        const src = this.ctx.createBufferSource();
+        src.buffer = buffer;
+
+        const filt = this.ctx.createBiquadFilter();
+        filt.type = 'highpass';
+        filt.frequency.value = hp;
+
+        const g = this.ctx.createGain();
+        g.gain.value = volume;
+
+        src.connect(filt).connect(g).connect(this.sfxGain);
+        src.start(t);
+        src.stop(t + duration + 0.03);
+    }
+
+    /**
+     * Pickup: blip 500->900 sine .09s .18
+     */
+    pickup() {
+        this.blip(500, 0.09, 'sine', 0.18, 0, 900);
+    }
+
+    /**
+     * Drop: blip 220->140 triangle .09s .2 + noise .05s .08 hp1500
+     */
+    drop() {
+        this.blip(220, 0.09, 'triangle', 0.2, 0, 140);
+        this.noise(0.05, 0.08, 0, 1500);
+    }
+
+    /**
+     * Land: blip 180->120 triangle .08s .22 + noise .04s .1 hp1200
+     */
+    land() {
+        this.blip(180, 0.08, 'triangle', 0.22, 0, 120);
+        this.noise(0.04, 0.1, 0, 1200);
+    }
+
+    /**
+     * Whoosh: noise .22s .14 hp400 + blip 600->1400 sine .2s .06
+     */
+    whoosh() {
+        this.noise(0.22, 0.14, 0, 400);
+        this.blip(600, 0.2, 'sine', 0.06, 0, 1400);
+    }
+
+    /**
+     * Ting: blip 1318 sine .35s .22 + blip 2636 sine .25s .07
+     */
+    ting() {
+        this.blip(1318, 0.35, 'sine', 0.22);
+        this.blip(2636, 0.25, 'sine', 0.07);
+    }
+
+    /**
+     * Warn: blip 330 square .12s .08 at 0 and .18
+     */
+    warn() {
+        this.blip(330, 0.12, 'square', 0.08, 0);
+        this.blip(330, 0.12, 'square', 0.08, 0.18);
+    }
+
+    /**
+     * Tap / pickup: click tone 900Hz square .06s gain .08 (reference)
+     */
     tap() {
         this.blip(900, 0.06, 'square', 0.08);
     }
@@ -116,8 +198,7 @@ export class AudioManager {
      * Swap / drop: 220->140 triangle .09s .2 (reference) + tiny noise sparkle
      */
     swap() {
-        this.blip(220, 0.09, 'triangle', 0.2, 0, 140);
-        this.blip(1500, 0.02, 'square', 0.02, 0.01);
+        this.drop();
     }
 
     /**
@@ -132,6 +213,7 @@ export class AudioManager {
      */
     wrap() {
         this.blip(320, 0.16, 'sine', 0.25, 0, 1000);
+        this.noise(0.14, 0.12, 0.04, 2500);
         this.blip(1300, 0.08, 'triangle', 0.1, 0.12);
     }
 

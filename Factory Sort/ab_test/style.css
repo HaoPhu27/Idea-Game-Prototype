@@ -3058,3 +3058,87 @@ body[data-layout="inverted"] .port-out{height:22px;width:22px;max-width:22px;top
 
 /* Win modal fidelity review — River */
 body[data-layout="inverted"] .overlay{-webkit-backdrop-filter:none;backdrop-filter:none}body[data-layout="inverted"] .overlay-card h2{text-shadow:none;filter:none;-webkit-text-stroke:0}body[data-layout="inverted"] .win-stats-grid{background:#efdfc6;border:1.5px solid #3b2a20;box-shadow:none}body[data-layout="inverted"] .win-stat-label{color:#6b4f3f}body[data-layout="inverted"] .win-stat-val{color:#3b2a20}body[data-layout="inverted"] .btn.btn-primary-industrial,body[data-layout="inverted"] .btn.btn-danger-industrial{background:#ff8a3d;color:#fffdf7;text-shadow:none;-webkit-text-stroke:0}body[data-layout="inverted"] .btn.btn-primary-industrial:hover,body[data-layout="inverted"] .btn.btn-danger-industrial:hover{background:#ffb347}body[data-layout="inverted"] .btn.btn-ghost{text-shadow:none;-webkit-text-stroke:0}body[data-layout="inverted"] #tutorial-spotlight-svg>rect{fill:rgba(59,42,32,.55)}body[data-layout="inverted"] .help-modal,body[data-layout="inverted"] .tutorial-win-modal{-webkit-backdrop-filter:none;backdrop-filter:none}body[data-layout="inverted"] .rule-card p,body[data-layout="inverted"] .rule-card span{color:#6b4f3f}
+
+/* Feedback parity F2 — Lite */
+body[data-layout="inverted"] .fx-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1600;background:none}
+body[data-layout="inverted"] .fx-toast{position:absolute;left:50%;top:clamp(190px,36%,310px);translate:-50% 0;max-width:calc(100% - 32px);background:#3b2a20;color:#fffdf7;font:600 13px/1.35 'Baloo 2',Nunito,sans-serif;border:2px solid #3b2a20;border-radius:20px;padding:8px 14px;z-index:1700;pointer-events:none;animation:fx-toast-in .28s ease-out}
+@keyframes fx-toast-in{from{opacity:0;translate:-50% 8px}to{opacity:1;translate:-50% 0}}
+body[data-layout="inverted"] .factory-praise{position:absolute;left:50%;top:50%;translate:-50% -50%;color:#ff8a3d;font:800 18px 'Baloo 2',Nunito,sans-serif;-webkit-text-stroke:1px #3b2a20;pointer-events:none;animation:fp-float .9s ease-out forwards}
+@keyframes fp-float{from{translate:-50% -50%;opacity:1}to{translate:-50% -140%;opacity:0}}
+body[data-layout="inverted"] .fx-pickup{animation:fx-pickup .3s ease-out}
+@keyframes fx-pickup{0%{scale:1}50%{scale:1.15}100%{scale:1}}
+body[data-layout="inverted"] .fx-land{animation:fx-land .35s ease-out}
+@keyframes fx-land{0%{scale:1}40%{scale:1.08 .9}100%{scale:1}}
+body[data-layout="inverted"] .fx-pack{animation:fx-pack .35s ease-out}
+@keyframes fx-pack{0%{scale:1}40%{scale:1.08 .9}100%{scale:1}}
+body[data-layout="inverted"] .fx-invalid{animation:fx-invalid .45s ease-out}
+@keyframes fx-invalid{0%,100%{translate:0}20%{translate:-6px}60%{translate:6px}}
+body[data-layout="inverted"] .fx-delivery{animation:fx-delivery .45s cubic-bezier(.2,1.6,.4,1)}
+@keyframes fx-delivery{0%{scale:1}50%{scale:1.12}100%{scale:1}}
+body[data-layout="inverted"] .fx-booster-freeze{outline:2px solid transparent;outline-offset:2px;animation:fx-freeze .6s ease-out}
+@keyframes fx-freeze{0%,100%{outline-color:transparent}40%{outline-color:#6bb7e0}}
+body[data-layout="inverted"] .fx-booster-shuffle{animation:fx-shuffle .5s ease-in-out}
+@keyframes fx-shuffle{0%,100%{rotate:0deg}25%{rotate:-3deg}75%{rotate:3deg}}
+body[data-layout="inverted"] .fx-booster-extra{outline:2px solid #ffd15c;outline-offset:2px}
+body[data-layout="inverted"] .fx-booster-remove{outline:2px solid #e4574b;outline-offset:2px}
+body[data-layout="inverted"] .fx-warning{outline:2px solid #ffd15c;outline-offset:2px;animation:fx-warning .6s ease-in-out infinite}
+@keyframes fx-warning{0%,100%{outline-color:#ffd15c}50%{outline-color:#ff8a3d}}
+body[data-layout="inverted"] .fx-quake{animation:fx-quake .25s linear}
+@keyframes fx-quake{0%,100%{translate:0}25%{translate:-3px}75%{translate:3px}}
+body[data-layout="inverted"] .slot.fx-land,body[data-layout="inverted"] .fx-land .slot{background:#fff3e0;border-color:#ff8a3d}
+body[data-layout="inverted"] .box.drag-over .top-face{border-color:#ff8a3d}
+body[data-layout="inverted"] .slot.drop-target-active{border-color:#ff8a3d;outline:3px solid #ff8a3d;outline-offset:2px;animation:fx-targetpulse .6s ease-in-out infinite}
+@keyframes fx-targetpulse{0%,100%{outline-color:#ff8a3d}50%{outline-color:#ffd15c}}
+body[data-layout="inverted"] .slot.selected{border-color:#ff8a3d;outline:2px solid #ff8a3d;outline-offset:2px}
+body[data-layout="inverted"] .slot.slot-dragging{opacity:.28}
+body[data-layout="inverted"] .item-drag-ghost.item-art{position:fixed;width:48px;height:48px;background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important;border:0!important;box-shadow:0 4px 8px rgba(59,42,32,.35);pointer-events:none}
+body[data-layout="inverted"] .item-art.fx-pickup,body[data-layout="inverted"] .item-art.fx-land,body[data-layout="inverted"] .item-art.fx-pack,body[data-layout="inverted"] .item-art.fx-delivery,body[data-layout="inverted"] .item-art.fx-invalid{opacity:1;visibility:visible}
+body[data-layout="inverted"] .box.wrapped .box-logo{opacity:1;visibility:visible;background:#fffdf7;border:2px solid #3b2a20;border-radius:6px}
+body[data-layout="inverted"] .box-logo-icon{width:26px;height:26px}
+body[data-layout="inverted"] .box.wrapped .flap{background:#a86a34;border-color:#3b2a20}
+body[data-layout="inverted"] .box.wrapped .flap::after{content:"";position:absolute;inset:auto 0 40% 0;height:6px;background:#e8d3ae;opacity:.9}
+body[data-layout="inverted"] .queue-box{background:#a86a34;border:2px solid #3b2a20;border-radius:6px;outline:1px solid #3b2a20;box-shadow:none}
+body[data-layout="inverted"] .queue-box .item-art,body[data-layout="inverted"] .queue-box-icon{width:24px;height:24px}
+body[data-layout="inverted"] .peek-box{opacity:.58;pointer-events:none}
+body[data-layout="inverted"] .column-hidden-count{background:#fffdf7;color:#3b2a20;border:1px solid #3b2a20;outline:none}
+body[data-layout="inverted"] #game-header{position:relative;height:56px;flex-wrap:nowrap;align-items:center;padding:0 8px}
+body[data-layout="inverted"] #game-header .hud-left{flex:1 1 auto;flex-wrap:nowrap;gap:3px;min-width:0;overflow:hidden}
+body[data-layout="inverted"] #game-header .hud-right{flex:0 0 auto;gap:4px}
+body[data-layout="inverted"] #game-header .round-btn{width:32px;height:32px;padding:0}
+body[data-layout="inverted"] #game-header .tier-badge{position:absolute;left:8px;bottom:1px;line-height:1;white-space:nowrap;margin:0}
+body[data-layout="inverted"] #game-header .hud-pill{font-size:13px;max-width:440px}
+body[data-layout="inverted"] #game-header .hud-label{display:none}
+body[data-layout="inverted"] #game-header .hud-value{font-variant-numeric:tabular-nums;line-height:1}
+body[data-layout="inverted"] #booster-status{min-height:32px;background:none;border:0;color:#6b4f3f;}
+body[data-layout="inverted"] #booster-status:not(:empty){background:#3b2a20;color:#fffdf7;border-radius:20px;padding:2px 6px;font-size:10px;line-height:13px;max-height:30px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal}
+body[data-layout="inverted"] .booster-button:active{translate:0 3px}
+body[data-layout="inverted"] .booster-button:focus-visible{outline:2px solid #ff8a3d;outline-offset:2px;box-shadow:0 0 0 4px rgba(59,42,32,.35)}
+body[data-layout="inverted"] .booster-button:disabled{opacity:.6;color:#6b4f3f}
+body[data-layout="inverted"] #booster-bar .booster-button{min-height:54px}
+body[data-layout="inverted"] #booster-bar .booster-button span{font-size:11px}
+body[data-layout="inverted"] #game-container{overflow-x:clip;overflow-y:visible}
+body[data-layout="inverted"] .overlay .btn.btn-primary-industrial,body[data-layout="inverted"] .overlay .btn.btn-danger-industrial{background:#ff8a3d;color:#fffdf7}
+body[data-layout="inverted"] .rule-card p,body[data-layout="inverted"] .rule-card span,body[data-layout="inverted"] .legend-item,body[data-layout="inverted"] .legend-item *{color:#6b4f3f;background:none;text-shadow:none}
+body[data-layout="inverted"] .help-modal h1,body[data-layout="inverted"] .help-modal h2,body[data-layout="inverted"] .help-modal h3,body[data-layout="inverted"] .tutorial-win-modal h1,body[data-layout="inverted"] .tutorial-win-modal h2,body[data-layout="inverted"] .tutorial-win-modal h3{color:#3b2a20;background:none;text-shadow:none}
+@media (prefers-reduced-motion:reduce){body[data-layout="inverted"] .fx-toast,body[data-layout="inverted"] .factory-praise,body[data-layout="inverted"] .fx-pickup,body[data-layout="inverted"] .fx-land,body[data-layout="inverted"] .fx-pack,body[data-layout="inverted"] .fx-invalid,body[data-layout="inverted"] .fx-delivery,body[data-layout="inverted"] .fx-booster-freeze,body[data-layout="inverted"] .fx-booster-shuffle,body[data-layout="inverted"] .fx-warning,body[data-layout="inverted"] .fx-quake,body[data-layout="inverted"] .slot.drop-target-active{animation:none!important}}
+
+
+
+/* Feedback parity F2 exact selectors — Lite */
+@keyframes fp-float{from{transform:translate(-50%, -50%);opacity:1}to{transform:translate(-50%, -140%);opacity:0}}
+@keyframes fx-delivery{0%, 100%{scale:1}50%{scale:1.12}}
+body[data-layout="inverted"] .factory-praise{translate:0 0;transform:translate(-50%, -50%);animation:fp-float .9s;text-align:center;max-width:calc(100% - 16px);color:#ffffff;font-weight:normal}
+body[data-layout="inverted"] .bump{animation:fx-delivery .45s cubic-bezier(.2, 1.6, .4, 1)}
+body[data-layout="inverted"] .slot.slot-dragging.item-art{opacity:.2 !important}
+body[data-layout="inverted"] .item-drag-ghost.item-art{filter:drop-shadow(0 8px 6px rgba(59, 42, 32, .35));box-shadow:none;border:0}
+body[data-layout="inverted"] #booster-status:not(:empty){height:32px;min-height:32px;max-height:32px;box-sizing:border-box;font-size:10px;line-height:13px;overflow:hidden}
+body[data-layout="inverted"] .booster-button:active{transform:none;translate:0 3px}
+body[data-layout="inverted"] .slot.fx-pickup{animation:none;background-position:center calc(50% - 3px) !important;outline:1px solid #ff8a3d}
+body[data-layout="inverted"] .fx-warning-stage{outline:2px solid #ffd15c;outline-offset:-2px}
+@media (prefers-reduced-motion: reduce){body[data-layout="inverted"] .bump{animation:none}}
+
+/* Canonical selection and palette correction — River */
+body[data-layout="inverted"] .box.valid-target .slot.placeholder{background:#fffdf7;border-color:rgba(59,42,32,.25);box-shadow:none;}
+body[data-layout="inverted"] .box.valid-target .top-face{border-color:#ff8a3d;box-shadow:none;}
+body[data-layout="inverted"] .box.valid-target{filter:none;}
+body[data-layout="inverted"] .factory-praise{color:#ff8a3d;font-weight:800;animation-fill-mode:forwards;animation-timing-function:ease-out;}

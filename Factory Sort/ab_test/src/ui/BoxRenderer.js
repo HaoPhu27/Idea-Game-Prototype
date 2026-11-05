@@ -26,11 +26,13 @@ export class BoxRenderer {
                 const boxEl = e.target.closest('.box:not(.peek-box)');
                 if (!boxEl) return;
                 const boxId = boxEl.dataset.boxId;
+                // F4 UI bugfix: hand the native event through so UIManager can tell a
+                // synthetic post-pointerup click apart from a real delegated click.
                 if (slot) {
                     const i = Number(slot.dataset.slotIndex);
-                    this.onSlotTap(boxId, slot.classList.contains('placeholder') ? null : i);
+                    this.onSlotTap(boxId, slot.classList.contains('placeholder') ? null : i, e);
                 } else {
-                    this.onSlotTap(boxId, null);
+                    this.onSlotTap(boxId, null, e);
                 }
             });
 

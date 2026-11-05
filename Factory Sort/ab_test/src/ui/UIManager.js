@@ -92,7 +92,8 @@ class UIManager {
             sourceSlotEl: null,
             ghostEl: null,
             startX: 0,
-            startY: 0
+            startY: 0,
+            didMove: false
         };
         this._resetAnimationState();
         this.GHOST_LIFT = 28;
@@ -132,8 +133,15 @@ class UIManager {
             this.updateLevelClock();
             const tray = this.engine.conveyor.getAllActiveTrays().find(t => String(t.id) === element.dataset.trayId);
             if (!tray || tray.isFull() || this.boostersBlocked()) return;
+            const rect = element.getBoundingClientRect?.();
             const removed = this.engine.removeTray(tray.id);
-            if (removed) this.removeTrayMode = false;
+            if (removed) {
+                this.removeTrayMode = false;
+                this._fx('booster', 'remove', rect);
+                if (this.audio?.ting) this.audio.ting(); else this.audio.tap();
+            } else {
+                this._fx('toast', this.engine.lastBoosterError || 'Chưa thể xóa an toàn khay này. Hãy thử khay khác.');
+            }
             this.setBoosterStatus(removed ? 'Đã xóa khay và đúng 3 vật tương ứng.' : (this.engine.lastBoosterError || 'Chưa thể xóa an toàn khay này. Hãy thử khay khác.'));
             this.updateRender();
             this.renderBoosters();
@@ -313,7 +321,13 @@ class UIManager {
             const messages = { freeze: 'Dừng đồng hồ 30 giây; băng chuyền vẫn chạy.',
                 shuffle: 'Đã xáo vật trong các thùng đang hiện.', extra: 'Thêm 1 ô hàng chờ đến hết màn.' };
             this.setBoosterStatus(success ? messages[kind] : (this.engine.lastBoosterError || 'Chưa thể dùng booster an toàn ở trạng thái này.'));
-            if (success) this.audio.tap();
+            if (success) {
+                const anchor = kind === 'freeze' ? document.querySelector?.('.timer-pill') : document.querySelector?.(`[data-booster="${kind}"]`);
+                this._fx('booster', kind, anchor);
+                if (this.audio?.ting) this.audio.ting(); else this.audio.tap();
+            } else {
+                this._fx('toast', this.engine.lastBoosterError || 'Chưa thể dùng booster an toàn ở trạng thái này.');
+            }
         }
         this.updateRender();
         this.renderTimer();
@@ -398,6 +412,8 @@ class UIManager {
             } else if (state === 'LOST') {
                 this.tutorialManager.skipTutorial();
                 this.audio.lose();
+                this._fx('lose');
+                this._fx('toast', this.engine.loseReason);
                 if (this.loseReason) {
                     this.loseReason.textContent = this.engine.loseReason || 'Không còn nước đi hợp lệ. Hãy thử lại màn này.';
                 }
@@ -416,7 +432,16 @@ class UIManager {
         
         this.engine.onQueueUpdated = (queue) => {
             this.queueRenderer.render(queue, this.engine.maxQueueSize);
-            this.vfx.bump('queue-counter');
+            this._fx('bump', 'queue-counter');
+            // F3 presentation-only: warn once when queue pressure escalates a level.
+            const max = this.engine.maxQueueSize || 0;
+            const count = queue ? queue.length : 0;
+            const level = count >= max ? 2 : count >= max - 1 ? 1 : 0;
+            if (level > (this._queueWarningLevel || 0) && level > 0) {
+                this._fx('warning', document.getElementById('queue-area') || document.getElementById('queue-counter'));
+                this.audio?.warn?.();
+            }
+            this._queueWarningLevel = level;
         };
         
         this.engine.onBoxUpdated = (box, isRemoved = false) => {
@@ -456,9 +481,11 @@ class UIManager {
                 logo.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
             }
             el.classList.add('wrapped');
-            this.audio.wrap();
-            this.vfx.burst(el, catConfig ? catConfig.color : '#f59e0b', 16);
-            this.vfx.praise(el, 'ĐÓNG GÓI! 📦', 1);
+            // F3 presentation-only: never leave the logo span empty/emoji-less.
+            const logoIcon = el.querySelector('.box-logo span');
+            if (logoIcon && itemType) applyItemArt(logoIcon, itemType);
+            // Defer pack presentation until the box actually flies into the queue.
+            this._pendingPackFeedback.add(String(box.id));
             if (navigator.vibrate) navigator.vibrate(35);
         };
     }
@@ -569,7 +596,8 @@ class UIManager {
     }
 
     _renderNow() {
-        const validTargets = this.itemDragState.isDragging
+        // F4 UI bugfix: pending press must not highlight targets before the move threshold.
+        const validTargets = this.itemDragState.isDragging && this.itemDragState.didMove
             ? this.engine.getValidTargets(this.itemDragState.sourceBoxId)
             : (this.engine.selectedSource ? this.engine.getValidTargets(this.engine.selectedSource.boxId) : []);
         const hiddenCounts = this.engine.columns.map(
@@ -609,7 +637,7 @@ class UIManager {
         }
 
         // Ensure slot-dragging class persists on rerender
-        if (this.itemDragState.isDragging && this.itemDragState.sourceBoxId !== null) {
+        if (this.itemDragState.isDragging && this.itemDragState.didMove && this.itemDragState.sourceBoxId !== null) {
             const srcBoxEl = document.querySelector(`.box[data-box-id="${this.itemDragState.sourceBoxId}"]`);
             if (srcBoxEl) {
                 const slotEl = srcBoxEl.querySelector(`.slot[data-slot-index="${this.itemDragState.sourceSlotIndex}"]`);
@@ -715,7 +743,22 @@ class UIManager {
     }
 
     // --- Layer 1 Input (Tap) ---
-    handleSlotTap(boxId, itemIndex) {
+    handleSlotTap(boxId, itemIndex, event = null) {
+        // Canonicalize numeric Box.id (DOM ids are strings; engine ids are numbers).
+        boxId = this.engine.getBox(boxId)?.id ?? boxId;
+        // F4 UI bugfix: a deliberate pointer tap already ran this method on pointerup;
+        // consume the synthetic click the browser fires afterwards instead of
+        // running the same action twice. Only matching events are swallowed.
+        if (event && event.detail > 0 && this._suppressPointerClick) {
+            const suppress = this._suppressPointerClick;
+            if (performance.now() > suppress.until) {
+                this._suppressPointerClick = null;
+            } else if (String(suppress.boxId) === String(boxId) &&
+                String(suppress.slotIndex) === String(itemIndex)) {
+                this._suppressPointerClick = null;
+                return;
+            }
+        }
         if (this.removeTrayMode) return;
         if (this.dragState.isDragging || this.itemDragState.isDragging) return;
         if (this._isBoxBusy(boxId) || (this.engine.selectedSource && this._isBoxBusy(this.engine.selectedSource.boxId))) return;
@@ -733,14 +776,24 @@ class UIManager {
             // Select source - must tap an actual item
             if (itemIndex !== null) {
                 if (this.engine.selectSource(boxId, itemIndex)) {
-                    this.audio.tap();
+                    if (this.audio.pickup) this.audio.pickup(); else this.audio.tap();
                     if (navigator.vibrate) navigator.vibrate(12);
                     this.updateRender();
+                    // F3 presentation-only: pickup pop at the actual source slot.
+                    const srcBoxEl = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                    const srcSlotEl = srcBoxEl ? srcBoxEl.querySelector(`.slot[data-slot-index="${itemIndex}"]`) : null;
+                    if (srcSlotEl) this._fx('pickup', srcSlotEl);
                 }
             }
         } else {
             // Select target
             const sourceId = this.engine.selectedSource.boxId;
+            // F4 UI bugfix: tapping the already-selected source deselects quietly.
+            if (String(sourceId) === String(boxId)) {
+                this.engine.deselectSource();
+                this.updateRender();
+                return;
+            }
             const sourceBoxBefore = this.engine.getBox(sourceId);
             const willEmpty = sourceBoxBefore && sourceBoxBefore.items.length === 1;
 
@@ -751,11 +804,17 @@ class UIManager {
                 const epoch = this._animationEpoch;
                 const targetBox = this.engine.getBox(boxId);
                 this.boxRenderer.animateItemTransfer(sourceId, boxId, () => {
+                    // F3 presentation-only: land FX on the target box for tap transfers.
+                    const tapTargetEl = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                    if (tapTargetEl) this._fx('land', tapTargetEl);
+                    this.audio?.land?.();
                     this._finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox, epoch);
                 });
             } else {
                 // Invalid or deselected
                 this.audio.reject();
+                const invalidEl = document.querySelector(`.box[data-box-id="${boxId}"]`);
+                if (invalidEl) this._fx('invalid', invalidEl, 'Ô này chưa thể nhận món đồ.');
                 this.engine.deselectSource();
                 // If they tapped a new source item, immediately select it
                 if (itemIndex !== null && sourceId !== boxId) {
@@ -764,11 +823,6 @@ class UIManager {
                     }
                 }
                 
-                const el = document.querySelector(`.box[data-box-id="${boxId}"]`);
-                if (el) {
-                    el.classList.add('reject');
-                    setTimeout(() => el.classList.remove('reject'), 220);
-                }
                 if (navigator.vibrate) navigator.vibrate(18);
                 
                 this.updateRender();
@@ -778,6 +832,7 @@ class UIManager {
 
     // --- Layer 1 Input: Item Drag & Drop ---
     handleItemDragStart(boxId, slotIndex, slotEl, e) {
+        boxId = this.engine.getBox(boxId)?.id ?? boxId;
         if (this.removeTrayMode) return;
         if (this.engine.gameState !== 'PLAYING') return;
         if (this._isBoxBusy(boxId)) return;
@@ -806,7 +861,13 @@ class UIManager {
             }
         }
 
+        // F4 UI bugfix: pointerdown is only a *pending* drag. Nothing visual, audible
+        // or class-based happens until the 6px move threshold is crossed.
+        this._dragSession = (this._dragSession || 0) + 1;
+        this._suppressPointerClick = null;
+
         this.itemDragState.isDragging = true;
+        this.itemDragState.didMove = false;
         this.itemDragState.sourceBoxId = boxId;
         this.itemDragState.sourceSlotIndex = slotIndex;
         this.itemDragState.itemId = itemId;
@@ -818,10 +879,9 @@ class UIManager {
         this.itemDragState.startX = e ? e.clientX : 0;
         this.itemDragState.startY = e ? e.clientY : 0;
 
-        slotEl.classList.add('slot-dragging');
         document.body.classList.add('is-item-dragging');
 
-        // Create or get ghost
+        // Create or get ghost, but keep it hidden until the threshold is crossed.
         let ghost = document.getElementById('item-drag-ghost');
         if (!ghost) {
             ghost = document.createElement('div');
@@ -831,16 +891,11 @@ class UIManager {
         }
         ghost.textContent = getItemEmoji(itemId);
         applyItemArt(ghost, itemId);
-        ghost.style.display = 'flex';
-        ghost.style.transition = 'none';
-        ghost.style.left = `${e ? e.clientX : 0}px`;
-        ghost.style.top = `${(e ? e.clientY : 0) - 22}px`;
-        ghost.style.transform = 'translate(-50%, -50%) scale(1.18)';
-        ghost.style.opacity = '1';
+        ghost.style.display = 'none';
+        ghost.style.transition = '';
+        ghost.style.transform = '';
+        ghost.style.opacity = '';
         this.itemDragState.ghostEl = ghost;
-
-        this.audio.tap();
-        if (navigator.vibrate) navigator.vibrate(10);
 
         this.updateRender();
     }
@@ -848,6 +903,31 @@ class UIManager {
     handleItemDragMove(e) {
         if (!this.itemDragState.isDragging) return;
         if (e.preventDefault) e.preventDefault();
+
+        // F4 UI bugfix: below the 6px threshold this stays a silent tap.
+        if (!this.itemDragState.didMove) {
+            const dx = (e.clientX || 0) - (this.itemDragState.startX || 0);
+            const dy = (e.clientY || 0) - (this.itemDragState.startY || 0);
+            if (Math.sqrt(dx * dx + dy * dy) < 6) return;
+            this.itemDragState.didMove = true;
+            const srcSlot = this.itemDragState.sourceSlotEl;
+            if (srcSlot) srcSlot.classList.add('slot-dragging');
+            const startGhost = this.itemDragState.ghostEl;
+            if (startGhost) {
+                startGhost.style.display = 'flex';
+                startGhost.style.transition = 'none';
+                startGhost.style.transform = 'translate(-50%, -50%) scale(1.18)';
+                startGhost.style.opacity = '1';
+            }
+            // Pickup feedback fires exactly once, on the crossing move.
+            this.audio.pickup ? this.audio.pickup() : this.audio.tap();
+            if (navigator.vibrate) navigator.vibrate(10);
+            if (srcSlot) this._fx('pickup', srcSlot);
+            this.updateRender();
+        }
+
+        // F3 presentation-only trail following the pointer ghost.
+        this._fx('trail', e.clientX, e.clientY - 22);
 
         const ghost = this.itemDragState.ghostEl;
         if (ghost) {
@@ -899,11 +979,44 @@ class UIManager {
     handleItemDragEnd(e) {
         if (!this.itemDragState.isDragging) return;
 
-        if (this.itemDragState.pointerId !== null && this.itemDragState.pointerTarget && this.itemDragState.pointerTarget.releasePointerCapture) {
-            try { this.itemDragState.pointerTarget.releasePointerCapture(this.itemDragState.pointerId); } catch (_) {}
+        // F4 UI bugfix: pointercancel aborts silently - no moveItem, no reject audio/FX.
+        if (e && e.type === 'pointercancel') {
+            const cancelGhost = this.itemDragState.ghostEl;
+            const cancelSlot = this.itemDragState.sourceSlotEl;
+            this._releaseItemDragCapture();
+            this._clearItemDragState();
+            if (cancelGhost) cancelGhost.style.display = 'none';
+            if (cancelSlot) cancelSlot.classList.remove('slot-dragging');
+            document.querySelectorAll('.box.drag-over').forEach(b => b.classList.remove('drag-over'));
+            document.querySelectorAll('.slot.drop-target-active').forEach(s => s.classList.remove('drop-target-active'));
+            document.body.classList.remove('is-item-dragging');
+            this.updateRender();
+            return;
         }
-        this.itemDragState.pointerId = null;
-        this.itemDragState.pointerTarget = null;
+
+        this._releaseItemDragCapture();
+
+        // F4 UI bugfix: a press that never crossed the 6px threshold is a tap.
+        if (!this.itemDragState.didMove) {
+            const tapBoxId = this.itemDragState.sourceBoxId;
+            const tapSlotIndex = this.itemDragState.sourceSlotIndex;
+            const tapGhost = this.itemDragState.ghostEl;
+            const tapSlotEl = this.itemDragState.sourceSlotEl;
+            this._clearItemDragState();
+            if (tapGhost) tapGhost.style.display = 'none';
+            if (tapSlotEl) tapSlotEl.classList.remove('slot-dragging');
+            document.querySelectorAll('.box.drag-over').forEach(b => b.classList.remove('drag-over'));
+            document.querySelectorAll('.slot.drop-target-active').forEach(s => s.classList.remove('drop-target-active'));
+            document.body.classList.remove('is-item-dragging');
+            this.handleSlotTap(tapBoxId, tapSlotIndex);
+            // Swallow the synthetic click the browser fires after this pointerup.
+            this._suppressPointerClick = {
+                boxId: String(tapBoxId),
+                slotIndex: tapSlotIndex,
+                until: performance.now() + 350
+            };
+            return;
+        }
 
         document.querySelectorAll('.box.drag-over').forEach(b => b.classList.remove('drag-over'));
         document.querySelectorAll('.slot.drop-target-active').forEach(s => s.classList.remove('drop-target-active'));
@@ -934,8 +1047,12 @@ class UIManager {
         }
 
         this.itemDragState.isDragging = false;
+        this.itemDragState.didMove = false;
         requestAnimationFrame(() => {
-            requestAnimationFrame(() => document.body.classList.remove('is-item-dragging'));
+            requestAnimationFrame(() => {
+                // F4 UI bugfix: a newer drag owns the body class now.
+                if (!this.itemDragState.isDragging) document.body.classList.remove('is-item-dragging');
+            });
         });
 
         // If targetBoxId is valid
@@ -989,6 +1106,9 @@ class UIManager {
                     if (epoch !== this._animationEpoch) return;
                     if (ghost) ghost.remove();
                     const targetBox = this.engine.getBox(targetBoxId);
+                    // F3 presentation-only: land FX at target slot/box before finalize.
+                    this._fx('land', targetSlotEl || targetBoxEl);
+                    this.audio?.land?.();
                     this._finalizeMoveAfterDrag(srcBoxId, targetBoxId, willEmpty, targetBox, epoch);
                 }, 140);
                 return;
@@ -999,9 +1119,54 @@ class UIManager {
         this._cancelItemDrag(ghost, srcSlotEl);
     }
 
+    // F4 UI bugfix helpers: pointer-capture release and local drag-state reset.
+    _releaseItemDragCapture() {
+        const state = this.itemDragState;
+        if (!state) return;
+        if (state.pointerId !== null && state.pointerId !== undefined && state.pointerTarget &&
+            typeof state.pointerTarget.releasePointerCapture === 'function') {
+            try { state.pointerTarget.releasePointerCapture(state.pointerId); } catch (_) {}
+        }
+        state.pointerId = null;
+        state.pointerTarget = null;
+    }
+
+    _clearItemDragState() {
+        const state = this.itemDragState;
+        if (!state) return;
+        state.isDragging = false;
+        state.didMove = false;
+        state.sourceBoxId = null;
+        state.sourceSlotIndex = null;
+        state.itemId = null;
+        state.targetBoxId = null;
+        state.targetSlotIndex = null;
+        state.sourceSlotEl = null;
+        state.ghostEl = null;
+    }
+
     _cancelItemDrag(ghost, srcSlotEl) {
         this.audio.reject();
+        // F3 presentation-only: invalid-drop FX at source slot; snapback/epoch untouched.
+        if (srcSlotEl) this._fx('invalid', srcSlotEl, 'Thả vào ô trống của thùng khác.');
         if (navigator.vibrate) navigator.vibrate(18);
+
+        // F4 UI bugfix: snapshot epoch+session so the 180ms snap-back can never hide a
+        // reused ghost or touch a newer drag/level. Source class is restored now.
+        const epoch = this._animationEpoch;
+        const session = this._dragSession;
+        if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
+
+        const settle = () => {
+            if (epoch !== this._animationEpoch || session !== this._dragSession) return;
+            if (ghost) {
+                ghost.style.display = 'none';
+                ghost.style.transition = '';
+                ghost.style.transform = '';
+                ghost.style.opacity = '';
+            }
+            this.updateRender();
+        };
 
         if (ghost && srcSlotEl) {
             const rect = srcSlotEl.getBoundingClientRect();
@@ -1010,19 +1175,9 @@ class UIManager {
             ghost.style.top = `${rect.top + rect.height / 2}px`;
             ghost.style.transform = 'translate(-50%, -50%) scale(0.95)';
             ghost.style.opacity = '0.7';
-
-            setTimeout(() => {
-                ghost.style.display = 'none';
-                ghost.style.transition = '';
-                ghost.style.transform = '';
-                ghost.style.opacity = '';
-                if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
-                this.updateRender();
-            }, 180);
+            setTimeout(settle, 180);
         } else {
-            if (ghost) ghost.style.display = 'none';
-            if (srcSlotEl) srcSlotEl.classList.remove('slot-dragging');
-            this.updateRender();
+            settle();
         }
     }
 
@@ -1030,15 +1185,28 @@ class UIManager {
         return this._busyBoxes.has(String(id));
     }
 
+    // F3 presentation-only: safe VFX dispatch so headless fixtures without vfx never throw.
+    _fx(name, ...args) {
+        return this.vfx?.[name]?.(...args);
+    }
+
     _resetAnimationState() {
         this.removeTrayMode = false;
         this.setBoosterStatus('');
         if (this.trayRenderer) this.trayRenderer.speedMultiplier = 1;
         this._animationEpoch = (this._animationEpoch || 0) + 1;
+        // F4 UI bugfix: bump the drag session so stale drag timers go inert, and drop
+        // any pending click-suppression carried over from the previous level.
+        this._dragSession = (this._dragSession || 0) + 1;
+        this._suppressPointerClick = null;
         this._busyBoxes = new Set();
         this._pendingQueueBoxes = [];
         this._queueFlightActive = false;
         this._deliveryAnimating = false;
+        // F3 presentation-only: reset FX-side bookkeeping (never gameplay timers).
+        this._pendingPackFeedback = new Set();
+        this._queueWarningLevel = 0;
+        this._fx('reset');
         document.querySelectorAll('.item-drag-ghost, .item-animating, .flying-queue-box').forEach(el => el.remove());
         document.body.classList.remove('is-dragging', 'is-item-dragging');
         if (this.itemDragState) this.itemDragState.isDragging = false;
@@ -1076,8 +1244,26 @@ class UIManager {
                 this.engine.moveBoxToQueue(box);
             }
             this.updateRender();
+            // F3 presentation-only: land FX only for boxes still present in queue this epoch.
+            if (epoch === this._animationEpoch && this.engine.gameState === 'PLAYING' &&
+                this.engine.getQueue().includes(box)) {
+                const slotEl = document.querySelector(`.queue-slot[data-box-id="${box.id}"]`);
+                if (slotEl) {
+                    this.audio?.land?.();
+                    this._fx('land', slotEl);
+                }
+            }
             this._drainQueueFlights();
         });
+    }
+
+    _playPackFeedback(box) {
+        if (!box || !this._pendingPackFeedback?.delete(String(box.id))) return;
+        const el = document.querySelector(`.box[data-box-id="${box.id}"]`);
+        if (!el) return;
+        this.audio?.wrap?.();
+        this._fx('pack', el);
+        this._fx('praise', el, 'Đã đóng gói!', 1);
     }
 
     _finalizeMoveAfterDrag(sourceId, boxId, willEmpty, targetBox, epoch = this._animationEpoch) {
@@ -1087,6 +1273,7 @@ class UIManager {
         this._busyBoxes.delete(String(boxId));
         this.updateRender();
         if (targetBox && targetBox.isWrapped) {
+            this._playPackFeedback(targetBox);
             this._busyBoxes.add(String(boxId));
             setTimeout(() => {
                 if (epoch !== this._animationEpoch || this.engine.gameState !== 'PLAYING') return;
@@ -1163,6 +1350,30 @@ class UIManager {
     
     handleDragEnd(e) {
         if (!this.dragState.isDragging) return;
+
+        // F4 UI bugfix: pointercancel ends the wrapped-box drag with no drop at all.
+        if (e && e.type === 'pointercancel') {
+            if (this.dragState.pointerId !== undefined && this.dragState.pointerId !== null &&
+                this.dragState.pointerTarget && this.dragState.pointerTarget.releasePointerCapture) {
+                try { this.dragState.pointerTarget.releasePointerCapture(this.dragState.pointerId); } catch (_) {}
+            }
+            this.dragState.pointerId = null;
+            this.dragState.pointerTarget = null;
+            this.dragState.isDragging = false;
+            this.dragState.boxId = null;
+            this.dragState.targetTrayId = null;
+            this.dragState.colIndex = null;
+            this.dragGhost.style.display = 'none';
+            this.dragGhost.style.width = '';
+            this.dragGhost.style.height = '';
+            this.dragGhost.style.transition = '';
+            this.dragGhost.style.transform = '';
+            this.dragGhost.style.opacity = '';
+            this.engine.cancelDrag();
+            document.body.classList.remove('is-dragging');
+            this.updateRender();
+            return;
+        }
         
         if (this.dragState.pointerId !== undefined && this.dragState.pointerTarget && this.dragState.pointerTarget.releasePointerCapture) {
             try { this.dragState.pointerTarget.releasePointerCapture(this.dragState.pointerId); } catch (_) {}
@@ -1215,11 +1426,10 @@ class UIManager {
                         }
                         this.engine.dropOnTray(trayId);
 
-                        const catConfig = getCategoryConfig(box.getCategory());
-                        const color = catConfig ? catConfig.color : '#38bdf8';
                         this.audio.combo(1);
-                        this.vfx.burst(trayEl, color, 14);
-                        this.vfx.praise(trayEl, 'XUẤT XƯỞNG! 🚚', 1);
+                        // F3 presentation-only: manual wrapped-tray route uses delivery VFX.
+                        this._fx('delivery', trayEl);
+                        this._fx('praise', trayEl, 'Đã giao hàng!', 1);
                     }, 300);
                     return;
                 }
@@ -1297,6 +1507,8 @@ class UIManager {
         slotEl.classList.add('dispatching');
         if (navigator.vibrate) navigator.vibrate(15);
 
+        this.audio?.whoosh?.();
+
         this.queueRenderer.animateBoxToTray(box, slotEl, trayEl, () => {
             if (epoch !== this._animationEpoch) return;
             slotEl.classList.remove('dispatching');
@@ -1312,13 +1524,12 @@ class UIManager {
             }
             this.lastDeliveryTime = now;
 
-            const catConfig = getCategoryConfig(box.getCategory());
-            const color = catConfig ? catConfig.color : '#38bdf8';
             this.audio.combo(this.comboStreak);
-            this.vfx.burst(trayEl, color, 14);
-            const slogan = this.comboStreak >= 2 ? `COMBO X${this.comboStreak}! ⚡` : 'XUẤT XƯỞNG! 🚚';
-            this.vfx.praise(trayEl, slogan, this.comboStreak);
-            this.vfx.bump('queue-counter');
+            // F3 presentation-only: delivery/tray feedback via VFXManager.
+            this._fx('delivery', trayEl);
+            const slogan = this.comboStreak >= 2 ? `Liên tiếp x${this.comboStreak}` : 'Đã giao hàng!';
+            this._fx('praise', trayEl, slogan, this.comboStreak);
+            this._fx('bump', 'queue-counter');
 
             this.updateRender();
         });
