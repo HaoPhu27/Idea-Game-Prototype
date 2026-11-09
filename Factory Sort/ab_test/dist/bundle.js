@@ -563,6 +563,947 @@ function boosterProveSolvable(snapshot, deadline = Date.now() + 120) {
 }
 
 
+// --- src/core/BlockerRules.js ---
+const BLOCKER_TYPES = new Set([
+    'locked', 'frozen', 'stuck', 'defective', 'connector',
+    'hidden-box', 'hidden-item', 'urgent'
+]);
+const blockerHas = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+const blockerCloneValue = value => {
+    if (Array.isArray(value)) return value.map(blockerCloneValue);
+    if (value && typeof value === 'object') {
+        const copy = {};
+        for (const [key, nested] of Object.entries(value)) copy[key] = blockerCloneValue(nested);
+        return copy;
+    }
+    return value;
+};
+
+/** Clone a level and convert its public nested blocker records to typed runtime records. */
+function normalizeBlockerLevel(level) {
+    const copy = blockerCloneValue(level);
+    if (!copy || typeof copy !== 'object' || !Array.isArray(copy.blockers)) return copy;
+    const fail = message => { throw new Error(`Invalid blocker level: ${message}`); };
+    const mechanicKeys = ['locked', 'frozen', 'stuck', 'defective', 'connector', 'hiddenBox', 'hiddenItems', 'urgent'];
+    const normalized = [];
+    const connectorGroups = new Map();
+    const optionsObject = (value, mechanic) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) fail(`${mechanic} needs an options object.`);
+        return value;
+    };
+    const convert = (record, key, type, details = {}) => {
+        const next = { ...record, type, ...details };
+        delete next[key];
+        return next;
+    };
+    const dependencyDetails = (value, mechanic) => {
+        const options = optionsObject(value, mechanic);
+        const details = {};
+        if (blockerHas(options, 'shipCount')) details.shipCount = options.shipCount;
+        if (blockerHas(options, 'boxId')) details.dependsOnBoxId = options.boxId;
+        return details;
+    };
+
+    for (const record of copy.blockers) {
+        if (!record || typeof record !== 'object' || Array.isArray(record)) {
+            normalized.push(record);
+            continue;
+        }
+        const nestedKeys = mechanicKeys.filter(key => blockerHas(record, key));
+        if (blockerHas(record, 'type')) {
+            if (nestedKeys.length) fail('a blocker record cannot mix typed and nested mechanics.');
+            normalized.push(record);
+            continue;
+        }
+        if (nestedKeys.length > 1) fail('a nested blocker record cannot combine mechanics.');
+        if (nestedKeys.length === 0) {
+            normalized.push(record);
+            continue;
+        }
+        const key = nestedKeys[0];
+        if (key === 'locked' || key === 'stuck') {
+            normalized.push(convert(record, key, key, dependencyDetails(record[key], key)));
+        } else if (key === 'frozen') {
+            if (!Array.isArray(record.frozen) || record.frozen.length !== 1) {
+                fail('frozen must contain exactly one slot record in V1; multiple slots are not silently discarded.');
+            }
+            const frozen = optionsObject(record.frozen[0], 'frozen');
+            normalized.push(convert(record, key, 'frozen', { slot: frozen.slot, duration: frozen.seconds }));
+        } else if (key === 'defective') {
+            const defective = optionsObject(record.defective, 'defective');
+            normalized.push(convert(record, key, 'defective', { holdSeconds: defective.seconds }));
+        } else if (key === 'connector') {
+            const connector = optionsObject(record.connector, 'connector');
+            const hasGroup = blockerHas(connector, 'group');
+            const hasGroupId = blockerHas(connector, 'groupId');
+            if (hasGroup === hasGroupId) fail('connector needs exactly one group ID.');
+            const groupId = hasGroup ? connector.group : connector.groupId;
+            if ((typeof groupId !== 'string' || groupId.length === 0) &&
+                (typeof groupId !== 'number' || !Number.isFinite(groupId))) {
+                fail('connector group ID must be a nonempty string or finite number.');
+            }
+            if (!connectorGroups.has(groupId)) connectorGroups.set(groupId, []);
+            connectorGroups.get(groupId).push(record);
+        } else if (key === 'hiddenBox') {
+            if (record.hiddenBox !== true) fail('hiddenBox must be true when present.');
+            normalized.push(convert(record, key, 'hidden-box'));
+        } else if (key === 'hiddenItems') {
+            if (!Array.isArray(record.hiddenItems) || record.hiddenItems.length !== 1) {
+                fail('hiddenItems must contain exactly one slot in V1; multiple slots are not silently discarded.');
+            }
+            normalized.push(convert(record, key, 'hidden-item', { slot: record.hiddenItems[0] }));
+        } else if (key === 'urgent') {
+            const urgent = optionsObject(record.urgent, 'urgent');
+            normalized.push(convert(record, key, 'urgent', { duration: urgent.seconds }));
+        }
+    }
+
+    for (const [groupId, records] of connectorGroups) {
+        if (records.length !== 2) fail(`connector group ${String(groupId)} must contain exactly two box records.`);
+        normalized.push({ type: 'connector', boxIds: records.map(record => record.boxId), groupId });
+    }
+    copy.blockers = normalized;
+    return copy;
+}
+
+/** Validate an already-normalized typed contract without modifying it. */
+function validateRawBlockerLevel(levelConfig) {
+    const fail = message => { throw new Error(`Invalid blocker level: ${message}`); };
+    if (!levelConfig || !Array.isArray(levelConfig.boxes) || !Array.isArray(levelConfig.trays)) {
+        fail('boxes and trays are required.');
+    }
+    if (!Array.isArray(levelConfig.blockers) || levelConfig.blockers.length === 0) {
+        fail('at least one blocker record is required.');
+    }
+
+    const boxes = levelConfig.boxes;
+    const realId = id => Number.isInteger(id) && id >= 0 && id < boxes.length;
+    boxes.forEach((box, index) => {
+        if (!box || !Array.isArray(box.items) || box.items.length > 3) fail(`box ${index} has invalid items.`);
+        if (blockerHas(box, 'id') && box.id !== index) fail(`box ${index} cannot override its numeric engine ID.`);
+        if (box.items.some(item => item === null || item === undefined)) fail(`box ${index} has an empty item entry.`);
+    });
+
+    const inventory = new Map();
+    for (const box of boxes) for (const item of box.items) inventory.set(item, (inventory.get(item) || 0) + 1);
+    const demand = new Map();
+    for (const tray of levelConfig.trays) {
+        if (!tray || tray.targetItemId === null || tray.targetItemId === undefined) fail('every order needs a target item.');
+        demand.set(tray.targetItemId, (demand.get(tray.targetItemId) || 0) + 1);
+    }
+    if (inventory.size !== demand.size) fail('item types and order types differ.');
+    for (const [item, count] of inventory) {
+        if (!demand.has(item) || count !== demand.get(item) * 3) fail(`item ${item} does not have exactly three items per order.`);
+    }
+
+    if (levelConfig.layout !== undefined) {
+        const layout = levelConfig.layout;
+        if (!layout || !Array.isArray(layout.columns) || !Number.isInteger(layout.visibleRows) || layout.visibleRows <= 0) {
+            fail('layout visibleRows must be a positive integer.');
+        }
+        const locations = layout.columns.flat();
+        if (locations.length !== boxes.length || new Set(locations).size !== boxes.length || locations.some(id => !realId(id))) {
+            fail('layout must contain every existing box ID exactly once.');
+        }
+    }
+
+    const claims = new Map();
+    const seenObjects = new Set();
+    const seenRecordIds = new Set();
+    const claim = (boxId, record) => {
+        if (!realId(boxId)) fail(`nonexistent box ID ${boxId}.`);
+        if (claims.has(boxId)) fail(`box ${boxId} combines blocker mechanics, which V1 forbids.`);
+        claims.set(boxId, record);
+    };
+
+    for (const record of levelConfig.blockers) {
+        if (!record || !BLOCKER_TYPES.has(record.type) || seenObjects.has(record)) fail('unknown or duplicate blocker record.');
+        seenObjects.add(record);
+        if (record.id !== undefined) {
+            if (seenRecordIds.has(record.id)) fail(`duplicate blocker record ID ${record.id}.`);
+            seenRecordIds.add(record.id);
+        }
+        if (record.type === 'connector') {
+            if (!Array.isArray(record.boxIds) || record.boxIds.length !== 2 ||
+                !realId(record.boxIds[0]) || !realId(record.boxIds[1]) || record.boxIds[0] === record.boxIds[1]) {
+                fail('connector requires exactly two distinct real boxes.');
+            }
+            claim(record.boxIds[0], record);
+            claim(record.boxIds[1], record);
+            continue;
+        }
+        claim(record.boxId, record);
+        if (record.type === 'frozen' || record.type === 'urgent') {
+            if (!Number.isFinite(record.duration) || record.duration <= 0) fail(`${record.type} needs a finite positive duration.`);
+        }
+        if (record.type === 'defective' && (!Number.isFinite(record.holdSeconds) || record.holdSeconds <= 0)) {
+            fail('defective needs a finite positive holdSeconds.');
+        }
+        if (record.type === 'frozen' || record.type === 'hidden-item') {
+            const slot = record.slot;
+            if (!Number.isInteger(slot) || slot < 0 || slot > 2 || slot >= boxes[record.boxId].items.length) {
+                fail(`${record.type} requires an occupied integer slot in 0..2.`);
+            }
+        }
+    }
+
+    const hiddenItems = new Map();
+    for (const record of levelConfig.blockers) {
+        if (record.type !== 'hidden-item') continue;
+        const item = boxes[record.boxId].items[record.slot];
+        hiddenItems.set(item, (hiddenItems.get(item) || 0) + 1);
+        if (hiddenItems.get(item) > 1) fail(`more than one hidden token exists for item ${item}.`);
+    }
+
+    const dependencyOwners = new Set();
+    const dependencyTarget = new Map();
+    for (const record of levelConfig.blockers) {
+        if (record.type !== 'locked' && record.type !== 'stuck') continue;
+        dependencyOwners.add(record);
+        const aliases = ['dependsOnBoxId', 'unlockAfterBoxId'].filter(key => blockerHas(record, key));
+        if (aliases.length > 1 || (blockerHas(record, 'shipCount') === (aliases.length === 1))) {
+            fail(`${record.type} must specify exactly one shipCount or named box dependency.`);
+        }
+        if (aliases.length === 1) {
+            const target = record[aliases[0]];
+            if (!realId(target) || target === record.boxId || claims.get(target)?.type === 'stuck') {
+                fail(`${record.type} has a missing, self, or stuck named dependency.`);
+            }
+            dependencyTarget.set(record, target);
+        } else if (!Number.isInteger(record.shipCount) || record.shipCount < 1 || record.shipCount > levelConfig.trays.length) {
+            fail(`${record.type} shipCount must be an integer from 1 through the order count.`);
+        }
+    }
+    const visiting = new Set(), visited = new Set();
+    const visit = record => {
+        if (visiting.has(record)) fail('named blocker dependencies contain a cycle.');
+        if (visited.has(record)) return;
+        visiting.add(record);
+        const target = claims.get(dependencyTarget.get(record));
+        if (dependencyOwners.has(target)) visit(target);
+        visiting.delete(record);
+        visited.add(record);
+    };
+    for (const record of dependencyOwners) visit(record);
+
+    boxes.forEach((box, index) => {
+        const items = box.items;
+        const wrapped = items.length === 3 && items.every(item => item === items[0]);
+        if (wrapped) fail(`box ${index} starts wrapped.`);
+        const record = claims.get(index);
+        if (items.length === 0 && record?.type !== 'stuck') fail(`box ${index} starts empty without being its sole stuck blocker.`);
+        if (record?.type === 'stuck' && items.length !== 0) fail(`stuck box ${index} must be empty.`);
+    });
+    return true;
+}
+
+/** Public validation accepts both nested public records and existing typed records. */
+function validateBlockerLevel(levelConfig) {
+    return validateRawBlockerLevel(normalizeBlockerLevel(levelConfig));
+}
+
+function installBlockerRules(engine) {
+    if (engine._blockerRulesInstalled) return;
+    engine._blockerRulesInstalled = true;
+    const methodNames = [
+        'startLevel', 'startClock', 'advanceClock', 'moveItem', 'selectSource',
+        'getValidTargets', 'moveBoxToQueue', 'findQueueMatch', 'deliverQueueBox',
+        'completeTrayExit', 'startDragWrappedBox', 'dropOnTray', 'checkConditions',
+        'shuffleItems', 'removeTray', 'addExtraTray', 'getBox', 'isAccessible'
+    ];
+    const base = {};
+    for (const name of methodNames) base[name] = engine[name];
+    const disabledState = () => ({ records: new Map(), shipped: new Set(), localTime: 0, hiddenTokens: [], enabled: false });
+    let mutationDepth = 0;
+    let settling = false;
+    let admitting = false;
+
+    engine.blockerState = disabledState();
+    engine.lastBlockerError = '';
+    engine.onBlockerUpdated = null;
+
+    const active = () => !!engine.blockerState?.enabled;
+    const state = () => engine.blockerState;
+    const actual = id => base.getBox.call(engine, id);
+    const onBoard = box => !!box && engine.boxes.includes(box);
+    const inQueue = box => !!box && engine.queue.includes(box);
+    const recordOf = box => box ? state().records.get(box.id) : null;
+    const allRecords = () => [...new Set(state().records.values())];
+    const deny = message => { engine.lastBlockerError = message; return false; };
+    const atomic = callback => {
+        mutationDepth++;
+        try { return callback(); } finally { mutationDepth--; }
+    };
+
+    function runtimeState(config) {
+        validateRawBlockerLevel(config);
+        const next = { records: new Map(), shipped: new Set(), localTime: 0, hiddenTokens: [], enabled: true, viewSignature: '' };
+        for (const source of config.blockers) {
+            const record = { ...source };
+            if (source.boxIds) record.boxIds = source.boxIds.slice();
+            if (record.type === 'locked') record.unlocked = false;
+            if (record.type === 'stuck') record.released = false;
+            if (record.type === 'frozen') Object.assign(record, { activated: false, thawed: false, remaining: null });
+            if (record.type === 'urgent') Object.assign(record, { activated: false, completed: false, queued: false, remaining: null });
+            if (record.type === 'defective') Object.assign(record, { queued: false, holdRemaining: null });
+            if (record.type === 'connector') Object.assign(record, { admitted: false, admissionRequested: false });
+            if (record.type === 'hidden-box') record.revealed = false;
+            if (record.type === 'hidden-item') {
+                next.hiddenTokens.push({
+                    itemId: config.boxes[record.boxId].items[record.slot],
+                    boxId: record.boxId,
+                    slot: record.slot,
+                    revealed: false
+                });
+            }
+            const ids = record.type === 'connector' ? record.boxIds : [record.boxId];
+            for (const id of ids) next.records.set(id, record);
+        }
+        return next;
+    }
+
+    function columnIndex(boxId) {
+        for (const column of engine.columns || []) {
+            const index = column.indexOf(boxId);
+            if (index !== -1) return index;
+        }
+        return -1;
+    }
+
+    function guard(box) {
+        if (!box) return 'That box no longer exists.';
+        if (onBoard(box) && !base.isAccessible.call(engine, box.id)) return 'That box is concealed.';
+        const record = recordOf(box);
+        if (record?.type === 'locked' && !record.unlocked) return 'That box is still locked.';
+        if (record?.type === 'stuck' && !record.released) return 'That box is stuck.';
+        if (record?.type === 'hidden-box' && !record.revealed) return 'That box contents are concealed.';
+        return '';
+    }
+
+    function visibleBoardBox(box) {
+        return onBoard(box) && base.isAccessible.call(engine, box.id);
+    }
+
+    function notify() {
+        if (!active()) return;
+        const seconds = value => value === null || value === undefined ? null : Math.ceil(Math.max(0, value) - 1e-9);
+        const signature = JSON.stringify({
+            records: allRecords().map(record => [
+                record.type, record.boxId, record.boxIds, record.unlocked, record.released,
+                record.revealed, record.activated, record.thawed, record.completed,
+                record.admitted, record.admissionRequested, record.queued, seconds(record.remaining), seconds(record.holdRemaining)
+            ]),
+            shipped: [...state().shipped].sort((a, b) => a - b),
+            tokens: state().hiddenTokens.map(token => [token.itemId, token.boxId, token.slot, token.revealed]),
+            columns: engine.columns || [],
+            queue: engine.queue.map(box => box.id)
+        });
+        if (signature === state().viewSignature) return;
+        state().viewSignature = signature;
+        if (engine.onBlockerUpdated) engine.onBlockerUpdated(state());
+    }
+
+    function refresh() {
+        if (!active()) return;
+        for (const record of allRecords()) {
+            if (record.type === 'hidden-box' && !record.revealed && columnIndex(record.boxId) === 0) record.revealed = true;
+            if ((record.type !== 'frozen' && record.type !== 'urgent') || record.thawed || record.completed) continue;
+            const box = actual(record.boxId);
+            if (engine.clockStarted && visibleBoardBox(box) && !inQueue(box) && !record.activated) {
+                record.activated = true;
+                record.remaining = record.duration;
+            }
+        }
+        notify();
+    }
+
+    function dependencyMet(record) {
+        if (blockerHas(record, 'shipCount')) return state().shipped.size >= record.shipCount;
+        const target = blockerHas(record, 'dependsOnBoxId') ? record.dependsOnBoxId : record.unlockAfterBoxId;
+        return state().shipped.has(target);
+    }
+
+    function releaseDependencies() {
+        for (const record of allRecords()) {
+            if (record.type === 'locked' && !record.unlocked && dependencyMet(record)) record.unlocked = true;
+            if (record.type !== 'stuck' || record.released || !dependencyMet(record)) continue;
+            record.released = true;
+            const box = actual(record.boxId);
+            if (box && onBoard(box) && box.isEmpty()) {
+                engine.boxes = engine.boxes.filter(candidate => candidate !== box);
+                engine._removeFromColumn(box.id);
+                if (engine.onBoxUpdated) engine.onBoxUpdated(box, true);
+            }
+        }
+    }
+
+    function recordShipment(box) {
+        if (!active() || !box || state().shipped.has(box.id)) return;
+        state().shipped.add(box.id);
+        releaseDependencies();
+        refresh();
+    }
+
+    function queueAssessment(id) {
+        const box = actual(id);
+        if (engine.gameState !== 'PLAYING') return { ok: false, reason: 'Play is not active.' };
+        if (!box || !onBoard(box)) return { ok: false, reason: 'Stale box: it is no longer on the board.' };
+        if (!box.isWrapped) return { ok: false, reason: 'Only a wrapped box can enter the queue.' };
+        if (!base.isAccessible.call(engine, box.id)) return { ok: false, reason: 'That box is not accessible.' };
+        const blocked = guard(box);
+        if (blocked) return { ok: false, reason: blocked };
+        const record = recordOf(box);
+        if (record?.type === 'frozen' && !record.thawed) {
+            return { ok: false, reason: 'That wrapped box must thaw before entering the queue.' };
+        }
+        if (record?.type === 'connector') {
+            const pair = record.boxIds.map(actual);
+            if (pair.some(partner => !partner || !onBoard(partner) || !partner.isWrapped ||
+                !base.isAccessible.call(engine, partner.id) || guard(partner) ||
+                (recordOf(partner)?.type === 'frozen' && !recordOf(partner).thawed))) {
+                return { ok: false, reason: 'Both connected boxes must be wrapped, accessible, and waiting on the board.' };
+            }
+            if (engine.maxQueueSize - engine.queue.length < 2) return { ok: false, reason: 'The connected pair needs two free queue slots.' };
+            return { ok: true, boxes: pair };
+        }
+        if (engine.queue.length >= engine.maxQueueSize) return { ok: false, reason: 'No free queue slot; the box remains on the board.' };
+        return { ok: true, boxes: [box] };
+    }
+
+    function admitBoxes(boxes) {
+        const ids = new Set(boxes.map(box => box.id));
+        engine.boxes = engine.boxes.filter(box => !ids.has(box.id));
+        for (const box of boxes) engine._removeFromColumn(box.id);
+        engine.queue.push(...boxes);
+        const records = new Set(boxes.map(recordOf).filter(Boolean));
+        for (const record of records) {
+            if (record.type === 'urgent') {
+                record.queued = true;
+                record.completed = true;
+            } else if (record.type === 'defective') {
+                record.queued = true;
+                record.holdRemaining = record.holdSeconds;
+            } else if (record.type === 'connector') {
+                record.admitted = true;
+            }
+        }
+        if (ids.has(engine.draggedBoxId)) engine.draggedBoxId = null;
+        for (const box of boxes) if (engine.onBoxUpdated) engine.onBoxUpdated(box, true);
+        if (engine.onQueueUpdated) engine.onQueueUpdated(engine.queue);
+    }
+
+    function admitReadyPair() {
+        if (admitting) return false;
+        admitting = true;
+        try {
+            for (const record of allRecords()) {
+                if (record.type !== 'connector') continue;
+                if (engine.onBoxWrapped && !record.admissionRequested) continue;
+                const candidate = actual(record.boxIds[0]);
+                const assessment = candidate && onBoard(candidate) ? queueAssessment(candidate.id) : null;
+                if (assessment?.ok) {
+                    atomic(() => admitBoxes(assessment.boxes));
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            admitting = false;
+        }
+    }
+
+    function settle() {
+        refresh();
+        if (!active() || mutationDepth > 0 || settling) return;
+        settling = true;
+        try {
+            for (let pass = 0; pass < 128 && engine.gameState === 'PLAYING'; pass++) {
+                let changed = false;
+                if (!engine.onTrayDelivered) {
+                    // Headless delivery still passes through deliverQueueBox and shipment accounting.
+                    for (let count = 0; count < 128 && engine.gameState === 'PLAYING'; count++) {
+                        if (!engine.tryAutoFillTray()) break;
+                        changed = true;
+                        refresh();
+                    }
+                }
+                if (engine.gameState === 'PLAYING' && admitReadyPair()) {
+                    changed = true;
+                    refresh();
+                }
+                if (!changed) break;
+            }
+        } finally {
+            settling = false;
+        }
+        refresh();
+        if (active() && mutationDepth === 0) engine.checkConditions();
+    }
+
+    function legalMove(sourceId, sourceSlot, targetId, targetSlot = null) {
+        const source = actual(sourceId), target = actual(targetId);
+        if (engine.gameState !== 'PLAYING' || !source || !target || source === target || !onBoard(source) || !onBoard(target)) return false;
+        if (!Number.isInteger(sourceSlot) || sourceSlot < 0 || sourceSlot > 2 || source.slots[sourceSlot] === null) return false;
+        if (targetSlot !== null && (!Number.isInteger(targetSlot) || targetSlot < 0 || targetSlot > 2)) return false;
+        if (source.isWrapped || target.isWrapped || source.isEmpty() || !target.canAccept(targetSlot)) return false;
+        if (!base.isAccessible.call(engine, source.id) || !base.isAccessible.call(engine, target.id)) return false;
+        if (guard(source) || guard(target)) return false;
+        const sourceRecord = recordOf(source);
+        if (sourceRecord?.type === 'frozen' && !sourceRecord.thawed && sourceRecord.slot === sourceSlot) return false;
+        const targetRecord = recordOf(target);
+        if (targetRecord?.type === 'frozen' && !targetRecord.thawed) {
+            const item = source.slots[sourceSlot];
+            const occupied = target.slots.filter(value => value !== null);
+            if (occupied.length === 2 && occupied.every(value => value === item)) return false;
+        }
+        return true;
+    }
+
+    function directDragAssessment(id) {
+        const box = actual(id);
+        if (!box || !onBoard(box) || !box.isWrapped || !base.isAccessible.call(engine, box.id)) return { ok: false, reason: 'Only an actual accessible wrapped board box can be dragged.' };
+        const blocked = guard(box);
+        if (blocked) return { ok: false, reason: blocked };
+        const record = recordOf(box);
+        if (record?.type === 'frozen' && !record.thawed) {
+            return { ok: false, reason: 'That wrapped box must thaw before it can be dragged.' };
+        }
+        if (['defective', 'connector', 'urgent'].includes(record?.type)) {
+            return { ok: false, reason: 'This blocker box must use the staging queue.' };
+        }
+        return { ok: true, box };
+    }
+
+    engine.canQueueBlockerBox = id => !active() || queueAssessment(id).ok;
+    engine.canMoveBlockerItem = (sourceId, sourceSlot, targetId, targetSlot = null) => {
+        if (!active()) return true;
+        if (targetId === undefined || targetId === null) {
+            const source = actual(sourceId);
+            if (engine.gameState !== 'PLAYING') return deny('Play is not active.');
+            if (!source || !onBoard(source)) return deny('That source box is no longer on the board.');
+            if (!base.isAccessible.call(engine, source.id)) return deny('That source box is not accessible.');
+            const blocked = guard(source);
+            if (blocked) return deny(blocked);
+            if (source.isWrapped) return deny('A wrapped source box has no movable item slot.');
+            if (source.isEmpty()) return deny('That source box is empty.');
+            if (!Number.isInteger(sourceSlot) || sourceSlot < 0 || sourceSlot > 2) {
+                return deny('Choose an occupied integer source slot in 0..2.');
+            }
+            if (source.slots[sourceSlot] === null || source.slots[sourceSlot] === undefined) {
+                return deny('That source slot is empty.');
+            }
+            const record = recordOf(source);
+            if (record?.type === 'frozen' && !record.thawed && record.slot === sourceSlot) {
+                return deny('That occupied source slot is frozen.');
+            }
+            engine.lastBlockerError = '';
+            return true;
+        }
+        if (!legalMove(sourceId, sourceSlot, targetId, targetSlot)) {
+            return deny('That move is blocked or is not currently legal.');
+        }
+        engine.lastBlockerError = '';
+        return true;
+    };
+    engine.canDispatchBlockerBox = id => {
+        if (!active()) return true;
+        const box = actual(id);
+        if (!box || !inQueue(box) || engine.gameState !== 'PLAYING') return false;
+        const record = recordOf(box);
+        if (record?.type === 'defective' && record.holdRemaining > 0) return false;
+        if (record?.type === 'connector' && !record.admitted) return false;
+        return true;
+    };
+
+    engine.startLevel = function(levelConfig) {
+        let next;
+        if (levelConfig && blockerHas(levelConfig, 'blockers') && !Array.isArray(levelConfig.blockers)) {
+            throw new Error('Invalid blocker level: blockers must be an array.');
+        }
+        // Normalize, validate, and construct runtime state before replacing any engine state.
+        const hasBlockers = Array.isArray(levelConfig?.blockers) && levelConfig.blockers.length > 0;
+        const runtimeLevel = hasBlockers ? normalizeBlockerLevel(levelConfig) : levelConfig;
+        next = hasBlockers ? runtimeState(runtimeLevel) : disabledState();
+        engine.blockerState = next;
+        engine.lastBlockerError = '';
+        mutationDepth = 0;
+        settling = false;
+        admitting = false;
+        const result = base.startLevel.call(engine, runtimeLevel);
+        if (next.enabled) refresh();
+        return result;
+    };
+
+    engine.startClock = function() {
+        if (!active()) return base.startClock.call(engine);
+        const result = base.startClock.call(engine);
+        refresh();
+        return result;
+    };
+
+    engine.selectSource = function(boxId, slotIndex) {
+        if (!active()) return base.selectSource.call(engine, boxId, slotIndex);
+        const box = actual(boxId);
+        if (!box || guard(box)) return deny(box ? guard(box) : 'That source box does not exist.');
+        const record = recordOf(box);
+        if (record?.type === 'frozen' && !record.thawed && record.slot === slotIndex && box.slots[slotIndex] !== null) {
+            return deny('That occupied source slot is frozen.');
+        }
+        const result = base.selectSource.call(engine, boxId, slotIndex);
+        if (result) engine.lastBlockerError = '';
+        refresh();
+        return result;
+    };
+
+    engine.moveItem = function(sourceId, sourceSlot, targetId, targetSlot = null) {
+        if (!active()) return base.moveItem.call(engine, sourceId, sourceSlot, targetId, targetSlot);
+        if (!legalMove(sourceId, sourceSlot, targetId, targetSlot)) return deny('That move is blocked or is not currently legal.');
+        const source = actual(sourceId), target = actual(targetId);
+        const landingSlot = targetSlot === null ? target.slots.findIndex(item => item === null) : targetSlot;
+        const movedTokens = state().hiddenTokens.filter(token => !token.revealed && token.boxId === source.id && token.slot === sourceSlot);
+        const previous = movedTokens.map(token => ({ token, boxId: token.boxId, slot: token.slot }));
+        for (const token of movedTokens) {
+            token.boxId = target.id;
+            token.slot = landingSlot;
+        }
+        let result;
+        try {
+            result = atomic(() => base.moveItem.call(engine, source.id, sourceSlot, target.id, targetSlot));
+        } catch (error) {
+            for (const old of previous) { old.token.boxId = old.boxId; old.token.slot = old.slot; }
+            throw error;
+        }
+        if (!result) {
+            for (const old of previous) { old.token.boxId = old.boxId; old.token.slot = old.slot; }
+            refresh();
+            return deny('The move was rejected; hidden items were restored.');
+        }
+        for (const token of movedTokens) {
+            if (target.slots[token.slot] !== token.itemId) {
+                const found = target.slots.findIndex(item => item === token.itemId);
+                if (found !== -1) token.slot = found;
+            }
+        }
+        const matchingTriple = target.items.length === 3 && target.items.every(item => item === target.items[0]);
+        if (target.isWrapped && matchingTriple) {
+            for (const token of state().hiddenTokens) {
+                if (token.boxId === target.id && token.itemId === target.items[0]) token.revealed = true;
+            }
+        }
+        engine.lastBlockerError = '';
+        refresh();
+        settle();
+        return true;
+    };
+
+    engine.getValidTargets = function(sourceId) {
+        if (!active()) return base.getValidTargets.call(engine, sourceId);
+        const source = actual(sourceId);
+        if (!source || !onBoard(source) || source.isWrapped || source.isEmpty()) return [];
+        let slots;
+        const selected = engine.selectedSource && actual(engine.selectedSource.boxId) === source ? engine.selectedSource.itemIndex : null;
+        if (selected !== null && source.slots[selected] !== null && source.slots[selected] !== undefined) slots = [selected];
+        else slots = source.slots.map((item, slot) => item !== null ? slot : -1).filter(slot => slot !== -1);
+        const targets = [];
+        for (const target of engine.boxes) {
+            if (target === source || !target.canAccept()) continue;
+            if (slots.some(slot => legalMove(source.id, slot, target.id, null))) targets.push(target.id);
+        }
+        return targets;
+    };
+
+    engine.moveBoxToQueue = function(boxOrId) {
+        if (!active()) return base.moveBoxToQueue.call(engine, boxOrId);
+        const box = boxOrId && typeof boxOrId === 'object' ? actual(boxOrId.id) : actual(boxOrId);
+        const stale = !!(box && boxOrId && typeof boxOrId === 'object' && box !== boxOrId);
+        const pairRecord = !stale && box && onBoard(box) ? recordOf(box) : null;
+        if (pairRecord?.type === 'connector') pairRecord.admissionRequested = true;
+        const assessment = stale
+            ? { ok: false, reason: 'A stale box object cannot be queued.' }
+            : queueAssessment(box ? box.id : boxOrId);
+        if (!assessment.ok) {
+            if (pairRecord?.type === 'connector') refresh();
+            return deny(assessment.reason);
+        }
+        atomic(() => admitBoxes(assessment.boxes));
+        engine.lastBlockerError = '';
+        refresh();
+        settle();
+        return true;
+    };
+
+    engine.findQueueMatch = function() {
+        if (!active()) return base.findQueueMatch.call(engine);
+        const trays = engine.conveyor.getAllActiveTrays();
+        for (const box of engine.queue) {
+            if (!engine.canDispatchBlockerBox(box.id)) continue;
+            const tray = trays.find(candidate => candidate.canAccept(box));
+            if (tray) return { box, tray };
+        }
+        return null;
+    };
+
+    engine.deliverQueueBox = function(boxId, trayId) {
+        if (!active()) return base.deliverQueueBox.call(engine, boxId, trayId);
+        const box = actual(boxId);
+        if (!box || !engine.canDispatchBlockerBox(box.id)) return deny('This queued box is held or is no longer dispatchable.');
+        const result = atomic(() => base.deliverQueueBox.call(engine, box.id, trayId));
+        if (!result) return false;
+        engine.lastBlockerError = '';
+        recordShipment(box);
+        refresh();
+        settle();
+        return true;
+    };
+
+    engine.startDragWrappedBox = function(boxId) {
+        if (!active()) return base.startDragWrappedBox.call(engine, boxId);
+        const assessment = directDragAssessment(boxId);
+        if (!assessment.ok) return deny(assessment.reason);
+        const result = base.startDragWrappedBox.call(engine, assessment.box.id);
+        if (result) engine.lastBlockerError = '';
+        return result;
+    };
+
+    engine.dropOnTray = function(trayId) {
+        if (!active()) return base.dropOnTray.call(engine, trayId);
+        if (engine.draggedBoxId === null) return false;
+        const assessment = directDragAssessment(engine.draggedBoxId);
+        if (!assessment.ok) return deny(assessment.reason);
+        const box = assessment.box;
+        const result = atomic(() => base.dropOnTray.call(engine, trayId));
+        if (!result) return false;
+        engine.lastBlockerError = '';
+        recordShipment(box);
+        refresh();
+        settle();
+        return true;
+    };
+
+    engine.completeTrayExit = function(trayId) {
+        if (!active()) return base.completeTrayExit.call(engine, trayId);
+        atomic(() => base.completeTrayExit.call(engine, trayId));
+        refresh();
+        settle();
+    };
+
+    function boosterRestriction() {
+        for (const record of allRecords()) {
+            if (record.type === 'locked' && !record.unlocked) return 'A locked box is unresolved.';
+            if (record.type === 'stuck' && !record.released) return 'A stuck box is unresolved.';
+            if (record.type === 'frozen' && !record.thawed) return 'A frozen slot is unresolved.';
+            if (record.type === 'hidden-box' && !record.revealed) return 'A concealed box is unresolved.';
+            if (record.type === 'urgent' && !record.completed) return 'The urgent box must enter the queue first.';
+            if (record.type === 'defective' && !state().shipped.has(record.boxId)) return 'The defective box must ship first.';
+            if (record.type === 'connector' && !record.admitted) return 'The connected pair has not been admitted.';
+        }
+        if (state().hiddenTokens.some(token => !token.revealed)) return 'Hidden items must be revealed before changing the board.';
+        return '';
+    }
+
+    function wrapBooster(name) {
+        engine[name] = function(...args) {
+            if (!active()) return base[name].apply(engine, args);
+            const restriction = boosterRestriction();
+            if (restriction) {
+                engine.lastBlockerError = restriction;
+                return engine._boosterFail(restriction);
+            }
+            const result = atomic(() => base[name].apply(engine, args));
+            if (result) engine.lastBlockerError = '';
+            refresh();
+            if (result) settle();
+            return result;
+        };
+    }
+    wrapBooster('shuffleItems');
+    wrapBooster('removeTray');
+
+    engine.addExtraTray = function() {
+        if (!active()) return base.addExtraTray.call(engine);
+        const result = atomic(() => base.addExtraTray.call(engine));
+        refresh();
+        if (result) settle();
+        return result;
+    };
+
+    function nextLocalExpiry() {
+        let next = Infinity;
+        for (const record of allRecords()) {
+            if (record.type === 'frozen' && record.activated && !record.thawed) next = Math.min(next, record.remaining);
+            if (record.type === 'urgent' && record.activated && !record.completed) next = Math.min(next, record.remaining);
+            if (record.type === 'defective' && record.holdRemaining > 0 && inQueue(actual(record.boxId))) next = Math.min(next, record.holdRemaining);
+        }
+        return next;
+    }
+
+    function tickBlockers(delta) {
+        state().localTime += delta;
+        let urgentExpired = false;
+        for (const record of allRecords()) {
+            if (record.type === 'frozen' && record.activated && !record.thawed) {
+                record.remaining = Math.max(0, record.remaining - delta);
+                if (record.remaining <= 1e-9) { record.remaining = 0; record.thawed = true; }
+            } else if (record.type === 'urgent' && record.activated && !record.completed) {
+                record.remaining = Math.max(0, record.remaining - delta);
+                if (record.remaining <= 1e-9) { record.remaining = 0; urgentExpired = true; }
+            } else if (record.type === 'defective' && record.holdRemaining > 0 && inQueue(actual(record.boxId))) {
+                record.holdRemaining = Math.max(0, record.holdRemaining - delta);
+                if (record.holdRemaining <= 1e-9) record.holdRemaining = 0;
+            }
+        }
+        if (urgentExpired && engine.gameState === 'PLAYING') {
+            engine.loseReason = 'An urgent box expired before entering the staging queue.';
+            engine.setGameState('LOST');
+        }
+    }
+
+    engine.advanceClock = function(deltaSeconds) {
+        if (!active()) return base.advanceClock.call(engine, deltaSeconds);
+        if (engine.gameState !== 'PLAYING' || !engine.clockStarted || !Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return;
+        let remainingDelta = deltaSeconds;
+        refresh();
+        for (let iteration = 0; iteration < 256 && remainingDelta > 1e-9 && engine.gameState === 'PLAYING'; iteration++) {
+            let localExpiry = nextLocalExpiry();
+            if (localExpiry <= 1e-9) {
+                tickBlockers(0);
+                refresh();
+                if (engine.gameState !== 'PLAYING') break;
+                localExpiry = nextLocalExpiry();
+                if (localExpiry <= 1e-9) break;
+            }
+            let globalExpiry = Infinity;
+            if (engine.timeRemainingSeconds !== null && engine.hasPlayerWorkRemaining()) {
+                globalExpiry = Math.max(0, engine.freezeRemainingSeconds + engine.timeRemainingSeconds);
+            }
+            const step = Math.min(remainingDelta, localExpiry, globalExpiry);
+            if (!(step > 1e-9)) break;
+            // Each segment ends at a local or global expiry, preserving chronological losses.
+            atomic(() => base.advanceClock.call(engine, step));
+            if (engine.gameState !== 'PLAYING') break;
+            tickBlockers(step);
+            remainingDelta -= step;
+            refresh();
+        }
+        refresh();
+        if (engine.gameState === 'PLAYING') settle();
+    };
+
+    function anyLegalBoardMove() {
+        for (const source of engine.boxes) {
+            if (source.isWrapped || source.isEmpty()) continue;
+            for (let slot = 0; slot < source.slots.length; slot++) {
+                if (source.slots[slot] === null) continue;
+                for (const target of engine.boxes) {
+                    if (target !== source && legalMove(source.id, slot, target.id, null)) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    engine.checkConditions = function() {
+        if (!active()) return base.checkConditions.call(engine);
+        if (engine.gameState !== 'PLAYING' || mutationDepth > 0) return;
+        refresh();
+        if (engine.hasPendingTrayExits()) return;
+        const noItems = engine.boxes.every(box => box.isEmpty());
+        const noStuck = allRecords().every(record => record.type !== 'stuck' || record.released);
+        if (noItems && engine.queue.length === 0 && noStuck && !engine.conveyor.hasRemainingTrays()) {
+            engine.setGameState('WON');
+            return;
+        }
+        if (engine.queue.length > engine.maxQueueSize) {
+            engine.loseReason = 'The staging queue exceeded its capacity.';
+            engine.setGameState('LOST');
+            return;
+        }
+        if (engine.findQueueMatch()) return;
+        const trays = engine.conveyor.getAllActiveTrays();
+        for (const box of engine.boxes) {
+            if (!box.isWrapped) continue;
+            if (queueAssessment(box.id).ok) return;
+            if (directDragAssessment(box.id).ok && trays.some(tray => tray.canAccept(box))) return;
+        }
+        for (const record of allRecords()) {
+            if (record.type === 'frozen' && record.activated && !record.thawed && Number.isFinite(record.remaining) && record.remaining > 0) return;
+            if (record.type === 'defective' && Number.isFinite(record.holdRemaining) && record.holdRemaining > 0 && inQueue(actual(record.boxId))) return;
+        }
+        if (anyLegalBoardMove()) return;
+        engine.loseReason = engine.queue.length >= engine.maxQueueSize
+            ? 'The staging queue is full and no guarded delivery or pair admission is possible.'
+            : 'No legal blocker-aware move, delivery, or finite wait remains.';
+        engine.setGameState('LOST');
+    };
+
+    engine.getBlockerView = function(boxId) {
+        const blank = { badges: [], concealed: false, hiddenSlots: [], frozenSlots: [], blocked: false, queueHeld: false };
+        if (!active()) return blank;
+        const box = actual(boxId);
+        if (!box) return blank;
+        const record = recordOf(box);
+        const concealed = !!(onBoard(box) && !base.isAccessible.call(engine, box.id)) ||
+            !!(record?.type === 'hidden-box' && !record.revealed);
+        const movingTokens = state().hiddenTokens.filter(token => !token.revealed && token.boxId === box.id);
+        const hiddenSlots = [...new Set(movingTokens.map(token => token.slot))];
+        const frozenSlots = record?.type === 'frozen' && !record.thawed ? [record.slot] : [];
+        const blocked = !!guard(box);
+        const queueHeld = !!(record?.type === 'defective' && inQueue(box) && record.holdRemaining > 0) ||
+            !!(record?.type === 'connector' && inQueue(box) && !record.admitted);
+        const badges = [];
+        if (record) {
+            const seconds = value => Math.ceil(Math.max(0, value || 0));
+            const dependencyBoxId = blockerHas(record, 'dependsOnBoxId') ? record.dependsOnBoxId : record.unlockAfterBoxId;
+            if (record.type === 'locked' && !record.unlocked) {
+                if (blockerHas(record, 'shipCount')) {
+                    const remaining = Math.max(0, record.shipCount - state().shipped.size);
+                    badges.push(`🔒 Khoá: giao thêm ${remaining} đơn để mở hộp`);
+                } else {
+                    badges.push(`🔒 Khoá: giao hộp #${dependencyBoxId} để mở`);
+                }
+            }
+            if (record.type === 'stuck' && !record.released) {
+                if (blockerHas(record, 'shipCount')) {
+                    const remaining = Math.max(0, record.shipCount - state().shipped.size);
+                    badges.push(`🧱 Kẹt: giao thêm ${remaining} đơn để dọn hộp`);
+                } else {
+                    badges.push(`🧱 Kẹt: giao hộp #${dependencyBoxId} để dọn chỗ`);
+                }
+            }
+            if (record.type === 'frozen' && !record.thawed) {
+                badges.push(`❄️ Băng: còn ${seconds(record.remaining ?? record.duration)}s — chờ tan rồi lấy món`);
+            }
+            if (record.type === 'defective' && !state().shipped.has(box.id)) {
+                if (queueHeld) {
+                    badges.push(`🛠️ Lỗi: còn ${seconds(record.holdRemaining)}s kiểm tra trước khi giao`);
+                } else if (inQueue(box)) {
+                    badges.push('🛠️ Kiểm tra lỗi xong — có thể giao');
+                } else {
+                    badges.push(`🛠️ Lỗi: sẽ giữ kiểm tra ${seconds(record.holdSeconds)}s trong hàng chờ`);
+                }
+            }
+            if (record.type === 'connector') {
+                const partnerId = record.boxIds.find(id => id !== box.id);
+                badges.push(`🔗 Nối với hộp #${partnerId}: đóng gói và xếp cặp cùng nhau`);
+            }
+            if (record.type === 'hidden-box' && !record.revealed) {
+                badges.push('❔ Hộp giấu: đưa lên đầu cột để lộ nội dung');
+            }
+            if (record.type === 'urgent') {
+                badges.push(record.completed
+                    ? '⏱️ Gấp: đã hoàn tất'
+                    : `⏱️ Gấp: vào hàng chờ trong ${seconds(record.remaining ?? record.duration)}s`);
+            }
+        }
+        for (const token of movingTokens) {
+            badges.push(`? Món giấu: ${token.itemId} — đối chiếu đơn hàng`);
+        }
+        return { badges, concealed, hiddenSlots, frozenSlots, blocked, queueHeld };
+    };
+}
+
+
 // --- src/core/GameEngine.js ---
 
 class GameEngine {
@@ -593,6 +1534,8 @@ class GameEngine {
         this.onTrayDelivered = null;
         this.onGameStateChanged = null;
         this.onMoveCountUpdated = null;
+
+        installBlockerRules(this);
     }
 
     startLevel(levelConfig) {
@@ -631,11 +1574,11 @@ class GameEngine {
         }
 
         // Luat moi: Thung rong tu dong bien mat. Neu co thung rong luc start thi loai bo ngay.
-        const emptyBoxes = this.boxes.filter(b => b.isEmpty());
+        const emptyBoxes = this.boxes.filter(b => b.isEmpty() && !this._isBlockerStuckBox(b.id));
         for (const eb of emptyBoxes) {
             this._removeFromColumn(eb.id);
         }
-        this.boxes = this.boxes.filter(b => !b.isEmpty());
+        this.boxes = this.boxes.filter(b => !b.isEmpty() || this._isBlockerStuckBox(b.id));
 
         // Với những level không có box ẩn (không có cột nào vượt quá visibleRows),
         // tính effectiveRows theo chiều cao cột lớn nhất ban đầu để đẩy box lên sát conveyor.
@@ -657,7 +1600,7 @@ class GameEngine {
         this.loseReason = '';
 
         // Neu co thung wrapped san (hiem), dua vao queue
-        const initialWrapped = this.boxes.filter(b => b.isWrapped);
+        const initialWrapped = this.boxes.filter(b => b.isWrapped && !this.blockerState?.enabled);
         for (const wb of initialWrapped) {
             this._removeFromColumn(wb.id);
             this.queue.push(wb);
@@ -830,6 +1773,11 @@ class GameEngine {
     setGameState(newState) {
         this.gameState = newState;
         if (this.onGameStateChanged) this.onGameStateChanged(newState);
+    }
+
+    _isBlockerStuckBox(boxId) {
+        const record = this.blockerState?.enabled ? this.blockerState.records.get(boxId) : null;
+        return record?.type === 'stuck' && !record.released;
     }
 
     getBox(id) {
@@ -3030,6 +3978,170 @@ class LevelGenerator {
 }
 
 
+// --- src/generator/BlockerLevels.js ---
+const BLOCKER_BASE_BOXES = [
+    ['bear', 'bear'],
+    ['bear'],
+    ['duck', 'duck'],
+    ['duck']
+];
+const BLOCKER_MOVES = [
+    { from: 1, index: 0, to: 0 },
+    { from: 3, index: 0, to: 2 }
+];
+const blockerMoveAction = move => ({ type: 'move', from: move.from, slot: move.index, to: move.to });
+const blockerMovesOnly = () => BLOCKER_MOVES.map(blockerMoveAction);
+
+const BLOCKER_SCENARIOS = [
+    {
+        id: 'locked',
+        name: 'Khoá sau một đơn',
+        description: 'Giao một đơn để mở khoá hộp còn lại.',
+        blockers: [{ id: 'lock-count', type: 'locked', boxId: 2, shipCount: 1 }],
+        referenceActions: blockerMovesOnly()
+    },
+    {
+        id: 'locked-named',
+        name: 'Khoá theo hộp đã giao',
+        description: 'Giao hộp gấu #0 để mở khoá hộp vịt #2.',
+        blockers: [{ id: 'lock-named', type: 'locked', boxId: 2, dependsOnBoxId: 0 }],
+        referenceActions: blockerMovesOnly()
+    },
+    {
+        id: 'frozen',
+        name: 'Băng ở ô món',
+        description: 'Chờ 3 giây để băng tan trước khi lấy món gấu.',
+        blockers: [{ id: 'freeze-slot', type: 'frozen', boxId: 1, slot: 0, duration: 3 }],
+        referenceActions: [{ type: 'wait', seconds: 3 }, ...blockerMovesOnly()]
+    },
+    {
+        id: 'stuck',
+        name: 'Hộp rỗng bị kẹt',
+        description: 'Giao một đơn để dọn hộp rỗng đang kẹt trên bàn.',
+        extraEmptyBox: true,
+        layout: { columns: [[4, 2], [0, 1], [3]], visibleRows: 4 },
+        blockers: [{ id: 'stuck-empty', type: 'stuck', boxId: 4, shipCount: 1 }],
+        referenceActions: blockerMovesOnly()
+    },
+    {
+        id: 'defective',
+        name: 'Hộp cần kiểm tra lỗi',
+        description: 'Hộp gấu bị giữ 3 giây trong hàng chờ trước khi giao.',
+        blockers: [{ id: 'defect-hold', type: 'defective', boxId: 0, holdSeconds: 3 }],
+        referenceActions: [blockerMoveAction(BLOCKER_MOVES[0]), { type: 'wait', seconds: 3 }, blockerMoveAction(BLOCKER_MOVES[1])]
+    },
+    {
+        id: 'connector',
+        name: 'Hộp nối đôi',
+        description: 'Đóng gói cả hai hộp rồi đưa cặp #0 và #2 vào hàng chờ.',
+        blockers: [{ id: 'connector-a', type: 'connector', boxIds: [0, 2], groupId: 'A' }],
+        referenceActions: blockerMovesOnly()
+    },
+    {
+        id: 'hidden-box',
+        name: 'Hộp giấu nội dung',
+        description: 'Đưa hộp giấu lên đầu cột để xem nội dung.',
+        layout: { columns: [[0, 2], [1], [3]], visibleRows: 4 },
+        blockers: [{ id: 'concealed-box', type: 'hidden-box', boxId: 2 }],
+        referenceActions: blockerMovesOnly()
+    },
+    {
+        id: 'hidden-item',
+        name: 'Món giấu trong hộp',
+        description: 'Đối chiếu gợi ý và đơn hàng để tìm món bị giấu.',
+        blockers: [{ id: 'concealed-item', type: 'hidden-item', boxId: 1, slot: 0 }],
+        referenceActions: blockerMovesOnly()
+    },
+    {
+        id: 'urgent',
+        name: 'Hộp gấp',
+        description: 'Đưa hộp gấu vào hàng chờ trong 30 giây.',
+        blockers: [{ id: 'urgent-pack', type: 'urgent', boxId: 0, duration: 30 }],
+        referenceActions: blockerMovesOnly()
+    }
+];
+
+/** Return a fresh config so replay, UI state, and retries never share authored arrays. */
+function createBlockerLevel(levelId) {
+    const scenario = BLOCKER_SCENARIOS.find(candidate => candidate.id === levelId);
+    if (!scenario) throw new Error(`Unknown blocker scenario: ${levelId}`);
+    const boxes = BLOCKER_BASE_BOXES.map(items => ({ items: items.slice() }));
+    if (scenario.extraEmptyBox) boxes.push({ items: [] });
+    const config = {
+        id: scenario.id,
+        name: scenario.name,
+        description: scenario.description,
+        solvable: false,
+        boxes,
+        trays: [
+            { id: 'bear-order', categoryId: 'stuffed_animals', targetItemId: 'bear', matchMode: 'itemType' },
+            { id: 'duck-order', categoryId: 'stuffed_animals', targetItemId: 'duck', matchMode: 'itemType' }
+        ],
+        maxActiveTrays: 2,
+        layout: scenario.layout
+            ? { columns: scenario.layout.columns.map(column => column.slice()), visibleRows: scenario.layout.visibleRows }
+            : { columns: [[0, 2], [1], [3]], visibleRows: 4 },
+        rules: { timeToPlay: 120 },
+        blockers: scenario.blockers.map(record => ({ ...record, ...(record.boxIds ? { boxIds: record.boxIds.slice() } : {}) })),
+        referenceActions: scenario.referenceActions.map(action => ({ ...action })),
+        referenceSolution: BLOCKER_MOVES.map(move => ({ ...move }))
+    };
+    return config;
+}
+
+function drainBlockerReplay(engine) {
+    let progressed = true;
+    for (let pass = 0; pass < 64 && progressed && engine.gameState === 'PLAYING'; pass++) {
+        progressed = false;
+        for (const box of [...engine.boxes]) {
+            if (box.isWrapped && engine.canQueueBlockerBox(box.id)) {
+                if (engine.moveBoxToQueue(box)) progressed = true;
+            }
+        }
+        for (let delivery = 0; delivery < 64 && engine.gameState === 'PLAYING'; delivery++) {
+            if (!engine.tryAutoFillTray()) break;
+            progressed = true;
+        }
+    }
+}
+
+/** Replay with the real engine; only its terminal WON state counts as solved. */
+function replayBlockerLevel(GameEngineClass, level) {
+    const engine = new GameEngineClass();
+    engine.startLevel(level);
+    engine.startClock();
+    let failure = '';
+    for (const action of level.referenceActions || []) {
+        if (engine.gameState !== 'PLAYING') break;
+        if (action.type === 'wait') {
+            engine.advanceClock(action.seconds);
+        } else if (action.type === 'move') {
+            const slot = action.slot ?? action.index;
+            if (!engine.moveItem(action.from, slot, action.to, action.targetSlot ?? null)) {
+                failure = `Reference move ${action.from}:${slot} -> ${action.to} was rejected.`;
+                break;
+            }
+        } else {
+            failure = `Unknown reference action ${action.type}.`;
+            break;
+        }
+        drainBlockerReplay(engine);
+    }
+    if (!failure && engine.gameState === 'PLAYING') {
+        drainBlockerReplay(engine);
+        engine.checkConditions();
+    }
+    return {
+        solved: engine.gameState === 'WON',
+        state: engine.gameState,
+        failure: failure || engine.loseReason,
+        moveCount: engine.moveCount,
+        shipped: engine.blockerState ? [...engine.blockerState.shipped] : [],
+        engine
+    };
+}
+
+
 // --- src/ui/ItemArt.js ---
 // ItemArt.js — vector illustration helper for the 32 catalog item ids.
 // Renders a flat, outlined SVG (stroke #3b2a20, candy fills, white highlight)
@@ -4424,43 +5536,145 @@ class BoxRenderer {
     }
 
     _updateBox(el, box, selectedSource, validTargetIds) {
-        el.classList.toggle('empty-box', box.isEmpty());
+        const view = typeof this.blockerView === 'function' ? this.blockerView(box.id) : undefined;
+        const concealed = !!(view && view.concealed);
+        const toSlotSet = values => new Set((Array.isArray(values) ? values : [])
+            .map(Number)
+            .filter(i => Number.isInteger(i) && i >= 0 && i < 3));
+        const hiddenSlots = concealed ? new Set() : toSlotSet(view && view.hiddenSlots);
+        const frozenSlots = toSlotSet(view && view.frozenSlots);
+        const coreBadges = view && Array.isArray(view.badges)
+            ? view.badges.filter(text => typeof text === 'string' && text.trim().length > 0)
+            : [];
+        const joinedRules = coreBadges.join(' · ');
+        const concealedText = 'Bí mật — lên đầu cột để mở';
+        const stuck = !concealed && box.isEmpty() && coreBadges.length > 0;
+        const sealed = concealed || stuck;
+        const badgeText = concealed ? concealedText : joinedRules;
+        const blocked = !!(view && view.blocked);
+        const hadBlockerState = el.classList.contains('blocker-marked')
+            || el.classList.contains('blocker-concealed')
+            || el.classList.contains('blocker-masked')
+            || el.classList.contains('blocker-frozen')
+            || el.classList.contains('blocker-stuck')
+            || el.dataset.blockerLabelled === 'true';
+
+        // A sealed carton must not expose even its empty/near-pack state.
+        el.classList.toggle('empty-box', concealed ? false : box.isEmpty());
         el.classList.toggle('wrapped', box.isWrapped);
         el.classList.toggle('valid-target', !box.isWrapped && validTargetIds.includes(box.id));
         el.classList.toggle('selected', !box.isWrapped && !!selectedSource && selectedSource.boxId === box.id);
-        el.classList.toggle('near-pack', !box.isWrapped && box.items.length >= 2 && box.items[0] === box.items[1]);
+        const nearPackVisible = !concealed && hiddenSlots.size === 0;
+        el.classList.toggle('near-pack', nearPackVisible && !box.isWrapped && box.items.length >= 2 && box.items[0] === box.items[1]);
+        el.classList.toggle('blocker-concealed', concealed);
+        el.classList.toggle('blocker-stuck', stuck);
+        el.classList.toggle('blocker-sealed', sealed);
+        el.classList.toggle('blocker-masked', concealed || hiddenSlots.size > 0);
+        el.classList.toggle('blocker-frozen', frozenSlots.size > 0);
+        el.classList.toggle('blocker-blocked', blocked);
+        el.classList.toggle('blocker-marked', badgeText.length > 0);
 
         el.style.cursor = box.isWrapped ? 'grab' : '';
 
-        const catId = box.getCategory() || (box.items.length > 0 ? getCategoryByItemId(box.items[0]) : null);
+        const slotItems = [0, 1, 2].map(i => box.slots
+            ? box.slots[i]
+            : (i < box.items.length ? box.items[i] : null));
+        let catId;
+        let itemType;
+        if (sealed) {
+            catId = null;
+            itemType = null;
+        } else if (hiddenSlots.size > 0) {
+            // Never fall back to the first item when that slot is masked. A visible
+            // sibling is a valid logo clue; otherwise the carton stays generic.
+            const visibleIndex = slotItems.findIndex((item, i) => !hiddenSlots.has(i)
+                && item !== null && item !== undefined);
+            itemType = visibleIndex >= 0 ? slotItems[visibleIndex] : null;
+            catId = itemType ? getCategoryByItemId(itemType) : null;
+        } else {
+            catId = box.getCategory() || (box.items.length > 0 ? getCategoryByItemId(box.items[0]) : null);
+            itemType = box.getItemType() || (box.items.length > 0 ? box.items[0] : null);
+        }
         const catConfig = catId ? getCategoryConfig(catId) : null;
-        const itemType = box.getItemType() || (box.items.length > 0 ? box.items[0] : null);
         const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
 
         if (catConfig) {
             el.style.setProperty('--cat-color', catConfig.color);
+        } else if (sealed || hiddenSlots.size > 0) {
+            el.style.setProperty('--cat-color', '#c98b4e');
+        } else if (hadBlockerState) {
+            el.style.removeProperty('--cat-color');
         }
 
         const logoEl = el.querySelector('.box-logo');
         if (logoEl) {
-            if (catConfig) logoEl.style.setProperty('--cat-color', catConfig.color);
+            if (catConfig) {
+                logoEl.style.setProperty('--cat-color', catConfig.color);
+            } else if (sealed || hiddenSlots.size > 0) {
+                logoEl.style.setProperty('--cat-color', '#c98b4e');
+            } else if (hadBlockerState) {
+                logoEl.style.removeProperty('--cat-color');
+            }
             logoEl.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
-            applyItemArt(logoEl.querySelector('.box-logo-icon'), itemType);
+            applyItemArt(logoEl.querySelector('.box-logo-icon'), sealed ? null : itemType);
         }
 
         const slots = el.querySelectorAll('.slot');
         for (let i = 0; i < 3; i++) {
-            const item = box.slots ? box.slots[i] : (i < box.items.length ? box.items[i] : null);
+            const item = slotItems[i];
             const has = item !== null && item !== undefined;
-            const text = has ? getItemEmoji(item) : '—';
+            const masked = concealed || hiddenSlots.has(i);
+            const frozen = frozenSlots.has(i);
+            const text = masked ? '?' : (has ? getItemEmoji(item) : '—');
             if (slots[i].textContent !== text) {
                 slots[i].textContent = text;
             }
-            slots[i].classList.toggle('placeholder', !has);
+            slots[i].classList.toggle('placeholder', masked ? false : !has);
+            slots[i].classList.toggle('blocker-masked', masked);
+            slots[i].classList.toggle('blocker-frozen', frozen);
             slots[i].dataset.slotIndex = i;
-            slots[i].dataset.hasItem = has ? 'true' : 'false';
-            applyItemArt(slots[i], has ? item : null);
-            slots[i].classList.toggle('selected', has && !!selectedSource && selectedSource.boxId === box.id && selectedSource.itemIndex === i);
+            slots[i].dataset.hasItem = masked ? 'unknown' : (has ? 'true' : 'false');
+            // This also removes every cached custom-art property from a slot that
+            // changed from a visible item to a masked or empty one.
+            applyItemArt(slots[i], masked ? null : (has ? item : null));
+            slots[i].classList.toggle('selected', !masked && has && !!selectedSource && selectedSource.boxId === box.id && selectedSource.itemIndex === i);
+
+            const slotRules = concealed ? concealedText : ((masked || frozen) ? joinedRules : '');
+            if (slotRules) {
+                slots[i].title = slotRules;
+                slots[i].setAttribute('aria-label', slotRules);
+                slots[i].dataset.blockerLabelled = 'true';
+            } else if (slots[i].dataset.blockerLabelled === 'true') {
+                slots[i].removeAttribute('title');
+                slots[i].removeAttribute('aria-label');
+                delete slots[i].dataset.blockerLabelled;
+            }
+        }
+
+        // One wrapping badge carries all rules; core clue strings are never parsed
+        // as HTML, and concealed cartons deliberately do not receive those clues.
+        let badgeEl = typeof el.querySelector === 'function' ? el.querySelector('.blocker-badge') : null;
+        const hadBadge = !!badgeEl;
+        if (badgeText) {
+            if (!badgeEl) {
+                badgeEl = document.createElement('div');
+                badgeEl.className = 'blocker-badge';
+                badgeEl.setAttribute('aria-hidden', 'true');
+                el.appendChild(badgeEl);
+            }
+            if (badgeEl.textContent !== badgeText) badgeEl.textContent = badgeText;
+        } else if (badgeEl) {
+            badgeEl.remove();
+        }
+
+        if (badgeText) {
+            el.title = badgeText;
+            el.setAttribute('aria-label', badgeText);
+            el.dataset.blockerLabelled = 'true';
+        } else if (hadBlockerState || hadBadge || el.dataset.blockerLabelled === 'true') {
+            el.removeAttribute('title');
+            el.removeAttribute('aria-label');
+            delete el.dataset.blockerLabelled;
         }
     }
 
@@ -5352,6 +6566,16 @@ class QueueRenderer {
                 slotEl.classList.add('occupied');
                 slotEl.dataset.boxId = box.id;
 
+                const view = typeof this.blockerView === 'function' ? this.blockerView(box.id) : undefined;
+                const coreBadges = view && Array.isArray(view.badges)
+                    ? view.badges.filter(text => typeof text === 'string' && text.trim().length > 0)
+                    : [];
+                // Hold duration is authored by core in these strings; the renderer
+                // does not invent or reconstruct a seconds value.
+                const badgeText = coreBadges.join(' · ');
+                const queueHeld = !!(view && view.queueHeld);
+                slotEl.classList.toggle('blocker-held', queueHeld);
+
                 const catConfig = getCategoryConfig(box.getCategory());
                 const catColor = catConfig ? catConfig.color : '#f59e0b';
                 slotEl.style.setProperty('--cat-color', catColor);
@@ -5373,12 +6597,40 @@ class QueueRenderer {
                     boxEl.style.opacity = '';
                     boxEl.dataset.boxId = String(box.id);
                 }
-                boxEl.querySelector('.queue-box-icon').textContent = displayEmoji;
-                applyItemArt(boxEl.querySelector('.queue-box-icon'), itemType);
+                const hadBlockerState = boxEl.classList.contains('blocker-held')
+                    || boxEl.classList.contains('blocker-marked')
+                    || boxEl.dataset.blockerLabelled === 'true';
+                boxEl.classList.toggle('blocker-held', queueHeld);
+                boxEl.classList.toggle('blocker-marked', badgeText.length > 0);
+                const iconEl = boxEl.querySelector('.queue-box-icon');
+                iconEl.textContent = displayEmoji;
+                // Queue artwork is intentionally still the actual queued item.
+                applyItemArt(iconEl, itemType);
                 boxEl.style.setProperty('--cat-color', catColor);
-                boxEl.title = catConfig ? catConfig.label : '';
+
+                let badgeEl = typeof boxEl.querySelector === 'function' ? boxEl.querySelector('.blocker-badge') : null;
+                const hadBadge = !!badgeEl;
+                if (badgeText) {
+                    if (!badgeEl) {
+                        badgeEl = document.createElement('div');
+                        badgeEl.className = 'blocker-badge';
+                        badgeEl.setAttribute('aria-hidden', 'true');
+                        boxEl.appendChild(badgeEl);
+                    }
+                    if (badgeEl.textContent !== badgeText) badgeEl.textContent = badgeText;
+                    boxEl.title = badgeText;
+                    boxEl.setAttribute('aria-label', badgeText);
+                    boxEl.dataset.blockerLabelled = 'true';
+                } else {
+                    if (badgeEl) badgeEl.remove();
+                    boxEl.title = catConfig ? catConfig.label : '';
+                    if (hadBlockerState || hadBadge || boxEl.dataset.blockerLabelled === 'true') {
+                        boxEl.removeAttribute('aria-label');
+                        delete boxEl.dataset.blockerLabelled;
+                    }
+                }
             } else {
-                slotEl.classList.remove('occupied');
+                slotEl.classList.remove('occupied', 'blocker-held', 'blocker-marked');
                 slotEl.style.removeProperty('--cat-color');
                 delete slotEl.dataset.boxId;
                 slotEl.innerHTML = '';
@@ -6052,7 +7304,14 @@ class UIManager {
         };
         this.conveyorRenderer = new ConveyorRenderer('conveyor-belt');
         this.queueRenderer = new QueueRenderer();
+        const blockerView = id => typeof this.engine.getBlockerView === 'function'
+            ? this.engine.getBlockerView(id)
+            : null;
+        this.boxRenderer.blockerView = blockerView;
+        this.queueRenderer.blockerView = blockerView;
         this.tutorialManager = new TutorialManager(this, this.engine);
+        this.activeBlockerScenario = null;
+        this._blockerDrainQueued = false;
         
         this.removeTrayMode = false;
         // DOM Elements
@@ -6067,6 +7326,8 @@ class UIManager {
         this.soundIconOff = document.getElementById('sound-icon-off');
         this.btnWinReplay = document.getElementById('btn-win-replay');
         this.btnLoseLevels = document.getElementById('btn-lose-levels');
+        this.blockerScenarioSelect = document.getElementById('blocker-scenario');
+        this.btnBlockerCampaign = document.getElementById('blocker-campaign');
         
         this.overlayWin = document.getElementById('overlay-win');
         this.overlayLose = document.getElementById('overlay-lose');
@@ -6111,7 +7372,10 @@ class UIManager {
             ghostEl: null,
             startX: 0,
             startY: 0,
-            didMove: false
+            didMove: false,
+            initialBlockerMask: false,
+            blockerMaskToken: null,
+            blockerHidden: false
         };
         this._resetAnimationState();
         this.GHOST_LIFT = 28;
@@ -6119,6 +7383,7 @@ class UIManager {
         this._boLuotFlip = false;
         this._lastAffectedColIndex = null;
         
+        this.populateBlockerScenarios();
         this.bindEvents();
         this.bindEngineCallbacks();
         this.renderLevelMenu();
@@ -6204,7 +7469,9 @@ class UIManager {
         
         this.btnNextLevel.addEventListener('click', () => {
             this.audio.tap();
-            this.currentLevel++;
+            // A blocker scenario never advances the campaign. Its Next action simply
+            // returns to the campaign level from which the scenario was opened.
+            if (!this.activeBlockerScenario) this.currentLevel++;
             this.startNewLevel();
         });
         
@@ -6236,6 +7503,25 @@ class UIManager {
             });
         }
 
+        if (this.blockerScenarioSelect) {
+            this.blockerScenarioSelect.addEventListener('change', () => {
+                const id = this.blockerScenarioSelect.value;
+                if (!id) return;
+                this.audio.tap();
+                this.activeBlockerScenario = id;
+                document.getElementById('overlay-help')?.classList.add('hidden');
+                this.startNewLevel(true);
+            });
+        }
+
+        if (this.btnBlockerCampaign) {
+            this.btnBlockerCampaign.addEventListener('click', () => {
+                this.audio.tap();
+                document.getElementById('overlay-help')?.classList.add('hidden');
+                this.startNewLevel();
+            });
+        }
+
         // Global unlock on first user gesture for Web Audio API
         const unlockAudio = () => {
             this.audio.ensure();
@@ -6258,6 +7544,156 @@ class UIManager {
         });
     }
     
+    _blockerScenarioEntries() {
+        if (Array.isArray(BLOCKER_SCENARIOS)) {
+            return BLOCKER_SCENARIOS.map(scenario => typeof scenario === 'string'
+                ? { id: scenario, name: scenario }
+                : scenario);
+        }
+        if (BLOCKER_SCENARIOS && typeof BLOCKER_SCENARIOS === 'object') {
+            return Object.entries(BLOCKER_SCENARIOS).map(([id, scenario]) => {
+                if (typeof scenario === 'string') return { id, name: scenario };
+                return { ...(scenario || {}), id: scenario?.id || id };
+            });
+        }
+        return [];
+    }
+
+    _blockerScenario(id) {
+        return this._blockerScenarioEntries().find(scenario => String(scenario?.id) === String(id)) || null;
+    }
+
+    _blockerScenarioLabel(id) {
+        const scenario = this._blockerScenario(id);
+        return String(scenario?.hudLabel || scenario?.label || scenario?.name || scenario?.title || scenario?.id || id);
+    }
+
+    populateBlockerScenarios() {
+        const select = this.blockerScenarioSelect;
+        if (!select) return;
+        select.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '— Chọn kịch bản cơ chế —';
+        select.appendChild(placeholder);
+        for (const scenario of this._blockerScenarioEntries()) {
+            if (!scenario || scenario.id === undefined || scenario.id === null) continue;
+            const option = document.createElement('option');
+            option.value = String(scenario.id);
+            option.textContent = String(scenario.label || scenario.name || scenario.title || scenario.id);
+            select.appendChild(option);
+        }
+        select.value = this.activeBlockerScenario || '';
+    }
+
+    clearBlockerScenario() {
+        this.activeBlockerScenario = null;
+        if (this.blockerScenarioSelect) this.blockerScenarioSelect.value = '';
+    }
+
+    _getBlockerView(id) {
+        return typeof this.engine.getBlockerView === 'function'
+            ? (this.engine.getBlockerView(id) || null)
+            : null;
+    }
+
+    _canMoveBlockerItem(id, slotIndex) {
+        return typeof this.engine.canMoveBlockerItem !== 'function' ||
+            this.engine.canMoveBlockerItem(id, slotIndex) !== false;
+    }
+
+    _canQueueBlockerBox(id) {
+        return typeof this.engine.canQueueBlockerBox !== 'function' ||
+            this.engine.canQueueBlockerBox(id) !== false;
+    }
+
+    _canDispatchBlockerBox(id) {
+        return typeof this.engine.canDispatchBlockerBox !== 'function' ||
+            this.engine.canDispatchBlockerBox(id) !== false;
+    }
+
+    _refuseBlocker(anchor, fallback) {
+        const message = this.engine.lastBlockerError || fallback;
+        this.audio?.reject?.();
+        if (anchor) this._fx('invalid', anchor, message);
+        this._fx('toast', message);
+        if (navigator.vibrate) navigator.vibrate(18);
+        return false;
+    }
+
+    _blockerSlotMask(view, slotIndex) {
+        const empty = { hidden: false, token: null };
+        const slots = view?.hiddenSlots;
+        if (!slots) return empty;
+        const index = Number(slotIndex);
+        const masked = raw => {
+            if (raw === undefined || raw === null || raw === false) return empty;
+            if (typeof raw === 'object') {
+                if (raw.hidden === false || raw.masked === false || raw.concealed === false) return empty;
+                return { hidden: true, token: raw.token ?? raw.maskToken ?? raw.key ?? raw };
+            }
+            return { hidden: true, token: raw === true ? index : raw };
+        };
+
+        if (slots instanceof Set) {
+            if (slots.has(index)) return masked(index);
+            if (slots.has(String(index))) return masked(String(index));
+            return empty;
+        }
+        if (slots instanceof Map) {
+            if (slots.has(index)) return masked(slots.get(index));
+            if (slots.has(String(index))) return masked(slots.get(String(index)));
+            return empty;
+        }
+        if (Array.isArray(slots)) {
+            const indexedEntry = slots.find(entry => entry && typeof entry === 'object' &&
+                Number(entry.slotIndex ?? entry.slot ?? entry.index) === index);
+            if (indexedEntry) return masked(indexedEntry);
+
+            const numericIndexList = slots.every(value =>
+                (typeof value === 'number' && Number.isInteger(value)) ||
+                (typeof value === 'string' && /^\d+$/.test(value)));
+            if (numericIndexList) {
+                if (slots.includes(index)) return masked(index);
+                if (slots.includes(String(index))) return masked(String(index));
+                return empty;
+            }
+
+            const direct = slots[slotIndex];
+            if (direct !== undefined) return masked(direct);
+            if (slots.includes(index)) return masked(index);
+            if (slots.includes(String(index))) return masked(String(index));
+            return empty;
+        }
+        if (typeof slots === 'object') {
+            if (Object.prototype.hasOwnProperty.call(slots, slotIndex)) return masked(slots[slotIndex]);
+            if (Object.prototype.hasOwnProperty.call(slots, index)) return masked(slots[index]);
+        }
+        return empty;
+    }
+
+    _refreshItemDragGhost() {
+        const state = this.itemDragState;
+        if (!state?.isDragging || !state.ghostEl) return;
+        const mask = this._blockerSlotMask(
+            this._getBlockerView(state.sourceBoxId),
+            state.sourceSlotIndex
+        );
+        state.blockerMaskToken = mask.token;
+        // Once concealed at pickup, never expose the real artwork during that drag.
+        // A slot can also become masked while it is being dragged.
+        state.blockerHidden = !!state.initialBlockerMask || mask.hidden;
+        applyItemArt(state.ghostEl, state.blockerHidden ? null : state.itemId);
+        state.ghostEl.textContent = state.blockerHidden ? '?' : getItemEmoji(state.itemId);
+    }
+
+    _cleanupPendingQueueBox(box) {
+        if (!box) return;
+        this._busyBoxes.delete(String(box.id));
+        const element = document.querySelector(`.box[data-box-id="${box.id}"]`);
+        if (element) element.style.visibility = '';
+    }
+
     updateConveyorSpeed() {
         const boardEmpty = !this.engine.boxes.some(box => !box.isEmpty());
         this.trayRenderer.speedMultiplier = this.engine.gameState === 'PLAYING' && boardEmpty ? 1.5 : 1;
@@ -6398,7 +7834,7 @@ class UIManager {
         if (this.winStatEff) this.winStatEff.textContent = '100%';
 
         // Tính sao dựa trên độ tối ưu nước đi (1, 2, hoặc 3 sao)
-        const cfg = configForLevelNumber(this.currentLevel);
+        const cfg = this.activeBlockerScenario ? {} : configForLevelNumber(this.currentLevel);
         const par = cfg.par || Math.max(4, Math.floor((cfg.numBoxes || 6) * 1.5));
         let stars = 3;
         if (this.engine.moveCount > par * 1.5) stars = 2;
@@ -6464,6 +7900,21 @@ class UIManager {
         
         this.engine.onBoxUpdated = (box, isRemoved = false) => {
             this.updateRender();
+        };
+
+        this.engine.onBlockerUpdated = () => {
+            this.updateRender();
+            if (this._blockerDrainQueued) return;
+            this._blockerDrainQueued = true;
+            const epoch = this._animationEpoch;
+            const drain = () => {
+                this._blockerDrainQueued = false;
+                if (epoch !== this._animationEpoch || this.engine.gameState !== 'PLAYING') return;
+                this._drainQueueFlights();
+            };
+            // Never mutate queue state synchronously from inside the core callback.
+            if (typeof queueMicrotask === 'function') queueMicrotask(drain);
+            else Promise.resolve().then(drain);
         };
         
         this.engine.onTrayDelivered = (trayId, box) => {
@@ -6557,6 +8008,8 @@ class UIManager {
     }
 
     async startNewLevel(isRetry = false) {
+        if (!isRetry) this.clearBlockerScenario();
+        const scenarioId = this.activeBlockerScenario;
         this._resetAnimationState();
         // Freeze the previous level before yielding to paint the loading overlay.
         // Its conveyor ticks must not create deliveries using the new epoch.
@@ -6578,26 +8031,32 @@ class UIManager {
         
         if (levelEpoch !== this._animationEpoch) return;
         // Duong cong do kho nam TRON VEN trong configForLevelNumber() cua bo sinh man.
-        const levelData = LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
+        const levelData = scenarioId
+            ? createBlockerLevel(scenarioId)
+            : LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
         
         this.queueRenderer.render([]);
         this.trayRenderer.reset();
         this.engine.startLevel(levelData);
         this._clockLastTime = performance.now();
-        const tier = levelData.config?.tier || configForLevelNumber(this.currentLevel).tier;
+        const tier = scenarioId ? 'blocker' : (levelData.config?.tier || configForLevelNumber(this.currentLevel).tier);
         if (this.tierDisplay) {
-            this.tierDisplay.textContent = ({ tutorial: 'HƯỚNG DẪN', onboarding: 'LÀM QUEN', acclimation: 'LUYỆN TẬP',
-                normal: 'NORMAL', hard: 'HARD', superhard: 'SUPER HARD' })[tier] || 'NORMAL';
+            this.tierDisplay.textContent = scenarioId ? 'THỬ THÁCH' : (({ tutorial: 'HƯỚNG DẪN', onboarding: 'LÀM QUEN', acclimation: 'LUYỆN TẬP',
+                normal: 'NORMAL', hard: 'HARD', superhard: 'SUPER HARD' })[tier] || 'NORMAL');
             this.tierDisplay.dataset.tier = tier;
         }
-        this.levelDisplay.textContent = this.currentLevel;
+        this.levelDisplay.textContent = scenarioId ? `THỬ: ${this._blockerScenarioLabel(scenarioId)}` : this.currentLevel;
+        this.levelDisplay.title = scenarioId ? `Kịch bản: ${this._blockerScenarioLabel(scenarioId)}` : `Màn ${this.currentLevel}`;
+        if (this.btnNextLevel) {
+            this.btnNextLevel.textContent = scenarioId ? 'VỀ MÀN THƯỜNG ➔' : 'TIẾP TỤC MÀN KẾ ➔';
+        }
         this._boLuotFlip = true;
         
         this.updateRender();
         this.overlayLoading.classList.add('hidden');
         this.renderTimer();
 
-        if (this.currentLevel === 1) {
+        if (!scenarioId && this.currentLevel === 1) {
             this.tutorialManager.startLevel1Tutorial();
         } else {
             this.tutorialManager.skipTutorial();
@@ -6614,6 +8073,7 @@ class UIManager {
     }
 
     _renderNow() {
+        this._refreshItemDragGhost();
         // F4 UI bugfix: pending press must not highlight targets before the move threshold.
         const validTargets = this.itemDragState.isDragging && this.itemDragState.didMove
             ? this.engine.getValidTargets(this.itemDragState.sourceBoxId)
@@ -6863,6 +8323,13 @@ class UIManager {
         const itemId = box.slots ? box.slots[slotIndex] : null;
         if (!itemId) return;
 
+        if (!this._canMoveBlockerItem(boxId, slotIndex)) {
+            return this._refuseBlocker(slotEl, 'Vật này đang bị chặn và chưa thể di chuyển.');
+        }
+        // A mask is presentation-only: a concealed slot remains movable whenever
+        // the core blocker rule explicitly allows the move.
+        const initialMask = this._blockerSlotMask(this._getBlockerView(boxId), slotIndex);
+
         // Tutorial check
         if (this.tutorialManager && this.tutorialManager.active) {
             if (this.tutorialManager.isAllowedDragStart && !this.tutorialManager.isAllowedDragStart(boxId)) {
@@ -6889,6 +8356,9 @@ class UIManager {
         this.itemDragState.sourceBoxId = boxId;
         this.itemDragState.sourceSlotIndex = slotIndex;
         this.itemDragState.itemId = itemId;
+        this.itemDragState.initialBlockerMask = initialMask.hidden;
+        this.itemDragState.blockerMaskToken = initialMask.token;
+        this.itemDragState.blockerHidden = initialMask.hidden;
         this.itemDragState.targetBoxId = null;
         this.itemDragState.targetSlotIndex = null;
         this.itemDragState.pointerId = e ? e.pointerId : null;
@@ -6907,13 +8377,13 @@ class UIManager {
             ghost.className = 'item-drag-ghost';
             document.body.appendChild(ghost);
         }
-        ghost.textContent = getItemEmoji(itemId);
-        applyItemArt(ghost, itemId);
+        ghost.textContent = '';
         ghost.style.display = 'none';
         ghost.style.transition = '';
         ghost.style.transform = '';
         ghost.style.opacity = '';
         this.itemDragState.ghostEl = ghost;
+        this._refreshItemDragGhost();
 
         this.updateRender();
     }
@@ -6921,6 +8391,7 @@ class UIManager {
     handleItemDragMove(e) {
         if (!this.itemDragState.isDragging) return;
         if (e.preventDefault) e.preventDefault();
+        this._refreshItemDragGhost();
 
         // F4 UI bugfix: below the 6px threshold this stays a silent tap.
         if (!this.itemDragState.didMove) {
@@ -7161,6 +8632,9 @@ class UIManager {
         state.targetSlotIndex = null;
         state.sourceSlotEl = null;
         state.ghostEl = null;
+        state.initialBlockerMask = false;
+        state.blockerMaskToken = null;
+        state.blockerHidden = false;
     }
 
     _cancelItemDrag(ghost, srcSlotEl) {
@@ -7221,6 +8695,7 @@ class UIManager {
         this._pendingQueueBoxes = [];
         this._queueFlightActive = false;
         this._deliveryAnimating = false;
+        this._blockerDrainQueued = false;
         // F3 presentation-only: reset FX-side bookkeeping (never gameplay timers).
         this._pendingPackFeedback = new Set();
         this._queueWarningLevel = 0;
@@ -7233,9 +8708,39 @@ class UIManager {
 
     _drainQueueFlights() {
         if (this._queueFlightActive || this._deliveryAnimating || !this._pendingQueueBoxes.length || this.engine.gameState !== 'PLAYING') return;
-        const box = this._pendingQueueBoxes[0];
         const queue = this.engine.getQueue();
+        let box = null;
+        let boxIndex = -1;
+
+        // A blocked connector must not prevent a later, independent box from flying.
+        // Keep denied entries pending and busy so a later blocker update can retry them.
+        for (let i = 0; i < this._pendingQueueBoxes.length;) {
+            const candidate = this._pendingQueueBoxes[i];
+            if (this.engine.getBox(candidate.id) !== candidate || queue.includes(candidate)) {
+                this._pendingQueueBoxes.splice(i, 1);
+                this._cleanupPendingQueueBox(candidate);
+                continue;
+            }
+            if (!this._canQueueBlockerBox(candidate.id)) {
+                i++;
+                continue;
+            }
+            box = candidate;
+            boxIndex = i;
+            break;
+        }
+        if (!box) {
+            // Denied connectors remain pending, but blocker logic must still evaluate
+            // whether the current queue/tray state is an actual deadlock.
+            if (this.engine.blockerState?.enabled && typeof this.engine.checkConditions === 'function') {
+                this.engine.checkConditions();
+            }
+            return;
+        }
+
+        // Stale/admitted-pair cleanup above deliberately precedes capacity handling.
         if (queue.length >= this.engine.maxQueueSize) {
+            if (this.engine.blockerState?.enabled) return;
             const trays = this.engine.conveyor.getAllActiveTrays();
             // An outgoing tray can expose the order needed to free a queue slot.
             if (this.engine.hasPendingTrayExits() || queue.some(b => trays.some(t => t.canAccept(b))) || this._deliveryAnimating) return;
@@ -7243,12 +8748,8 @@ class UIManager {
             this.engine.setGameState('LOST');
             return;
         }
-        this._pendingQueueBoxes.shift();
-        if (this.engine.getBox(box.id) !== box || queue.includes(box)) {
-            this._busyBoxes.delete(String(box.id));
-            this._drainQueueFlights();
-            return;
-        }
+
+        this._pendingQueueBoxes.splice(boxIndex, 1);
         const epoch = this._animationEpoch;
         this._queueFlightActive = true;
         const domBox = document.querySelector(`.box[data-box-id="${box.id}"]`);
@@ -7257,9 +8758,26 @@ class UIManager {
             if (epoch !== this._animationEpoch) return;
             this._queueFlightActive = false;
             this._busyBoxes.delete(String(box.id));
+
+            // Atomic pair admission may have admitted this box while its flight was
+            // already in progress. Never enqueue it twice or leave its board node hidden.
+            if (this.engine.getBox(box.id) !== box || this.engine.getQueue().includes(box)) {
+                if (domBox) domBox.style.visibility = '';
+                this.updateRender();
+                this._drainQueueFlights();
+                return;
+            }
+
+            let admissionFailed = false;
             if (this.engine.gameState === 'PLAYING') {
                 box.queueEnteredTime = performance.now();
-                this.engine.moveBoxToQueue(box);
+                const moved = this.engine.moveBoxToQueue(box);
+                if (moved === false && this.engine.getBox(box.id) === box && !this.engine.getQueue().includes(box)) {
+                    admissionFailed = true;
+                    if (domBox) domBox.style.visibility = '';
+                    if (!this._pendingQueueBoxes.includes(box)) this._pendingQueueBoxes.unshift(box);
+                    this._busyBoxes.add(String(box.id));
+                }
             }
             this.updateRender();
             // F3 presentation-only: land FX only for boxes still present in queue this epoch.
@@ -7271,7 +8789,7 @@ class UIManager {
                     this._fx('land', slotEl);
                 }
             }
-            this._drainQueueFlights();
+            if (!admissionFailed) this._drainQueueFlights();
         });
     }
 
@@ -7490,6 +9008,7 @@ class UIManager {
         for (let slotIdx = 0; slotIdx < queue.length; slotIdx++) {
             const box = queue[slotIdx];
             if (!box) continue;
+            if (!this._canDispatchBlockerBox(box.id)) continue;
 
             // Cho thung nam yen trong slot it nhat 250ms sau khi bay xuong hang cho
             if (box.queueEnteredTime && (now - box.queueEnteredTime < 250)) {
@@ -7514,10 +9033,19 @@ class UIManager {
     }
 
     triggerQueueDelivery(box, tray, slotEl, trayEl) {
+        if (!this._canDispatchBlockerBox(box.id)) {
+            return this._refuseBlocker(slotEl, 'Thùng này đang được giữ trong hàng chờ.');
+        }
         this._deliveryAnimating = true;
         const epoch = this._animationEpoch;
 
         const trayObj = this.trayRenderer.trayElements.find(t => t.id === tray.id);
+        const wasReceiving = trayObj ? trayObj.isReceiving : false;
+        const slotClassName = slotEl.className;
+        const slotOpacity = slotEl.style.opacity;
+        const slotVisibility = slotEl.style.visibility;
+        const queueBoxEl = slotEl.querySelector('.queue-box');
+        const queueBoxOpacity = queueBoxEl ? queueBoxEl.style.opacity : '';
         if (trayObj) {
             trayObj.isReceiving = true;
         }
@@ -7530,8 +9058,21 @@ class UIManager {
         this.queueRenderer.animateBoxToTray(box, slotEl, trayEl, () => {
             if (epoch !== this._animationEpoch) return;
             slotEl.classList.remove('dispatching');
-            this.engine.deliverQueueBox(box.id, tray.id);
+            const delivered = this.engine.deliverQueueBox(box.id, tray.id);
             this._deliveryAnimating = false;
+
+            if (delivered === false) {
+                slotEl.className = slotClassName;
+                slotEl.style.opacity = slotOpacity;
+                slotEl.style.visibility = slotVisibility;
+                if (queueBoxEl) queueBoxEl.style.opacity = queueBoxOpacity;
+                if (trayObj) trayObj.isReceiving = wasReceiving;
+                this._fx('toast', this.engine.lastBlockerError || 'Thùng chưa thể giao cho khay này.');
+                this.updateRender();
+                this._drainQueueFlights();
+                return;
+            }
+
             this._drainQueueFlights();
 
             const now = performance.now();

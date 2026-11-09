@@ -209,43 +209,145 @@ export class BoxRenderer {
     }
 
     _updateBox(el, box, selectedSource, validTargetIds) {
-        el.classList.toggle('empty-box', box.isEmpty());
+        const view = typeof this.blockerView === 'function' ? this.blockerView(box.id) : undefined;
+        const concealed = !!(view && view.concealed);
+        const toSlotSet = values => new Set((Array.isArray(values) ? values : [])
+            .map(Number)
+            .filter(i => Number.isInteger(i) && i >= 0 && i < 3));
+        const hiddenSlots = concealed ? new Set() : toSlotSet(view && view.hiddenSlots);
+        const frozenSlots = toSlotSet(view && view.frozenSlots);
+        const coreBadges = view && Array.isArray(view.badges)
+            ? view.badges.filter(text => typeof text === 'string' && text.trim().length > 0)
+            : [];
+        const joinedRules = coreBadges.join(' · ');
+        const concealedText = 'Bí mật — lên đầu cột để mở';
+        const stuck = !concealed && box.isEmpty() && coreBadges.length > 0;
+        const sealed = concealed || stuck;
+        const badgeText = concealed ? concealedText : joinedRules;
+        const blocked = !!(view && view.blocked);
+        const hadBlockerState = el.classList.contains('blocker-marked')
+            || el.classList.contains('blocker-concealed')
+            || el.classList.contains('blocker-masked')
+            || el.classList.contains('blocker-frozen')
+            || el.classList.contains('blocker-stuck')
+            || el.dataset.blockerLabelled === 'true';
+
+        // A sealed carton must not expose even its empty/near-pack state.
+        el.classList.toggle('empty-box', concealed ? false : box.isEmpty());
         el.classList.toggle('wrapped', box.isWrapped);
         el.classList.toggle('valid-target', !box.isWrapped && validTargetIds.includes(box.id));
         el.classList.toggle('selected', !box.isWrapped && !!selectedSource && selectedSource.boxId === box.id);
-        el.classList.toggle('near-pack', !box.isWrapped && box.items.length >= 2 && box.items[0] === box.items[1]);
+        const nearPackVisible = !concealed && hiddenSlots.size === 0;
+        el.classList.toggle('near-pack', nearPackVisible && !box.isWrapped && box.items.length >= 2 && box.items[0] === box.items[1]);
+        el.classList.toggle('blocker-concealed', concealed);
+        el.classList.toggle('blocker-stuck', stuck);
+        el.classList.toggle('blocker-sealed', sealed);
+        el.classList.toggle('blocker-masked', concealed || hiddenSlots.size > 0);
+        el.classList.toggle('blocker-frozen', frozenSlots.size > 0);
+        el.classList.toggle('blocker-blocked', blocked);
+        el.classList.toggle('blocker-marked', badgeText.length > 0);
 
         el.style.cursor = box.isWrapped ? 'grab' : '';
 
-        const catId = box.getCategory() || (box.items.length > 0 ? getCategoryByItemId(box.items[0]) : null);
+        const slotItems = [0, 1, 2].map(i => box.slots
+            ? box.slots[i]
+            : (i < box.items.length ? box.items[i] : null));
+        let catId;
+        let itemType;
+        if (sealed) {
+            catId = null;
+            itemType = null;
+        } else if (hiddenSlots.size > 0) {
+            // Never fall back to the first item when that slot is masked. A visible
+            // sibling is a valid logo clue; otherwise the carton stays generic.
+            const visibleIndex = slotItems.findIndex((item, i) => !hiddenSlots.has(i)
+                && item !== null && item !== undefined);
+            itemType = visibleIndex >= 0 ? slotItems[visibleIndex] : null;
+            catId = itemType ? getCategoryByItemId(itemType) : null;
+        } else {
+            catId = box.getCategory() || (box.items.length > 0 ? getCategoryByItemId(box.items[0]) : null);
+            itemType = box.getItemType() || (box.items.length > 0 ? box.items[0] : null);
+        }
         const catConfig = catId ? getCategoryConfig(catId) : null;
-        const itemType = box.getItemType() || (box.items.length > 0 ? box.items[0] : null);
         const displayEmoji = itemType ? getItemEmoji(itemType) : (catConfig ? catConfig.icon : '📦');
 
         if (catConfig) {
             el.style.setProperty('--cat-color', catConfig.color);
+        } else if (sealed || hiddenSlots.size > 0) {
+            el.style.setProperty('--cat-color', '#c98b4e');
+        } else if (hadBlockerState) {
+            el.style.removeProperty('--cat-color');
         }
 
         const logoEl = el.querySelector('.box-logo');
         if (logoEl) {
-            if (catConfig) logoEl.style.setProperty('--cat-color', catConfig.color);
+            if (catConfig) {
+                logoEl.style.setProperty('--cat-color', catConfig.color);
+            } else if (sealed || hiddenSlots.size > 0) {
+                logoEl.style.setProperty('--cat-color', '#c98b4e');
+            } else if (hadBlockerState) {
+                logoEl.style.removeProperty('--cat-color');
+            }
             logoEl.innerHTML = `<span class="box-logo-icon">${displayEmoji}</span>`;
-            applyItemArt(logoEl.querySelector('.box-logo-icon'), itemType);
+            applyItemArt(logoEl.querySelector('.box-logo-icon'), sealed ? null : itemType);
         }
 
         const slots = el.querySelectorAll('.slot');
         for (let i = 0; i < 3; i++) {
-            const item = box.slots ? box.slots[i] : (i < box.items.length ? box.items[i] : null);
+            const item = slotItems[i];
             const has = item !== null && item !== undefined;
-            const text = has ? getItemEmoji(item) : '—';
+            const masked = concealed || hiddenSlots.has(i);
+            const frozen = frozenSlots.has(i);
+            const text = masked ? '?' : (has ? getItemEmoji(item) : '—');
             if (slots[i].textContent !== text) {
                 slots[i].textContent = text;
             }
-            slots[i].classList.toggle('placeholder', !has);
+            slots[i].classList.toggle('placeholder', masked ? false : !has);
+            slots[i].classList.toggle('blocker-masked', masked);
+            slots[i].classList.toggle('blocker-frozen', frozen);
             slots[i].dataset.slotIndex = i;
-            slots[i].dataset.hasItem = has ? 'true' : 'false';
-            applyItemArt(slots[i], has ? item : null);
-            slots[i].classList.toggle('selected', has && !!selectedSource && selectedSource.boxId === box.id && selectedSource.itemIndex === i);
+            slots[i].dataset.hasItem = masked ? 'unknown' : (has ? 'true' : 'false');
+            // This also removes every cached custom-art property from a slot that
+            // changed from a visible item to a masked or empty one.
+            applyItemArt(slots[i], masked ? null : (has ? item : null));
+            slots[i].classList.toggle('selected', !masked && has && !!selectedSource && selectedSource.boxId === box.id && selectedSource.itemIndex === i);
+
+            const slotRules = concealed ? concealedText : ((masked || frozen) ? joinedRules : '');
+            if (slotRules) {
+                slots[i].title = slotRules;
+                slots[i].setAttribute('aria-label', slotRules);
+                slots[i].dataset.blockerLabelled = 'true';
+            } else if (slots[i].dataset.blockerLabelled === 'true') {
+                slots[i].removeAttribute('title');
+                slots[i].removeAttribute('aria-label');
+                delete slots[i].dataset.blockerLabelled;
+            }
+        }
+
+        // One wrapping badge carries all rules; core clue strings are never parsed
+        // as HTML, and concealed cartons deliberately do not receive those clues.
+        let badgeEl = typeof el.querySelector === 'function' ? el.querySelector('.blocker-badge') : null;
+        const hadBadge = !!badgeEl;
+        if (badgeText) {
+            if (!badgeEl) {
+                badgeEl = document.createElement('div');
+                badgeEl.className = 'blocker-badge';
+                badgeEl.setAttribute('aria-hidden', 'true');
+                el.appendChild(badgeEl);
+            }
+            if (badgeEl.textContent !== badgeText) badgeEl.textContent = badgeText;
+        } else if (badgeEl) {
+            badgeEl.remove();
+        }
+
+        if (badgeText) {
+            el.title = badgeText;
+            el.setAttribute('aria-label', badgeText);
+            el.dataset.blockerLabelled = 'true';
+        } else if (hadBlockerState || hadBadge || el.dataset.blockerLabelled === 'true') {
+            el.removeAttribute('title');
+            el.removeAttribute('aria-label');
+            delete el.dataset.blockerLabelled;
         }
     }
 

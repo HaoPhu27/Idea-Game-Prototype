@@ -40,6 +40,16 @@ export class QueueRenderer {
                 slotEl.classList.add('occupied');
                 slotEl.dataset.boxId = box.id;
 
+                const view = typeof this.blockerView === 'function' ? this.blockerView(box.id) : undefined;
+                const coreBadges = view && Array.isArray(view.badges)
+                    ? view.badges.filter(text => typeof text === 'string' && text.trim().length > 0)
+                    : [];
+                // Hold duration is authored by core in these strings; the renderer
+                // does not invent or reconstruct a seconds value.
+                const badgeText = coreBadges.join(' · ');
+                const queueHeld = !!(view && view.queueHeld);
+                slotEl.classList.toggle('blocker-held', queueHeld);
+
                 const catConfig = getCategoryConfig(box.getCategory());
                 const catColor = catConfig ? catConfig.color : '#f59e0b';
                 slotEl.style.setProperty('--cat-color', catColor);
@@ -61,12 +71,40 @@ export class QueueRenderer {
                     boxEl.style.opacity = '';
                     boxEl.dataset.boxId = String(box.id);
                 }
-                boxEl.querySelector('.queue-box-icon').textContent = displayEmoji;
-                applyItemArt(boxEl.querySelector('.queue-box-icon'), itemType);
+                const hadBlockerState = boxEl.classList.contains('blocker-held')
+                    || boxEl.classList.contains('blocker-marked')
+                    || boxEl.dataset.blockerLabelled === 'true';
+                boxEl.classList.toggle('blocker-held', queueHeld);
+                boxEl.classList.toggle('blocker-marked', badgeText.length > 0);
+                const iconEl = boxEl.querySelector('.queue-box-icon');
+                iconEl.textContent = displayEmoji;
+                // Queue artwork is intentionally still the actual queued item.
+                applyItemArt(iconEl, itemType);
                 boxEl.style.setProperty('--cat-color', catColor);
-                boxEl.title = catConfig ? catConfig.label : '';
+
+                let badgeEl = typeof boxEl.querySelector === 'function' ? boxEl.querySelector('.blocker-badge') : null;
+                const hadBadge = !!badgeEl;
+                if (badgeText) {
+                    if (!badgeEl) {
+                        badgeEl = document.createElement('div');
+                        badgeEl.className = 'blocker-badge';
+                        badgeEl.setAttribute('aria-hidden', 'true');
+                        boxEl.appendChild(badgeEl);
+                    }
+                    if (badgeEl.textContent !== badgeText) badgeEl.textContent = badgeText;
+                    boxEl.title = badgeText;
+                    boxEl.setAttribute('aria-label', badgeText);
+                    boxEl.dataset.blockerLabelled = 'true';
+                } else {
+                    if (badgeEl) badgeEl.remove();
+                    boxEl.title = catConfig ? catConfig.label : '';
+                    if (hadBlockerState || hadBadge || boxEl.dataset.blockerLabelled === 'true') {
+                        boxEl.removeAttribute('aria-label');
+                        delete boxEl.dataset.blockerLabelled;
+                    }
+                }
             } else {
-                slotEl.classList.remove('occupied');
+                slotEl.classList.remove('occupied', 'blocker-held', 'blocker-marked');
                 slotEl.style.removeProperty('--cat-color');
                 delete slotEl.dataset.boxId;
                 slotEl.innerHTML = '';

@@ -2,6 +2,7 @@ import { boosterSnapshot, boosterMatchingInvariant, boosterProveSolvable } from 
 import { Box } from './Box.js';
 import { Conveyor } from './Conveyor.js';
 import { Tray } from './Tray.js';
+import { installBlockerRules } from './BlockerRules.js';
 
 export class GameEngine {
     constructor() {
@@ -31,6 +32,8 @@ export class GameEngine {
         this.onTrayDelivered = null;
         this.onGameStateChanged = null;
         this.onMoveCountUpdated = null;
+
+        installBlockerRules(this);
     }
 
     startLevel(levelConfig) {
@@ -69,11 +72,11 @@ export class GameEngine {
         }
 
         // Luat moi: Thung rong tu dong bien mat. Neu co thung rong luc start thi loai bo ngay.
-        const emptyBoxes = this.boxes.filter(b => b.isEmpty());
+        const emptyBoxes = this.boxes.filter(b => b.isEmpty() && !this._isBlockerStuckBox(b.id));
         for (const eb of emptyBoxes) {
             this._removeFromColumn(eb.id);
         }
-        this.boxes = this.boxes.filter(b => !b.isEmpty());
+        this.boxes = this.boxes.filter(b => !b.isEmpty() || this._isBlockerStuckBox(b.id));
 
         // Với những level không có box ẩn (không có cột nào vượt quá visibleRows),
         // tính effectiveRows theo chiều cao cột lớn nhất ban đầu để đẩy box lên sát conveyor.
@@ -95,7 +98,7 @@ export class GameEngine {
         this.loseReason = '';
 
         // Neu co thung wrapped san (hiem), dua vao queue
-        const initialWrapped = this.boxes.filter(b => b.isWrapped);
+        const initialWrapped = this.boxes.filter(b => b.isWrapped && !this.blockerState?.enabled);
         for (const wb of initialWrapped) {
             this._removeFromColumn(wb.id);
             this.queue.push(wb);
@@ -268,6 +271,11 @@ export class GameEngine {
     setGameState(newState) {
         this.gameState = newState;
         if (this.onGameStateChanged) this.onGameStateChanged(newState);
+    }
+
+    _isBlockerStuckBox(boxId) {
+        const record = this.blockerState?.enabled ? this.blockerState.records.get(boxId) : null;
+        return record?.type === 'stuck' && !record.released;
     }
 
     getBox(id) {

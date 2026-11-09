@@ -75,3 +75,22 @@ Một số ý tưởng ban đầu cần điều chỉnh có chủ đích: Frozen
 
 ## Cập nhật yêu cầu nhánh (2026-11-09)
 Người dùng yêu cầu tạo nhánh `new-mechanic` để commit/push, **chưa merge main**. Yêu cầu này thay thế bước triển khai trước đó: không cập nhật main/master hoặc GitHub Pages trong đợt blocker này. Kiểm thử/build vẫn bắt buộc trước khi commit thành phẩm. Tiến trình, mã và test blocker sẽ nằm trên nhánh mới.
+
+## Bổ sung bắt buộc từ người dùng — 2026-11-09
+**CẤM đưa mechanic vào level có sẵn.** Tạo mục riêng Mechanic Lab, gồm màn từng mechanic và sáu màn kết hợp. Không thay đổi configForLevelNumber, CuratedLevelSeeds hoặc nội dung campaign 1–50. Thêm kiểm tra snapshot campaign trước/sau để bảo đảm điều này.
+
+| Tổ hợp | Tier đề xuất | Luật triển khai ban đầu |
+|---|---|---|
+| Locked + Key Box | Normal/Hard | Key Box là box ID thật; ship đúng box đó mở khóa, không phải vật phẩm chìa khóa mới |
+| Sticky Item + One-Way Box | Hard | Hai item cùng itemId đi cùng nhau; cần đủ hai ô đích. One-Way chỉ nhận vào, không lấy ra; ghép triple vẫn ship bình thường |
+| Hidden Box + Urgent Box | Hard | Box cấp bách bị che nội dung; timer bắt đầu khi box hiện trong vùng nhìn thấy và đã bắt đầu chơi, không đợi mở nắp; vào queue đúng hạn là thành công |
+| Connector + Restricted Queue | Super Hard | Queue riêng màn mẫu chỉ có hai chỗ, vẫn nhận cả cặp nguyên tử; Extra Tray cộng một chỗ vào dung lượng riêng của màn |
+| Frozen + Color-Changing Item | Super Hard | Sau tan băng có thời điểm đổi loại: hoán đổi nguyên tử hai token khác loại để bảo toàn tổng mỗi item và đơn hàng. Nếu token đã wrapped/ship thì hủy cả lần đổi, không đổi một nửa |
+| Stuck + Priority Tray | Hard | Priority tray chỉ được giao sau khi giải phóng Stuck. Khi đã mở, ưu tiên hoàn thành tray đó trước đơn khác; trước khi mở vẫn cho giao kiện dùng để giải kẹt |
+
+Tier trên là nhãn thiết kế theo yêu cầu, chưa phải kết quả cân bằng độ khó bằng người chơi. Mỗi màn kết hợp có referenceActions, kiểm tra invariant và replay trên engine thật; không coi solver cũ là chứng nhận cho luật mới.
+
+### Task bổ sung
+- River B5: module combo độc lập, luật sticky/one-way/queue/color/priority và sáu cấu hình riêng. Không sửa generator campaign. Chủ trì trực tiếp review các giao dịch nguyên tử và timer.
+- River/Lite B6: mục Mechanic Lab có màn đơn và màn kết hợp, nhãn tier và mô tả; retry giữ màn mẫu, trở về campaign giữ nguyên số màn đang chơi. Lite hiện chưa thực thi được do máy chủ lỗi; River tiếp nhận phần coding theo điều phối.
+- B7: kiểm thử combo, kiểm tra campaign không thay đổi, build riêng nhánh new-mechanic; không merge main/master/Pages.

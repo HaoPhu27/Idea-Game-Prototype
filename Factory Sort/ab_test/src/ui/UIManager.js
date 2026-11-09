@@ -1,5 +1,6 @@
 import { GameEngine } from '../core/GameEngine.js';
 import { LevelGenerator } from '../generator/LevelGenerator.js';
+import { BLOCKER_SCENARIOS, createBlockerLevel } from '../generator/BlockerLevels.js';
 import { configForLevelNumber } from '../generator/SolvableLevelGenerator.js';
 import { BoxRenderer } from './BoxRenderer.js';
 import { TrayRenderer } from './TrayRenderer.js';
@@ -34,7 +35,14 @@ class UIManager {
         };
         this.conveyorRenderer = new ConveyorRenderer('conveyor-belt');
         this.queueRenderer = new QueueRenderer();
+        const blockerView = id => typeof this.engine.getBlockerView === 'function'
+            ? this.engine.getBlockerView(id)
+            : null;
+        this.boxRenderer.blockerView = blockerView;
+        this.queueRenderer.blockerView = blockerView;
         this.tutorialManager = new TutorialManager(this, this.engine);
+        this.activeBlockerScenario = null;
+        this._blockerDrainQueued = false;
         
         this.removeTrayMode = false;
         // DOM Elements
@@ -49,6 +57,8 @@ class UIManager {
         this.soundIconOff = document.getElementById('sound-icon-off');
         this.btnWinReplay = document.getElementById('btn-win-replay');
         this.btnLoseLevels = document.getElementById('btn-lose-levels');
+        this.blockerScenarioSelect = document.getElementById('blocker-scenario');
+        this.btnBlockerCampaign = document.getElementById('blocker-campaign');
         
         this.overlayWin = document.getElementById('overlay-win');
         this.overlayLose = document.getElementById('overlay-lose');
@@ -93,7 +103,10 @@ class UIManager {
             ghostEl: null,
             startX: 0,
             startY: 0,
-            didMove: false
+            didMove: false,
+            initialBlockerMask: false,
+            blockerMaskToken: null,
+            blockerHidden: false
         };
         this._resetAnimationState();
         this.GHOST_LIFT = 28;
@@ -101,6 +114,7 @@ class UIManager {
         this._boLuotFlip = false;
         this._lastAffectedColIndex = null;
         
+        this.populateBlockerScenarios();
         this.bindEvents();
         this.bindEngineCallbacks();
         this.renderLevelMenu();
@@ -186,7 +200,9 @@ class UIManager {
         
         this.btnNextLevel.addEventListener('click', () => {
             this.audio.tap();
-            this.currentLevel++;
+            // A blocker scenario never advances the campaign. Its Next action simply
+            // returns to the campaign level from which the scenario was opened.
+            if (!this.activeBlockerScenario) this.currentLevel++;
             this.startNewLevel();
         });
         
@@ -218,6 +234,25 @@ class UIManager {
             });
         }
 
+        if (this.blockerScenarioSelect) {
+            this.blockerScenarioSelect.addEventListener('change', () => {
+                const id = this.blockerScenarioSelect.value;
+                if (!id) return;
+                this.audio.tap();
+                this.activeBlockerScenario = id;
+                document.getElementById('overlay-help')?.classList.add('hidden');
+                this.startNewLevel(true);
+            });
+        }
+
+        if (this.btnBlockerCampaign) {
+            this.btnBlockerCampaign.addEventListener('click', () => {
+                this.audio.tap();
+                document.getElementById('overlay-help')?.classList.add('hidden');
+                this.startNewLevel();
+            });
+        }
+
         // Global unlock on first user gesture for Web Audio API
         const unlockAudio = () => {
             this.audio.ensure();
@@ -240,6 +275,156 @@ class UIManager {
         });
     }
     
+    _blockerScenarioEntries() {
+        if (Array.isArray(BLOCKER_SCENARIOS)) {
+            return BLOCKER_SCENARIOS.map(scenario => typeof scenario === 'string'
+                ? { id: scenario, name: scenario }
+                : scenario);
+        }
+        if (BLOCKER_SCENARIOS && typeof BLOCKER_SCENARIOS === 'object') {
+            return Object.entries(BLOCKER_SCENARIOS).map(([id, scenario]) => {
+                if (typeof scenario === 'string') return { id, name: scenario };
+                return { ...(scenario || {}), id: scenario?.id || id };
+            });
+        }
+        return [];
+    }
+
+    _blockerScenario(id) {
+        return this._blockerScenarioEntries().find(scenario => String(scenario?.id) === String(id)) || null;
+    }
+
+    _blockerScenarioLabel(id) {
+        const scenario = this._blockerScenario(id);
+        return String(scenario?.hudLabel || scenario?.label || scenario?.name || scenario?.title || scenario?.id || id);
+    }
+
+    populateBlockerScenarios() {
+        const select = this.blockerScenarioSelect;
+        if (!select) return;
+        select.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '— Chọn kịch bản cơ chế —';
+        select.appendChild(placeholder);
+        for (const scenario of this._blockerScenarioEntries()) {
+            if (!scenario || scenario.id === undefined || scenario.id === null) continue;
+            const option = document.createElement('option');
+            option.value = String(scenario.id);
+            option.textContent = String(scenario.label || scenario.name || scenario.title || scenario.id);
+            select.appendChild(option);
+        }
+        select.value = this.activeBlockerScenario || '';
+    }
+
+    clearBlockerScenario() {
+        this.activeBlockerScenario = null;
+        if (this.blockerScenarioSelect) this.blockerScenarioSelect.value = '';
+    }
+
+    _getBlockerView(id) {
+        return typeof this.engine.getBlockerView === 'function'
+            ? (this.engine.getBlockerView(id) || null)
+            : null;
+    }
+
+    _canMoveBlockerItem(id, slotIndex) {
+        return typeof this.engine.canMoveBlockerItem !== 'function' ||
+            this.engine.canMoveBlockerItem(id, slotIndex) !== false;
+    }
+
+    _canQueueBlockerBox(id) {
+        return typeof this.engine.canQueueBlockerBox !== 'function' ||
+            this.engine.canQueueBlockerBox(id) !== false;
+    }
+
+    _canDispatchBlockerBox(id) {
+        return typeof this.engine.canDispatchBlockerBox !== 'function' ||
+            this.engine.canDispatchBlockerBox(id) !== false;
+    }
+
+    _refuseBlocker(anchor, fallback) {
+        const message = this.engine.lastBlockerError || fallback;
+        this.audio?.reject?.();
+        if (anchor) this._fx('invalid', anchor, message);
+        this._fx('toast', message);
+        if (navigator.vibrate) navigator.vibrate(18);
+        return false;
+    }
+
+    _blockerSlotMask(view, slotIndex) {
+        const empty = { hidden: false, token: null };
+        const slots = view?.hiddenSlots;
+        if (!slots) return empty;
+        const index = Number(slotIndex);
+        const masked = raw => {
+            if (raw === undefined || raw === null || raw === false) return empty;
+            if (typeof raw === 'object') {
+                if (raw.hidden === false || raw.masked === false || raw.concealed === false) return empty;
+                return { hidden: true, token: raw.token ?? raw.maskToken ?? raw.key ?? raw };
+            }
+            return { hidden: true, token: raw === true ? index : raw };
+        };
+
+        if (slots instanceof Set) {
+            if (slots.has(index)) return masked(index);
+            if (slots.has(String(index))) return masked(String(index));
+            return empty;
+        }
+        if (slots instanceof Map) {
+            if (slots.has(index)) return masked(slots.get(index));
+            if (slots.has(String(index))) return masked(slots.get(String(index)));
+            return empty;
+        }
+        if (Array.isArray(slots)) {
+            const indexedEntry = slots.find(entry => entry && typeof entry === 'object' &&
+                Number(entry.slotIndex ?? entry.slot ?? entry.index) === index);
+            if (indexedEntry) return masked(indexedEntry);
+
+            const numericIndexList = slots.every(value =>
+                (typeof value === 'number' && Number.isInteger(value)) ||
+                (typeof value === 'string' && /^\d+$/.test(value)));
+            if (numericIndexList) {
+                if (slots.includes(index)) return masked(index);
+                if (slots.includes(String(index))) return masked(String(index));
+                return empty;
+            }
+
+            const direct = slots[slotIndex];
+            if (direct !== undefined) return masked(direct);
+            if (slots.includes(index)) return masked(index);
+            if (slots.includes(String(index))) return masked(String(index));
+            return empty;
+        }
+        if (typeof slots === 'object') {
+            if (Object.prototype.hasOwnProperty.call(slots, slotIndex)) return masked(slots[slotIndex]);
+            if (Object.prototype.hasOwnProperty.call(slots, index)) return masked(slots[index]);
+        }
+        return empty;
+    }
+
+    _refreshItemDragGhost() {
+        const state = this.itemDragState;
+        if (!state?.isDragging || !state.ghostEl) return;
+        const mask = this._blockerSlotMask(
+            this._getBlockerView(state.sourceBoxId),
+            state.sourceSlotIndex
+        );
+        state.blockerMaskToken = mask.token;
+        // Once concealed at pickup, never expose the real artwork during that drag.
+        // A slot can also become masked while it is being dragged.
+        state.blockerHidden = !!state.initialBlockerMask || mask.hidden;
+        applyItemArt(state.ghostEl, state.blockerHidden ? null : state.itemId);
+        state.ghostEl.textContent = state.blockerHidden ? '?' : getItemEmoji(state.itemId);
+    }
+
+    _cleanupPendingQueueBox(box) {
+        if (!box) return;
+        this._busyBoxes.delete(String(box.id));
+        const element = document.querySelector(`.box[data-box-id="${box.id}"]`);
+        if (element) element.style.visibility = '';
+    }
+
     updateConveyorSpeed() {
         const boardEmpty = !this.engine.boxes.some(box => !box.isEmpty());
         this.trayRenderer.speedMultiplier = this.engine.gameState === 'PLAYING' && boardEmpty ? 1.5 : 1;
@@ -380,7 +565,7 @@ class UIManager {
         if (this.winStatEff) this.winStatEff.textContent = '100%';
 
         // Tính sao dựa trên độ tối ưu nước đi (1, 2, hoặc 3 sao)
-        const cfg = configForLevelNumber(this.currentLevel);
+        const cfg = this.activeBlockerScenario ? {} : configForLevelNumber(this.currentLevel);
         const par = cfg.par || Math.max(4, Math.floor((cfg.numBoxes || 6) * 1.5));
         let stars = 3;
         if (this.engine.moveCount > par * 1.5) stars = 2;
@@ -446,6 +631,21 @@ class UIManager {
         
         this.engine.onBoxUpdated = (box, isRemoved = false) => {
             this.updateRender();
+        };
+
+        this.engine.onBlockerUpdated = () => {
+            this.updateRender();
+            if (this._blockerDrainQueued) return;
+            this._blockerDrainQueued = true;
+            const epoch = this._animationEpoch;
+            const drain = () => {
+                this._blockerDrainQueued = false;
+                if (epoch !== this._animationEpoch || this.engine.gameState !== 'PLAYING') return;
+                this._drainQueueFlights();
+            };
+            // Never mutate queue state synchronously from inside the core callback.
+            if (typeof queueMicrotask === 'function') queueMicrotask(drain);
+            else Promise.resolve().then(drain);
         };
         
         this.engine.onTrayDelivered = (trayId, box) => {
@@ -539,6 +739,8 @@ class UIManager {
     }
 
     async startNewLevel(isRetry = false) {
+        if (!isRetry) this.clearBlockerScenario();
+        const scenarioId = this.activeBlockerScenario;
         this._resetAnimationState();
         // Freeze the previous level before yielding to paint the loading overlay.
         // Its conveyor ticks must not create deliveries using the new epoch.
@@ -560,26 +762,32 @@ class UIManager {
         
         if (levelEpoch !== this._animationEpoch) return;
         // Duong cong do kho nam TRON VEN trong configForLevelNumber() cua bo sinh man.
-        const levelData = LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
+        const levelData = scenarioId
+            ? createBlockerLevel(scenarioId)
+            : LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
         
         this.queueRenderer.render([]);
         this.trayRenderer.reset();
         this.engine.startLevel(levelData);
         this._clockLastTime = performance.now();
-        const tier = levelData.config?.tier || configForLevelNumber(this.currentLevel).tier;
+        const tier = scenarioId ? 'blocker' : (levelData.config?.tier || configForLevelNumber(this.currentLevel).tier);
         if (this.tierDisplay) {
-            this.tierDisplay.textContent = ({ tutorial: 'HƯỚNG DẪN', onboarding: 'LÀM QUEN', acclimation: 'LUYỆN TẬP',
-                normal: 'NORMAL', hard: 'HARD', superhard: 'SUPER HARD' })[tier] || 'NORMAL';
+            this.tierDisplay.textContent = scenarioId ? 'THỬ THÁCH' : (({ tutorial: 'HƯỚNG DẪN', onboarding: 'LÀM QUEN', acclimation: 'LUYỆN TẬP',
+                normal: 'NORMAL', hard: 'HARD', superhard: 'SUPER HARD' })[tier] || 'NORMAL');
             this.tierDisplay.dataset.tier = tier;
         }
-        this.levelDisplay.textContent = this.currentLevel;
+        this.levelDisplay.textContent = scenarioId ? `THỬ: ${this._blockerScenarioLabel(scenarioId)}` : this.currentLevel;
+        this.levelDisplay.title = scenarioId ? `Kịch bản: ${this._blockerScenarioLabel(scenarioId)}` : `Màn ${this.currentLevel}`;
+        if (this.btnNextLevel) {
+            this.btnNextLevel.textContent = scenarioId ? 'VỀ MÀN THƯỜNG ➔' : 'TIẾP TỤC MÀN KẾ ➔';
+        }
         this._boLuotFlip = true;
         
         this.updateRender();
         this.overlayLoading.classList.add('hidden');
         this.renderTimer();
 
-        if (this.currentLevel === 1) {
+        if (!scenarioId && this.currentLevel === 1) {
             this.tutorialManager.startLevel1Tutorial();
         } else {
             this.tutorialManager.skipTutorial();
@@ -596,6 +804,7 @@ class UIManager {
     }
 
     _renderNow() {
+        this._refreshItemDragGhost();
         // F4 UI bugfix: pending press must not highlight targets before the move threshold.
         const validTargets = this.itemDragState.isDragging && this.itemDragState.didMove
             ? this.engine.getValidTargets(this.itemDragState.sourceBoxId)
@@ -845,6 +1054,13 @@ class UIManager {
         const itemId = box.slots ? box.slots[slotIndex] : null;
         if (!itemId) return;
 
+        if (!this._canMoveBlockerItem(boxId, slotIndex)) {
+            return this._refuseBlocker(slotEl, 'Vật này đang bị chặn và chưa thể di chuyển.');
+        }
+        // A mask is presentation-only: a concealed slot remains movable whenever
+        // the core blocker rule explicitly allows the move.
+        const initialMask = this._blockerSlotMask(this._getBlockerView(boxId), slotIndex);
+
         // Tutorial check
         if (this.tutorialManager && this.tutorialManager.active) {
             if (this.tutorialManager.isAllowedDragStart && !this.tutorialManager.isAllowedDragStart(boxId)) {
@@ -871,6 +1087,9 @@ class UIManager {
         this.itemDragState.sourceBoxId = boxId;
         this.itemDragState.sourceSlotIndex = slotIndex;
         this.itemDragState.itemId = itemId;
+        this.itemDragState.initialBlockerMask = initialMask.hidden;
+        this.itemDragState.blockerMaskToken = initialMask.token;
+        this.itemDragState.blockerHidden = initialMask.hidden;
         this.itemDragState.targetBoxId = null;
         this.itemDragState.targetSlotIndex = null;
         this.itemDragState.pointerId = e ? e.pointerId : null;
@@ -889,13 +1108,13 @@ class UIManager {
             ghost.className = 'item-drag-ghost';
             document.body.appendChild(ghost);
         }
-        ghost.textContent = getItemEmoji(itemId);
-        applyItemArt(ghost, itemId);
+        ghost.textContent = '';
         ghost.style.display = 'none';
         ghost.style.transition = '';
         ghost.style.transform = '';
         ghost.style.opacity = '';
         this.itemDragState.ghostEl = ghost;
+        this._refreshItemDragGhost();
 
         this.updateRender();
     }
@@ -903,6 +1122,7 @@ class UIManager {
     handleItemDragMove(e) {
         if (!this.itemDragState.isDragging) return;
         if (e.preventDefault) e.preventDefault();
+        this._refreshItemDragGhost();
 
         // F4 UI bugfix: below the 6px threshold this stays a silent tap.
         if (!this.itemDragState.didMove) {
@@ -1143,6 +1363,9 @@ class UIManager {
         state.targetSlotIndex = null;
         state.sourceSlotEl = null;
         state.ghostEl = null;
+        state.initialBlockerMask = false;
+        state.blockerMaskToken = null;
+        state.blockerHidden = false;
     }
 
     _cancelItemDrag(ghost, srcSlotEl) {
@@ -1203,6 +1426,7 @@ class UIManager {
         this._pendingQueueBoxes = [];
         this._queueFlightActive = false;
         this._deliveryAnimating = false;
+        this._blockerDrainQueued = false;
         // F3 presentation-only: reset FX-side bookkeeping (never gameplay timers).
         this._pendingPackFeedback = new Set();
         this._queueWarningLevel = 0;
@@ -1215,9 +1439,39 @@ class UIManager {
 
     _drainQueueFlights() {
         if (this._queueFlightActive || this._deliveryAnimating || !this._pendingQueueBoxes.length || this.engine.gameState !== 'PLAYING') return;
-        const box = this._pendingQueueBoxes[0];
         const queue = this.engine.getQueue();
+        let box = null;
+        let boxIndex = -1;
+
+        // A blocked connector must not prevent a later, independent box from flying.
+        // Keep denied entries pending and busy so a later blocker update can retry them.
+        for (let i = 0; i < this._pendingQueueBoxes.length;) {
+            const candidate = this._pendingQueueBoxes[i];
+            if (this.engine.getBox(candidate.id) !== candidate || queue.includes(candidate)) {
+                this._pendingQueueBoxes.splice(i, 1);
+                this._cleanupPendingQueueBox(candidate);
+                continue;
+            }
+            if (!this._canQueueBlockerBox(candidate.id)) {
+                i++;
+                continue;
+            }
+            box = candidate;
+            boxIndex = i;
+            break;
+        }
+        if (!box) {
+            // Denied connectors remain pending, but blocker logic must still evaluate
+            // whether the current queue/tray state is an actual deadlock.
+            if (this.engine.blockerState?.enabled && typeof this.engine.checkConditions === 'function') {
+                this.engine.checkConditions();
+            }
+            return;
+        }
+
+        // Stale/admitted-pair cleanup above deliberately precedes capacity handling.
         if (queue.length >= this.engine.maxQueueSize) {
+            if (this.engine.blockerState?.enabled) return;
             const trays = this.engine.conveyor.getAllActiveTrays();
             // An outgoing tray can expose the order needed to free a queue slot.
             if (this.engine.hasPendingTrayExits() || queue.some(b => trays.some(t => t.canAccept(b))) || this._deliveryAnimating) return;
@@ -1225,12 +1479,8 @@ class UIManager {
             this.engine.setGameState('LOST');
             return;
         }
-        this._pendingQueueBoxes.shift();
-        if (this.engine.getBox(box.id) !== box || queue.includes(box)) {
-            this._busyBoxes.delete(String(box.id));
-            this._drainQueueFlights();
-            return;
-        }
+
+        this._pendingQueueBoxes.splice(boxIndex, 1);
         const epoch = this._animationEpoch;
         this._queueFlightActive = true;
         const domBox = document.querySelector(`.box[data-box-id="${box.id}"]`);
@@ -1239,9 +1489,26 @@ class UIManager {
             if (epoch !== this._animationEpoch) return;
             this._queueFlightActive = false;
             this._busyBoxes.delete(String(box.id));
+
+            // Atomic pair admission may have admitted this box while its flight was
+            // already in progress. Never enqueue it twice or leave its board node hidden.
+            if (this.engine.getBox(box.id) !== box || this.engine.getQueue().includes(box)) {
+                if (domBox) domBox.style.visibility = '';
+                this.updateRender();
+                this._drainQueueFlights();
+                return;
+            }
+
+            let admissionFailed = false;
             if (this.engine.gameState === 'PLAYING') {
                 box.queueEnteredTime = performance.now();
-                this.engine.moveBoxToQueue(box);
+                const moved = this.engine.moveBoxToQueue(box);
+                if (moved === false && this.engine.getBox(box.id) === box && !this.engine.getQueue().includes(box)) {
+                    admissionFailed = true;
+                    if (domBox) domBox.style.visibility = '';
+                    if (!this._pendingQueueBoxes.includes(box)) this._pendingQueueBoxes.unshift(box);
+                    this._busyBoxes.add(String(box.id));
+                }
             }
             this.updateRender();
             // F3 presentation-only: land FX only for boxes still present in queue this epoch.
@@ -1253,7 +1520,7 @@ class UIManager {
                     this._fx('land', slotEl);
                 }
             }
-            this._drainQueueFlights();
+            if (!admissionFailed) this._drainQueueFlights();
         });
     }
 
@@ -1472,6 +1739,7 @@ class UIManager {
         for (let slotIdx = 0; slotIdx < queue.length; slotIdx++) {
             const box = queue[slotIdx];
             if (!box) continue;
+            if (!this._canDispatchBlockerBox(box.id)) continue;
 
             // Cho thung nam yen trong slot it nhat 250ms sau khi bay xuong hang cho
             if (box.queueEnteredTime && (now - box.queueEnteredTime < 250)) {
@@ -1496,10 +1764,19 @@ class UIManager {
     }
 
     triggerQueueDelivery(box, tray, slotEl, trayEl) {
+        if (!this._canDispatchBlockerBox(box.id)) {
+            return this._refuseBlocker(slotEl, 'Thùng này đang được giữ trong hàng chờ.');
+        }
         this._deliveryAnimating = true;
         const epoch = this._animationEpoch;
 
         const trayObj = this.trayRenderer.trayElements.find(t => t.id === tray.id);
+        const wasReceiving = trayObj ? trayObj.isReceiving : false;
+        const slotClassName = slotEl.className;
+        const slotOpacity = slotEl.style.opacity;
+        const slotVisibility = slotEl.style.visibility;
+        const queueBoxEl = slotEl.querySelector('.queue-box');
+        const queueBoxOpacity = queueBoxEl ? queueBoxEl.style.opacity : '';
         if (trayObj) {
             trayObj.isReceiving = true;
         }
@@ -1512,8 +1789,21 @@ class UIManager {
         this.queueRenderer.animateBoxToTray(box, slotEl, trayEl, () => {
             if (epoch !== this._animationEpoch) return;
             slotEl.classList.remove('dispatching');
-            this.engine.deliverQueueBox(box.id, tray.id);
+            const delivered = this.engine.deliverQueueBox(box.id, tray.id);
             this._deliveryAnimating = false;
+
+            if (delivered === false) {
+                slotEl.className = slotClassName;
+                slotEl.style.opacity = slotOpacity;
+                slotEl.style.visibility = slotVisibility;
+                if (queueBoxEl) queueBoxEl.style.opacity = queueBoxOpacity;
+                if (trayObj) trayObj.isReceiving = wasReceiving;
+                this._fx('toast', this.engine.lastBlockerError || 'Thùng chưa thể giao cho khay này.');
+                this.updateRender();
+                this._drainQueueFlights();
+                return;
+            }
+
             this._drainQueueFlights();
 
             const now = performance.now();

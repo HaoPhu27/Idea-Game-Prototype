@@ -319,6 +319,85 @@ window.addEventListener('unhandledrejection', function(e) {
                         </div>
                     </div>
                 </div>
+
+                <div class="rule-card blocker-scenario-card">
+                    <div class="rule-icon">🧪</div>
+                    <div class="rule-text blocker-scenario-controls">
+                        <strong>Phòng thử cơ chế</strong>
+                        <p>Chọn một kịch bản để luyện từng cơ chế chặn. Kịch bản thử không làm thay đổi tiến trình hoặc mở khóa màn chiến dịch.</p>
+                        <label for="blocker-scenario">Kịch bản cơ chế chặn</label>
+                        <select id="blocker-scenario" class="blocker-scenario-select" aria-label="Chọn kịch bản cơ chế chặn">
+                            <option value="">— Chọn kịch bản cơ chế —</option>
+                        </select>
+                        <button type="button" id="blocker-campaign" class="btn btn-ghost">Về màn thường</button>
+                    </div>
+                </div>
+
+                <div class="rules-summary blocker-rules-summary">
+                    <div class="rule-card">
+                        <div class="rule-icon">❓</div>
+                        <div class="rule-text">
+                            <strong>Vật bị che</strong>
+                            <p>Vật ẩn được hiển thị bằng dấu hỏi, kể cả trên bóng kéo. Vật bị che vẫn có thể di chuyển nếu luật của kịch bản cho phép.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🎭</div>
+                        <div class="rule-text">
+                            <strong>Thùng hoặc đơn bị che giấu</strong>
+                            <p>Một số thông tin của thùng có thể bị che. Hãy quan sát huy hiệu trạng thái và các thùng còn lại để suy ra cách sắp xếp.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🧊</div>
+                        <div class="rule-text">
+                            <strong>Ô vật bị đóng băng</strong>
+                            <p>Băng chỉ tác động đến những ô được đánh dấu. Ô đang băng không thể nhấc vật cho đến khi điều kiện phá băng của kịch bản được đáp ứng.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🔒</div>
+                        <div class="rule-text">
+                            <strong>Thùng bị chặn</strong>
+                            <p>Thùng có biểu tượng khóa hoặc chặn phải tuân theo điều kiện mở của kịch bản; không thể dùng thao tác kéo thả để bỏ qua điều kiện này.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🧷</div>
+                        <div class="rule-text">
+                            <strong>Khóa theo vật hoặc vị trí</strong>
+                            <p>Trạng thái chặn có thể khác nhau giữa các ô trong cùng một thùng. Hãy chọn vật và ô đích hợp lệ thay vì cố di chuyển vật đang bị khóa.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🔗</div>
+                        <div class="rule-text">
+                            <strong>Thùng liên kết đôi</strong>
+                            <p>Hai thùng liên kết phải cùng hoàn tất đóng gói trước khi được nhận vào hàng chờ. Một thành viên chưa sẵn sàng sẽ giữ cả cặp lại.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">📥</div>
+                        <div class="rule-text">
+                            <strong>Điều kiện vào hàng chờ</strong>
+                            <p>Đóng gói xong không luôn đồng nghĩa được bay lên ngay. Thùng sẽ ở lại bàn cho đến khi điều kiện nhận vào hàng chờ được đáp ứng.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">⏸</div>
+                        <div class="rule-text">
+                            <strong>Thùng bị giữ trong hàng chờ</strong>
+                            <p>Thùng có trạng thái giữ vẫn chiếm ô hàng chờ nhưng chưa thể giao lên khay. Nó chỉ xuất hàng khi cơ chế giữ được giải phóng.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">❄️</div>
+                        <div class="rule-text">
+                            <strong>Đóng băng thời gian toàn màn</strong>
+                            <p>Chỉ booster Freeze Time đóng băng đồng hồ toàn màn trong 30 giây; băng chuyền vẫn chạy. Băng hoặc khóa cục bộ trên vật và thùng không phải booster đóng băng thời gian.</p>
+                        </div>
+                    </div>
+                </div>
                 <button id="btn-close-help" class="btn btn-ghost" style="margin-top: 15px;">Đã hiểu</button>
             </div>
         </div>

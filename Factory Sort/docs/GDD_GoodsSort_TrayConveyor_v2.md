@@ -602,3 +602,17 @@ Kiểm tra hồi quy: `node tools/booster-test.js`, cùng các kiểm tra timer,
 **Phạm vi xáo chính xác:** Shuffle chỉ hoán vị giữa những slot đang có item của thùng hiện/chưa wrapped. Slot rỗng giữ nguyên, nên số item và vị trí chỗ trống của từng thùng được giữ lại. Candidate tạo sẵn một triple wrapped mới bị loại; việc này tránh bỏ qua lifecycle animation đóng gói → bay vào queue hiện hữu. Candidate không đổi bàn cũng không được coi là dùng thành công.
 
 **Đo nghiệm thu có giới hạn:** agent chính kiểm tra 10 seed tại từng màn 25, 29, 35 và 49. Số lượt được chứng nhận Shuffle/Remove lần lượt là 10/9, 10/10, 9/10 và 10/10 (mỗi số trên tổng 10 lượt). Đây là mẫu kiểm tra khả năng sử dụng, không phải bảo đảm mọi thế cờ/thiết bị đều được chấp nhận. Những lượt không được chứng nhận giữ nguyên trạng thái.
+
+## Blocker / Mechanic Lab — nhánh triển khai riêng (2026-11-09)
+
+**Phạm vi bắt buộc:** mechanic chỉ xuất hiện trong mục **Mechanic Lab** riêng. Không thêm hoặc rải ngẫu nhiên vào các màn campaign có sẵn, không sửa seed hoặc đường cong campaign 1–50. Màn đơn và màn tổ hợp có cấu hình/lời giải riêng; retry giữ đúng màn mẫu. Nhánh làm việc `new-mechanic`, chưa merge `main`/`master` và chưa cập nhật Pages.
+
+Đợt triển khai gồm Locked Box (theo số kiện hoặc đúng box được ship), Frozen Item (đếm lúc lộ ra sau khi bắt đầu chơi, hết giờ tan băng), Stuck Box (thùng rỗng giữ vị trí đến khi đạt điều kiện giao hàng), Defective Box (gói bình thường nhưng giữ một chỗ queue N giây), Connector Box (giữ cả hai trên bàn đến khi gom đủ và nhận vào queue nguyên cặp), Hidden Box (chỉ mở tại index 0 cột), Hidden Item (dấu ? đi theo token đến khi thành triple, có manh mối) và Urgent Box (phải vào queue trước hạn).
+
+Freeze Time chỉ dừng global timer; các đồng hồ blocker vẫn chạy. Trợ giúp/ẩn tab tạm dừng cả hai thông qua cùng luồng advanceClock. Timer Defective vẫn chạy khi chỉ còn giao hàng tự động. Không xóa/biến mất item vì hết timer để bảo toàn số bộ và đơn hàng.
+
+Solver booster cũ chưa mô phỏng mọi blocker: Shuffle/Remove từ chối nguyên tử khi còn ràng buộc chưa giải quyết, có thông báo lý do; không giả định đủ item là có lời giải. Freeze/Extra vẫn dùng được. V1 dùng một mechanic gốc trên mỗi box; các tổ hợp được đặc tả riêng, không tự chấp nhận tổ hợp tùy ý chưa có replay.
+
+Sáu màn kết hợp người dùng yêu cầu: Locked + Key (Normal/Hard), Sticky + One-Way (Hard), Hidden + Urgent (Hard), Connector + Restricted Queue (Super Hard), Frozen + Color-Changing (Super Hard), Stuck + Priority Tray (Hard). Những luật mới, task worker, quy tắc bảo toàn item khi đổi màu và các điều kiện nghiệm thu xem [blocker-implementation-plan.md](blocker-implementation-plan.md). **Trạng thái màn tổ hợp: đang thực thi, chưa nghiệm thu.** Tier là nhãn thiết kế đề xuất, chưa có số liệu cân bằng playtest.
+
+Kiểm tra đã chạy ở checkpoint màn đơn: 9/9 reference replay trên GameEngine thật tới WON; npm test và build pass; Hidden Item và Connector đã được thao tác trên trình duyệt, không có console error. Các test blocker chuyên biệt và kiểm tra UI đầy đủ vẫn đang được bổ sung. Test feedback-engine cũ của nhánh WIP trước đó còn lỗi fixture “transient nodes registered”, được theo dõi riêng.
