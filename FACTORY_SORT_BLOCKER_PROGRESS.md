@@ -25,3 +25,12 @@ Ignored prompts/responses: Factory Sort/.ai-logs/blockers/. Rejected core v1/v2 
 Pending results: combo.json (core/levels/tests), lab-ui.json (dedicated overlay), test-final.js (compact ESM regression suite). Primary must read/diagnose every output, apply with strict path/unique match guards, run actual tests; worker does not test/review.
 
 Stop instruction: check get_usage_limits between stages; stop ALL work/workers at 5h usedPercent>=50. Latest checkpoint 37%. Save progress and push ONLY new-mechanic. main/master must remain unchanged.
+
+## STOP checkpoint — reached 50% of 5h window
+Feature work and workers stopped at usedPercent=50. Local test server stopped. No background coding workers remain.
+
+- NEW verified: tools/blocker-test.js passes all 10 groups, including all9 independent real-engine replays, matching conservation, both locks, freeze/local timers, stuck, defective-only waiting, atomic connector, hidden token tracking, urgent/reset, invalid start rollback, booster refusal and nested schema. package test now includes this suite; test:blockers provided.
+- Browser verified Hidden Item WON, Connector WON, and Frozen thawed while global timer remained02:00 duringFreeze; no consoleerrors in those checks.
+- Application source/build remains the tested single-blocker checkpoint. Dedicated Lab overlay and six combos are NOT integrated/accepted. Their portable drafts and exact continuation cautions are under Factory Sort/docs/blocker-drafts/README.md.
+- No campaign generator/curve/seed edits. main remains0ed76f0; master remainsa019d29. Onlynew-mechanic pushed. Never merge/deploy until user authorizes.
+- Originalfeedback-engine fixture failure remains separate. Full combined npm test should be rerun nextsession after anyadditionalappchanges; appbuild alreadypassed beforehalt, onlytests/docs addedafterthatbuild.

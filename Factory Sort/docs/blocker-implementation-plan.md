@@ -94,3 +94,6 @@ Tier trên là nhãn thiết kế theo yêu cầu, chưa phải kết quả cân
 - River B5: module combo độc lập, luật sticky/one-way/queue/color/priority và sáu cấu hình riêng. Không sửa generator campaign. Chủ trì trực tiếp review các giao dịch nguyên tử và timer.
 - River/Lite B6: mục Mechanic Lab có màn đơn và màn kết hợp, nhãn tier và mô tả; retry giữ màn mẫu, trở về campaign giữ nguyên số màn đang chơi. Lite hiện chưa thực thi được do máy chủ lỗi; River tiếp nhận phần coding theo điều phối.
 - B7: kiểm thử combo, kiểm tra campaign không thay đổi, build riêng nhánh new-mechanic; không merge main/master/Pages.
+
+### Checkpoint 50% — dừng đúng ngưỡng
+Agent chính đã dừng feature work và workers ở 50%. 10 nhóm test blocker chuyên biệt pass; Hidden Item và Connector thắng trên trình duyệt, Frozen tan trong lúc global timer vẫn dừng ở02:00. Sáu tổ hợp và menu Lab riêng chưa được tích hợp; đã lưu bản nháp worker và các lỗi cần sửa trong docs/blocker-drafts để tiếp tục. Campaign, main, master và Pages không đổi.
