@@ -19,25 +19,38 @@ svg.style.width='100%';svg.style.height='auto';svg.style.display='block';
 var root=el('g',{'font-family':STYLE.fontFamily},svg);
 // background
 el('rect',{x:0,y:0,width:420,height:540,fill:'#f7f8fb'},root);
-// shipping area top
+// shipping area TOP
 el('rect',{x:8,y:8,width:404,height:40,fill:COL.belt,stroke:COL.beltD,'stroke-width':2,rx:6},root);
 for(var bx=16;bx<404;bx+=26){el('rect',{x:bx,y:12,width:12,height:4,fill:COL.beltD,opacity:0.6},root);}
-// queue area
+// queue area below shipping
 el('rect',{x:30,y:52,width:360,height:88,fill:'#eef1f6',stroke:'#c6cbd6','stroke-width':1.5,rx:8},root);
 var qslots=[40,165,290];
 for(var qi=0;qi<3;qi++){el('rect',{x:qslots[qi],y:65,width:110,height:60,fill:COL.queC,stroke:'#9aa1b0','stroke-width':2,'stroke-dasharray':'6 4',rx:6},root);}
-// lanes vertical rails
+// STATIC LAYOUT: vertical conveyor flow bottom(feed)->top(active). No long empty ladder rails above active boxes.
 var lanes=[20,155,290];
+// 3 conveyor lanes spanning y215..495, drawn behind boxes
 for(var li=0;li<3;li++){
   var lx=lanes[li];
-  el('rect',{x:lx+2,y:155,width:6,height:205,fill:COL.rail,stroke:COL.cleat,'stroke-width':1},root);
-  el('rect',{x:lx+102,y:155,width:6,height:205,fill:COL.rail,stroke:COL.cleat,'stroke-width':1},root);
-  for(var cy=170;cy<360;cy+=28){el('rect',{x:lx+8,y:cy,width:94,height:4,fill:COL.cleat,opacity:0.7},root);}
+  el('rect',{x:lx+2,y:215,width:6,height:280,fill:COL.rail,stroke:COL.cleat,'stroke-width':1},root);
+  el('rect',{x:lx+102,y:215,width:6,height:280,fill:COL.rail,stroke:COL.cleat,'stroke-width':1},root);
+  // horizontal cleats (subtle tracks) only between active row (y230) and feed row (y390), indicating upward feed
+  for(var cy=270;cy<390;cy+=24){el('rect',{x:lx+8,y:cy,width:94,height:4,fill:COL.cleat,opacity:0.55},root);}
+  // subtle rows below active row indicating feed direction upward (only in gap region)
+  el('rect',{x:lx+8,y:360,width:94,height:2,fill:COL.cleat,opacity:0.35},root);
+  el('rect',{x:lx+8,y:378,width:94,height:2,fill:COL.cleat,opacity:0.35},root);
 }
-// active docks row under lanes
-for(var di=0;di<3;di++){el('rect',{x:lanes[di]+5,y:390,width:100,height:90,fill:'#e6e9f0',stroke:'#b6bcc8','stroke-width':2,rx:8},root);}
-// hood feed at top of lanes
-el('path',{d:'M10 150 L410 150 L410 140 L10 140 Z',fill:'#c9cfdb',stroke:'#9aa1b0','stroke-width':1},root);
+// active docks row near queue at y230, width110 height90
+for(var di=0;di<3;di++){el('rect',{x:lanes[di]+5,y:230,width:100,height:90,fill:'#e6e9f0',stroke:'#b6bcc8','stroke-width':2,rx:8},root);}
+// feed/rear docks row BELOW at y390
+for(var fi=0;fi<3;fi++){el('rect',{x:lanes[fi]+5,y:390,width:100,height:90,fill:'#eceef4',stroke:'#c2c8d4','stroke-width':2,'stroke-dasharray':'5 4',rx:8},root);}
+// small UP arrows in lanes around y350 indicating upward feed
+for(var ai=0;ai<3;ai++){
+  var ax=lanes[ai]+55;
+  el('path',{d:'M'+ax+' 345 L'+(ax-10)+' 362 L'+(ax+10)+' 362 Z',fill:COL.cleat,opacity:0.7},root);
+  el('rect',{x:ax-3,y:362,width:6,height:12,fill:COL.cleat,opacity:0.7},root);
+}
+// feed hood at BOTTOM (y490), NOT top
+el('path',{d:'M10 490 L410 490 L410 500 L10 500 Z',fill:'#c9cfdb',stroke:'#9aa1b0','stroke-width':1},root);
 // hoist crane (authored scene visual, drawn behind boxes)
 var boxes=scene.boxes||[];
 if(scene.hoist&&scene.hoist.targetId){
@@ -71,7 +84,7 @@ for(var L=0;L<links.length;L++){
 var cap=(scene.queueCapacity!=null?scene.queueCapacity:scene.queueUsed!=null?scene.queueUsed:3);
 var used=(scene.queueUsed!=null?scene.queueUsed:0);
 txt(root,34,60,'QUEUE '+used+'/'+cap,{fill:COL.navy,'font-size':13,'font-weight':'bold'});
-// boxes
+// boxes: draw supplied positions literally (no remapping)
 for(var bi=0;bi<boxes.length;bi++){drawBox(root,boxes[bi]);}
 // flying items
 var fly=scene.flyingItems||[];
