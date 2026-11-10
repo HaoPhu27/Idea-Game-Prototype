@@ -8,7 +8,7 @@ window.GAMES = [
     "status": "Preview",
     "play": "previews/new-mechanic/showcase/index.html",
     "dev": "previews/new-mechanic/showcase/index.html",
-    "version": "mechanic-showcase-20261110",
+    "version": "mechanic-showcase-v2-20261110",
     "thumb": "launcher/thumbs/factory-sort-inverted.svg",
     "updated": "2026-11-10"
   },

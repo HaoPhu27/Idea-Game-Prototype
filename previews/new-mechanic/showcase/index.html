@@ -1,139 +1,179 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang='vi'>
 <head>
 <meta charset='utf-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1'>
-<meta name='theme-color' content='#fff6e6'>
-<title>Factory Sort · Demo cơ chế</title>
-<meta name='description' content='Phòng trưng bày tám cơ chế của Factory Sort: hộp khóa, đông lạnh, kẹt, lỗi, đầu nối, hộp ẩn, món ẩn và hộp gấp.'>
+<meta name='description' content='Tám thẻ minh họa cơ chế dây chuyền trong Factory Sort.'>
+<title>Factory Sort · Cơ chế trên dây chuyền</title>
 <link rel='stylesheet' href='style.css'>
-<script src='demo.js' defer></script>
 </head>
 <body>
-<a class='skip-link' href='#gallery'>Bỏ qua phần mở đầu</a>
-<svg class='svg-sprite' aria-hidden='true' focusable='false'>
-<symbol id='toy-carton' viewBox='0 0 64 64'><path d='M12 24l20-10 20 10v27H12z' fill='#ffb3c8'/><path d='M12 24l20 10 20-10M12 24v27h40V24M32 34v17' fill='none' stroke='#18324a' stroke-width='3' stroke-linejoin='round'/><circle cx='22' cy='41' r='2.5' fill='#18324a'/><circle cx='42' cy='41' r='2.5' fill='#18324a'/></symbol>
-<symbol id='toy-candy' viewBox='0 0 64 64'><path d='M8 24l10 8-10 8zM56 24l-10 8 10 8z' fill='#9fe4c8' stroke='#18324a' stroke-width='3' stroke-linejoin='round'/><rect x='18' y='20' width='28' height='24' rx='12' fill='#ff7a66' stroke='#18324a' stroke-width='3'/><path d='M25 27h14' stroke='#fff8ea' stroke-width='4' stroke-linecap='round'/></symbol>
-<symbol id='toy-cookie' viewBox='0 0 64 64'><circle cx='32' cy='34' r='20' fill='#ffd38a' stroke='#18324a' stroke-width='3'/><circle cx='24' cy='29' r='3' fill='#7a4b2a'/><circle cx='39' cy='27' r='2.5' fill='#7a4b2a'/><circle cx='36' cy='40' r='3' fill='#7a4b2a'/><circle cx='24' cy='41' r='2.2' fill='#7a4b2a'/><path d='M18 51c6-4 22-4 28 0' fill='none' stroke='#fff8ea' stroke-width='3' stroke-linecap='round'/></symbol>
-<symbol id='toy-donut' viewBox='0 0 64 64'><circle cx='32' cy='32' r='20' fill='#ffc6d8' stroke='#18324a' stroke-width='3'/><circle cx='32' cy='32' r='7' fill='#fff6e6' stroke='#18324a' stroke-width='3'/><path d='M21 22l4 2M42 20l-3 3M45 38l-4-1M24 45l2-4' stroke='#7ed7b3' stroke-width='3' stroke-linecap='round'/></symbol>
+<a class='skip-link' href='#gallery'>Bỏ qua phần giới thiệu</a>
+<header class='topbar wrap'>
+<a class='brand' href='../../../index.html' aria-label='Factory Sort - trang chủ'><span class='brand-mark' aria-hidden='true'></span><span>Factory Sort</span></a>
+<nav class='top-links' aria-label='Liên kết nhanh'><a href='../FactorySort.html'>Bản chơi</a><a href='../../../index.html'>Trang chủ</a></nav>
+</header>
+<main>
+<section class='hero wrap'>
+<div class='hero-art'>
+<svg viewBox='0 0 560 340' role='img' aria-labelledby='hero-art-title hero-art-desc'>
+<title id='hero-art-title'>Sơ đồ dây chuyền Factory Sort</title>
+<desc id='hero-art-desc'>Conveyor xuất hàng phía trên, queue ba slot ở giữa, ba conveyor dọc dẫn xuống các box thao tác.</desc>
+<rect x='1' y='1' width='558' height='338' rx='26' fill='#fbf6ea' stroke='#d8d1c4'/>
+<rect x='206' y='34' width='318' height='30' rx='15' fill='#15233b'/>
+<text x='206' y='26' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>CONVEYOR XUẤT HÀNG</text>
+<path d='M526 49h18m-7-6 7 6-7 6' fill='none' stroke='#e9685b' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/>
+<text x='204' y='78' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>QUEUE · 3 SLOT</text>
+<g>
+<rect x='206' y='86' width='62' height='48' rx='12' fill='#bfe8d4' stroke='#2f7d65'/>
+<rect x='278' y='86' width='62' height='48' rx='12' fill='#e9f7ef' stroke='#9dcdb9' stroke-dasharray='4 4'/>
+<rect x='350' y='86' width='62' height='48' rx='12' fill='#e9f7ef' stroke='#9dcdb9' stroke-dasharray='4 4'/>
+<image href='assets/carton.svg' x='213' y='89' width='48' height='42'/>
+<text x='309' y='116' font-size='10' fill='#5c667a' text-anchor='middle' font-family='Verdana, sans-serif'>trống</text>
+<text x='381' y='116' font-size='10' fill='#5c667a' text-anchor='middle' font-family='Verdana, sans-serif'>trống</text>
+</g>
+<rect x='82' y='166' width='62' height='118' rx='14' fill='#dff2e8' stroke='#9dcdb9'/>
+<rect x='252' y='166' width='62' height='118' rx='14' fill='#dff2e8' stroke='#9dcdb9'/>
+<rect x='422' y='166' width='62' height='118' rx='14' fill='#dff2e8' stroke='#9dcdb9'/>
+<text x='78' y='158' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>3 CONVEYOR DỌC</text>
+<image href='assets/carton.svg' x='64' y='250' width='98' height='64'/>
+<image href='assets/carton.svg' x='234' y='250' width='98' height='64'/>
+<image href='assets/carton.svg' x='404' y='250' width='98' height='64'/>
+<image href='assets/candy.svg' x='72' y='214' width='22' height='22'/>
+<image href='assets/cookie.svg' x='98' y='214' width='22' height='22'/>
+<image href='assets/padlock.svg' x='270' y='214' width='24' height='24'/>
+<image href='assets/ice.svg' x='94' y='238' width='20' height='20'/>
+<text x='64' y='332' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>BOX THAO TÁC</text>
 </svg>
-<header class='hero'>
-<nav class='hero-nav' aria-label='Điều hướng chính'>
-<a class='nav-link nav-link--primary' href='../FactorySort.html'>Vào xưởng</a>
-<a class='nav-link' href='../../../index.html'>Trang chủ</a>
-</nav>
+</div>
 <div class='hero-copy'>
-<p class='eyebrow'><span></span>Factory Sort · Demo cơ chế</p>
-<h1>Xưởng bánh kẹo <em>vận hành thử</em></h1>
-<p class='hero-lead'>Tám trạm máy, tám luật nhỏ. Mỗi thẻ là một minh họa tự lặp để bạn nhìn rõ cách hộp, kẹo và băng tải phối hợp trước khi vào màn chơi thật.</p>
-<div class='hero-meta' aria-label='Thông tin nhanh'>
-<span>8 cơ chế</span><span>Tự chạy</span><span>Có tạm dừng &amp; từng bước</span>
+<p class='eyebrow'>Cơ chế dây chuyền</p>
+<h1>Factory Sort · Cơ chế trên dây chuyền</h1>
+<p class='lede'>Xem nhanh cách box đi qua conveyor, giữ item, xếp queue và được ship.</p>
+<ul class='legend' aria-label='Chú giải thành phần'><li><span class='dot dot-item'></span>Item</li><li><span class='dot dot-box'></span>Box</li><li><span class='dot dot-queue'></span>Queue</li></ul>
 </div>
-</div>
-<div class='hero-toys' aria-hidden='true'>
-<svg class='toy' viewBox='0 0 64 64'><use href='#toy-carton'/></svg>
-<svg class='toy' viewBox='0 0 64 64'><use href='#toy-candy'/></svg>
-<svg class='toy' viewBox='0 0 64 64'><use href='#toy-cookie'/></svg>
-<svg class='toy' viewBox='0 0 64 64'><use href='#toy-donut'/></svg>
-</div>
-</header>
-<main id='gallery'>
-<section class='gallery-head' aria-labelledby='gallery-title'>
-<div>
-<p class='eyebrow'>Bảng trạm</p>
-<h2 id='gallery-title'>Chọn một cơ chế để xem</h2>
-</div>
-<p>Minh họa tập trung vào một luật mỗi thẻ. Các nút bên dưới mỗi bảng cho phép tạm dừng hoặc tua từng bước để quan sát chuyển động.</p>
 </section>
-<div class='gallery'>
-<article class='mechanic-card'>
-<header class='card-head'>
-<span class='card-tag' aria-hidden='true'>01</span>
-<div><h2>Hộp khóa</h2><p class='card-en'>Locked</p></div>
-</header>
-<p class='card-rule'><span>Luật</span>Gửi xong một đơn sẽ mở khóa một hộp khác; hộp khóa không tự mở bằng cách lấp đầy hộp ngay trước nó.</p>
-<div class='demo-stage' data-mechanic='locked'></div>
-<a class='gif-download' href='gifs/locked.gif' download>Tải GIF gameplay</a>
-<p class='card-note'>Quan sát ổ khóa trên viền hộp: khóa chỉ mở sau khi một đơn được gửi đi, rồi hộp kế tiếp mới nhận kẹo. Lấp đầy hộp phía trước không làm hộp khóa mở.</p>
+<section class='gallery wrap' id='gallery' aria-labelledby='gallery-title'>
+<div class='section-head'>
+<p class='eyebrow'>Tám thẻ</p>
+<h2 id='gallery-title'>Tám cơ chế trên dây chuyền</h2>
+<p>Mỗi thẻ có một luật ngắn và một minh họa riêng.</p>
+</div>
+<div class='mechanic-grid'>
+<article class='mechanic-card' id='mechanic-locked'>
+<div class='card-head'>
+<div>
+<p class='card-kicker'>Cơ chế 01</p>
+<h3>Box khóa</h3>
+</div>
+<span class='card-mark' aria-hidden='true'>01</span>
+</div>
+<div class='rule-box'><h4>Luật</h4><p>Box khóa chỉ mở khi Ship đúng box được chỉ định; ship box khác, lấp item hay xếp queue không thay thế.</p></div>
+<div class='stage-wrap'><div class='demo-stage' data-mechanic='locked' aria-label='Minh họa box khóa mở khi ship đúng box'></div></div>
+<a class='gif-download' href='gifs/locked.gif' download>Tải GIF</a>
 </article>
-<article class='mechanic-card'>
-<header class='card-head'>
-<span class='card-tag' aria-hidden='true'>02</span>
-<div><h2>Hộp đông lạnh</h2><p class='card-en'>Frozen</p></div>
-</header>
-<p class='card-rule'><span>Luật</span>Một ô nguồn bị đóng băng trong 3 giây; phải chờ băng tan rồi mới lấy được món trong ô đó.</p>
-<div class='demo-stage' data-mechanic='frozen'></div>
-<a class='gif-download' href='gifs/frozen.gif' download>Tải GIF gameplay</a>
-<p class='card-note'>Lớp băng hiện thành viền xanh nhạt trên một ô nguồn. Đừng cố phá băng bằng nước đi: hãy chờ đủ 3 giây để băng tan, sau đó mới lấy món.</p>
+<article class='mechanic-card' id='mechanic-frozen'>
+<div class='card-head'>
+<div>
+<p class='card-kicker'>Cơ chế 02</p>
+<h3>Item đóng băng</h3>
+</div>
+<span class='card-mark' aria-hidden='true'>02</span>
+</div>
+<div class='rule-box'><h4>Luật</h4><p>Item còn bị che trong conveyor dọc thì timer chưa chạy. Khi trượt ra và hiện rõ, item bắt đầu đếm N giây; hết giờ băng mới tan (ví dụ N = 5 giây).</p></div>
+<div class='stage-wrap'><div class='demo-stage' data-mechanic='frozen' aria-label='Minh họa item đóng băng và timer bắt đầu khi box hiện ra'></div></div>
+<a class='gif-download' href='gifs/frozen.gif' download>Tải GIF</a>
 </article>
-<article class='mechanic-card'>
-<header class='card-head'>
-<span class='card-tag' aria-hidden='true'>03</span>
-<div><h2>Hộp kẹt</h2><p class='card-en'>Stuck</p></div>
-</header>
-<p class='card-rule'><span>Luật</span>Một hộp carton trống bị kẹp lại và nằm yên trên bàn cho tới khi có một đơn được gửi đi.</p>
-<div class='demo-stage' data-mechanic='stuck'></div>
-<a class='gif-download' href='gifs/stuck.gif' download>Tải GIF gameplay</a>
-<p class='card-note'>Dùng nút tua từng bước để thấy hộp carton trống bị kẹp giữ trên bàn. Kẹt ở đây là hộp trống, không phải món kẹt; hộp chỉ rời đi sau khi một đơn được gửi.</p>
+<article class='mechanic-card' id='mechanic-stuck'>
+<div class='card-head'>
+<div>
+<p class='card-kicker'>Cơ chế 03</p>
+<h3>Box kẹt</h3>
+</div>
+<span class='card-mark' aria-hidden='true'>03</span>
+</div>
+<div class='rule-box'><h4>Luật</h4><p>Box kẹt đã đóng nắp chiếm vị trí thao tác; các box phía sau dừng lại và queue không tăng.</p></div>
+<div class='stage-wrap'><div class='demo-stage' data-mechanic='stuck' aria-label='Minh họa box kẹt chiếm vị trí thao tác'></div></div>
+<a class='gif-download' href='gifs/stuck.gif' download>Tải GIF</a>
+<a class='gif-download' href='gifs/stuck-random.gif' download>GIF thu ngẫu nhiên</a>
 </article>
-<article class='mechanic-card'>
-<header class='card-head'>
-<span class='card-tag' aria-hidden='true'>04</span>
-<div><h2>Kiểm tra lỗi</h2><p class='card-en'>Defective</p></div>
-</header>
-<p class='card-rule'><span>Luật</span>Hộp đã đóng gói phải qua 3 giây kiểm tra trong hàng chờ, sau đó mới được phép gửi đi.</p>
-<div class='demo-stage' data-mechanic='defective'></div>
-<a class='gif-download' href='gifs/defective.gif' download>Tải GIF gameplay</a>
-<p class='card-note'>Hộp nằm trong hàng kiểm tra đúng 3 giây rồi mới được gửi. Đây không phải hộp hỏng không thể gửi; chỉ là bước chờ bắt buộc trước khi xuất xưởng.</p>
+<article class='mechanic-card' id='mechanic-defective'>
+<div class='card-head'>
+<div>
+<p class='card-kicker'>Cơ chế 04</p>
+<h3>Box lỗi</h3>
+</div>
+<span class='card-mark' aria-hidden='true'>04</span>
+</div>
+<div class='rule-box'><h4>Luật</h4><p>Box lỗi giữ slot queue đúng N giây (ví dụ N = 5 giây) và không ship trước khi timer về 0.</p></div>
+<div class='stage-wrap'><div class='demo-stage' data-mechanic='defective' aria-label='Minh họa box lỗi giữ queue đúng N giây'></div></div>
+<a class='gif-download' href='gifs/defective.gif' download>Tải GIF</a>
 </article>
-<article class='mechanic-card'>
-<header class='card-head'>
-<span class='card-tag' aria-hidden='true'>05</span>
-<div><h2>Hộp nối đôi</h2><p class='card-en'>Connector</p></div>
-</header>
-<p class='card-rule'><span>Luật</span>Mỗi hộp trong hai hộp liên kết phải tự có đủ 3 món giống nhau; khi cả hai đủ, cặp hộp cùng vào hàng chờ và chiếm 2 ô trống.</p>
-<div class='demo-stage' data-mechanic='connector'></div>
-<a class='gif-download' href='gifs/connector.gif' download>Tải GIF gameplay</a>
-<p class='card-note'>Hai hộp có thể chứa loại món khác nhau, miễn mỗi hộp tự đủ 3 món giống nhau. Chúng không cộng dồn thành 3 món chung; cặp chỉ vào hàng chờ khi cả hai cùng đủ và phải có 2 ô trống.</p>
+<article class='mechanic-card' id='mechanic-connector'>
+<div class='card-head'>
+<div>
+<p class='card-kicker'>Cơ chế 05</p>
+<h3>Connector box</h3>
+</div>
+<span class='card-mark' aria-hidden='true'>05</span>
+</div>
+<div class='rule-box'><h4>Luật</h4><p>Hai box nối sẵn từ đầu; phải clear cả hai mới cùng lên queue, chiếm hai slot. Với biến thể một box kẹt + một box ăn, clear box ăn kéo cả cặp lên; box kẹt tiếp tục chiếm slot queue.</p></div>
+<div class='stage-wrap'><div class='demo-stage' data-mechanic='connector' aria-label='Minh họa connector: hai box cùng vào queue'></div></div>
+<a class='gif-download' href='gifs/connector.gif' download>Tải GIF</a>
+<a class='gif-download' href='gifs/connector-stuck.gif' download>GIF box kẹt + box ăn</a>
 </article>
-<article class='mechanic-card'>
-<header class='card-head'>
-<span class='card-tag' aria-hidden='true'>06</span>
-<div><h2>Hộp ẩn</h2><p class='card-en'>Hidden box</p></div>
-</header>
-<p class='card-rule'><span>Luật</span>Nội dung hộp phía sau vẫn bị che cho tới khi hộp phía trước được gỡ đi và hộp sau trở thành hộp đầu cột, dễ tiếp cận.</p>
-<div class='demo-stage' data-mechanic='hidden-box'></div>
-<a class='gif-download' href='gifs/hidden-box.gif' download>Tải GIF gameplay</a>
-<p class='card-note'>Phần che không mở dần khi thêm món. Hộp sau chỉ lộ nội dung khi hộp trước được gỡ và nó trở thành hộp ở đầu cột.</p>
+<article class='mechanic-card' id='mechanic-hidden-box'>
+<div class='card-head'>
+<div>
+<p class='card-kicker'>Cơ chế 06</p>
+<h3>Hidden box</h3>
+</div>
+<span class='card-mark' aria-hidden='true'>06</span>
+</div>
+<div class='rule-box'><h4>Luật</h4><p>Box kín giữ item ẩn đến đầu conveyor dọc; tại đó box mở và lộ đủ 3 item.</p></div>
+<div class='stage-wrap'><div class='demo-stage' data-mechanic='hidden-box' aria-label='Minh họa hidden box mở ở đầu conveyor dọc'></div></div>
+<a class='gif-download' href='gifs/hidden-box.gif' download>Tải GIF</a>
 </article>
-<article class='mechanic-card'>
-<header class='card-head'>
-<span class='card-tag' aria-hidden='true'>07</span>
-<div><h2>Món ẩn</h2><p class='card-en'>Hidden items</p></div>
-</header>
-<p class='card-rule'><span>Luật</span>Danh tính món bị che có thể suy ra từ gợi ý hoặc đơn hàng; món chỉ được lộ khi bạn nhấc nó lên.</p>
-<div class='demo-stage' data-mechanic='hidden-items'></div>
-<a class='gif-download' href='gifs/hidden-items.gif' download>Tải GIF gameplay</a>
-<p class='card-note'>Hãy dựa vào gợi ý và đơn hàng để đoán món bị che; nó sẽ lộ khi được nhấc lên. Món ẩn không bị đổi ngẫu nhiên.</p>
+<article class='mechanic-card' id='mechanic-hidden-items'>
+<div class='card-head'>
+<div>
+<p class='card-kicker'>Cơ chế 07</p>
+<h3>Hidden item</h3>
+</div>
+<span class='card-mark' aria-hidden='true'>07</span>
+</div>
+<div class='rule-box'><h4>Luật</h4><p>Item ẩn giữ nguyên khi chuyển và chỉ lộ khi match 3; mỗi loại tối đa một item ẩn.</p></div>
+<div class='stage-wrap'><div class='demo-stage' data-mechanic='hidden-items' aria-label='Minh họa hidden item giữ nguyên đến match 3'></div></div>
+<a class='gif-download' href='gifs/hidden-items.gif' download>Tải GIF</a>
 </article>
-<article class='mechanic-card'>
-<header class='card-head'>
-<span class='card-tag' aria-hidden='true'>08</span>
-<div><h2>Hộp gấp</h2><p class='card-en'>Urgent</p></div>
-</header>
-<p class='card-rule'><span>Luật</span>Đồng hồ 30 giây bắt đầu khi hộp trở nên dễ tiếp cận; phải đóng gói và đưa hộp vào hàng chờ trước khi hết giờ.</p>
-<div class='demo-stage' data-mechanic='urgent'></div>
-<a class='gif-download' href='gifs/urgent.gif' download>Tải GIF gameplay</a>
-<p class='card-note'>Tia đỏ là đồng hồ 30 giây, không phải hiệu ứng trang trí và không tính theo nhịp. Ưu tiên hộp gấp ngay khi nó dễ tiếp cận: đóng gói và đưa vào hàng chờ trước khi hết giờ.</p>
+<article class='mechanic-card' id='mechanic-urgent'>
+<div class='card-head'>
+<div>
+<p class='card-kicker'>Cơ chế 08</p>
+<h3>Hàng cấp bách</h3>
+</div>
+<span class='card-mark' aria-hidden='true'>08</span>
+</div>
+<div class='rule-box'><h4>Luật</h4><p>Box cấp bách có timer N giây (ví dụ N = 8 giây); vào queue trước hạn là thành công, hết giờ trước khi vào queue là thất bại.</p></div>
+<div class='stage-wrap'><div class='demo-stage' data-mechanic='urgent' aria-label='Minh họa hàng cấp bách vào queue trước hạn'></div></div>
+<a class='gif-download' href='gifs/urgent.gif' download>Tải GIF</a>
+<a class='gif-download' href='gifs/urgent-fail.gif' download>GIF trễ giờ</a>
 </article>
 </div>
+</section>
 </main>
-<footer class='site-footer'>
-<p><strong>Ghi chú:</strong> Đây là các minh họa lặp để học cơ chế, không phải màn campaign và không có combo. Bạn có thể tạm dừng hoặc tua từng bước trong từng bảng.</p>
-<nav aria-label='Liên kết cuối trang'>
-<a href='../FactorySort.html'>Chơi Factory Sort</a>
-<a href='../../../index.html'>Về trang chủ</a>
-</nav>
+<footer class='site-footer wrap'>
+<div class='footer-art' aria-hidden='true'>
+<svg viewBox='0 0 180 90' role='img'>
+<rect x='10' y='60' width='160' height='12' rx='6' fill='#bfe8d4'/>
+<rect x='54' y='26' width='52' height='38' rx='9' fill='#d7a05f'/>
+<path d='M74 26v38M54 40h52' stroke='#f7f0df' stroke-width='4'/>
+<path d='M116 42h28m-8-7 8 7-8 7' fill='none' stroke='#e9685b' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/>
+</svg>
+</div>
+<div><p><strong>Bản xem trước cơ chế.</strong> Hình minh họa cho tám tình huống trên dây chuyền.</p><p class='fine'>Dùng nút trong từng thẻ để xem lại.</p></div>
 </footer>
+<script src='renderer.js' defer></script>
+<script src='demo.js' defer></script>
 </body>
 </html>
