@@ -80,7 +80,7 @@ function renderState(s){
  const scene=sampleScene(s.key,s.time,s.modeId);
  if(scene&&window.FactoryScene&&typeof window.FactoryScene.render==='function')window.FactoryScene.render(s.svg,scene);
  s.caption.textContent=scene&&scene.caption!=null?String(scene.caption):'';
- s.progress.textContent=s.time.toFixed(2)+' / '+dur.toFixed(2);
+ s.progress.textContent=s.time.toFixed(1)+' / '+dur.toFixed(1)+' giây';
 }
 function buildStage(root,sc){
  const modes=sc.modes||[];
@@ -156,7 +156,7 @@ function showError(el,msg){
  p.textContent=msg;
  el.appendChild(p);
 }
-function loadData(){return fetch('authored-storyboards.json',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
+function loadData(){return fetch('authored-storyboards.json?v=queue-top-v4-20261110',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
 function setupObserver(){
  if(observer){observer.disconnect();observer=null;}
  states.forEach(function(s){s.visible=false;s.lastTs=null;});

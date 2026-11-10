@@ -19,13 +19,14 @@ svg.style.width='100%';svg.style.height='auto';svg.style.display='block';
 var root=el('g',{'font-family':STYLE.fontFamily},svg);
 // background
 el('rect',{x:0,y:0,width:420,height:540,fill:'#f7f8fb'},root);
-// shipping area TOP
-el('rect',{x:8,y:8,width:404,height:40,fill:COL.belt,stroke:COL.beltD,'stroke-width':2,rx:6},root);
-for(var bx=16;bx<404;bx+=26){el('rect',{x:bx,y:12,width:12,height:4,fill:COL.beltD,opacity:0.6},root);}
-// queue area below shipping
-el('rect',{x:30,y:52,width:360,height:88,fill:'#eef1f6',stroke:'#c6cbd6','stroke-width':1.5,rx:8},root);
+// queue area TOP (above shipping conveyor)
+el('rect',{x:30,y:8,width:360,height:92,fill:'#eef1f6',stroke:'#c6cbd6','stroke-width':1.5,rx:8,'data-area':'queue'},root);
 var qslots=[40,165,290];
-for(var qi=0;qi<3;qi++){el('rect',{x:qslots[qi],y:65,width:110,height:60,fill:COL.queC,stroke:'#9aa1b0','stroke-width':2,'stroke-dasharray':'6 4',rx:6},root);}
+for(var qi=0;qi<3;qi++){el('rect',{x:qslots[qi],y:25,width:110,height:60,fill:COL.queC,stroke:'#9aa1b0','stroke-width':2,'stroke-dasharray':'6 4',rx:6},root);}
+// shipping belt BELOW the queue
+el('rect',{x:8,y:125,width:404,height:40,fill:COL.belt,stroke:COL.beltD,'stroke-width':2,rx:6,'data-area':'shipping-conveyor'},root);
+for(var bx=16;bx<404;bx+=26){el('rect',{x:bx,y:129,width:12,height:4,fill:COL.beltD,opacity:0.6},root);}
+txt(root,18,151,'CONVEYOR THẲNG',{fill:'#ffffff','font-size':14,'font-weight':'bold'});
 // STATIC LAYOUT: vertical conveyor flow bottom(feed)->top(active). No long empty ladder rails above active boxes.
 var lanes=[20,155,290];
 // 3 conveyor lanes spanning y215..495, drawn behind boxes
@@ -40,9 +41,12 @@ for(var li=0;li<3;li++){
   el('rect',{x:lx+8,y:378,width:94,height:2,fill:COL.cleat,opacity:0.35},root);
 }
 // active docks row near queue at y230, width110 height90
-for(var di=0;di<3;di++){el('rect',{x:lanes[di]+5,y:230,width:100,height:90,fill:'#e6e9f0',stroke:'#b6bcc8','stroke-width':2,rx:8},root);}
+for(var di=0;di<3;di++){el('rect',{x:lanes[di]+5,y:230,width:100,height:90,fill:'#e6e9f0',stroke:'#b6bcc8','stroke-width':2,rx:8,'data-area':'active-dock'},root);}
 // feed/rear docks row BELOW at y390
-for(var fi=0;fi<3;fi++){el('rect',{x:lanes[fi]+5,y:390,width:100,height:90,fill:'#eceef4',stroke:'#c2c8d4','stroke-width':2,'stroke-dasharray':'5 4',rx:8},root);}
+for(var fi=0;fi<3;fi++){el('rect',{x:lanes[fi]+5,y:390,width:100,height:90,fill:'#eceef4',stroke:'#c2c8d4','stroke-width':2,'stroke-dasharray':'5 4',rx:8,'data-area':'feed-dock'},root);}
+// orientation labels
+txt(root,18,205,'Box thao tác',{fill:COL.navy,'font-size':12,'font-weight':'bold'});
+txt(root,18,378,'Box chờ · đi lên',{fill:COL.navy,'font-size':12,'font-weight':'bold'});
 // small UP arrows in lanes around y350 indicating upward feed
 for(var ai=0;ai<3;ai++){
   var ax=lanes[ai]+55;
@@ -59,9 +63,9 @@ if(scene.hoist&&scene.hoist.targetId){
   if(ht){
     var htx=(+ht.x||0),hty=(+ht.y||0),hts=(ht.scale!=null?ht.scale:1);
     var tcx=htx+55*hts,tcy=hty+45*hts;
-    var beamY=12,beamX0=10,beamX1=410,feedX=396;
+    var beamY=185,beamX0=10,beamX1=398,feedX=410;
     el('rect',{x:beamX0,y:beamY,width:beamX1-beamX0,height:6,fill:COL.beltD,rx:2},root);
-    el('rect',{x:feedX-6,y:beamY,width:12,height:24,fill:COL.belt,rx:2},root);
+    el('rect',{x:feedX-6,y:beamY-8,width:12,height:22,fill:COL.belt,rx:2},root);
     var hookX=Math.max(20,Math.min(400,tcx));
     el('path',{d:'M'+hookX+' '+(beamY+6)+' L'+hookX+' '+(tcy-24),fill:'none',stroke:'#3a4050','stroke-width':2},root);
     el('path',{d:'M'+(hookX-8)+' '+(tcy-24)+' L'+(hookX+8)+' '+(tcy-24)+' L'+hookX+' '+(tcy-14)+' Z',fill:'#8a8f9c',stroke:'#3a4050','stroke-width':1.5},root);
@@ -83,7 +87,7 @@ for(var L=0;L<links.length;L++){
 // queue used text
 var cap=(scene.queueCapacity!=null?scene.queueCapacity:scene.queueUsed!=null?scene.queueUsed:3);
 var used=(scene.queueUsed!=null?scene.queueUsed:0);
-txt(root,34,60,'QUEUE '+used+'/'+cap,{fill:COL.navy,'font-size':13,'font-weight':'bold'});
+txt(root,34,20,'QUEUE '+used+'/'+cap,{fill:COL.navy,'font-size':13,'font-weight':'bold'});
 // boxes: draw supplied positions literally (no remapping)
 for(var bi=0;bi<boxes.length;bi++){drawBox(root,boxes[bi]);}
 // flying items
@@ -152,7 +156,12 @@ function drawBox(parent,b){
     im2.setAttributeNS('http://www.w3.org/1999/xlink','xlink:href',ASSETS+'ice.svg');
   }
   // labels
-  txt(g,x+w/2,y-6,b.id||'',{fill:COL.navy,'font-size':14,'font-weight':'bold','text-anchor':'middle'});
+  var _inBox=sc<1;
+  if(_inBox){
+    txt(g,x+w/2,y+20,b.id||'',{fill:COL.navy,'font-size':18,'font-weight':'bold','text-anchor':'middle'});
+  }else{
+    txt(g,x+w/2,y-6,b.id||'',{fill:COL.navy,'font-size':14,'font-weight':'bold','text-anchor':'middle'});
+  }
   if(b.label){var ll=wrapLabel(b.label,16);for(var li2=0;li2<ll.length;li2++){txt(g,x+w/2,y+h+14+li2*12,ll[li2],{fill:COL.navy,'font-size':11,'text-anchor':'middle'});}}
   // badge
   if(b.badge){drawBadge(g,b);}
@@ -165,7 +174,7 @@ function drawBox(parent,b){
   if(b.remaining!=null){
     var ice=(b.iceSlot!=null&&b.iceSlot!==false);
     var pillFill=ice?'#2f6fd6':'#e04a4a';
-    var px=x+w-34,py=y-44;
+    var px=_inBox?(x+4):(x+w-34),py=_inBox?(y+4):(y-44);
     el('rect',{x:px,y:py,width:32,height:22,rx:6,fill:pillFill,opacity:0.95},g);
     txt(g,px+16,py+16,String(Math.ceil(+b.remaining))+'s',{fill:'#ffffff','font-size':14,'font-weight':'bold','text-anchor':'middle'});
   }

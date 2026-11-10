@@ -4,8 +4,9 @@
 <meta charset='utf-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1'>
 <meta name='description' content='Tám thẻ minh họa cơ chế dây chuyền trong Factory Sort.'>
+<meta name='demo-layout-version' content='queue-above-conveyor-v4'>
 <title>Factory Sort · Cơ chế trên dây chuyền</title>
-<link rel='stylesheet' href='style.css'>
+<link rel='stylesheet' href='style.css?v=queue-top-v4-20261110'>
 </head>
 <body>
 <a class='skip-link' href='#gallery'>Bỏ qua phần giới thiệu</a>
@@ -17,33 +18,52 @@
 <section class='hero wrap'>
 <div class='hero-art'>
 <svg viewBox='0 0 560 340' role='img' aria-labelledby='hero-art-title hero-art-desc'>
-<title id='hero-art-title'>Sơ đồ dây chuyền Factory Sort</title>
-<desc id='hero-art-desc'>Conveyor xuất hàng phía trên, queue ba slot ở giữa, ba conveyor dọc dẫn xuống các box thao tác.</desc>
+<title id='hero-art-title'>Sơ đồ dây chuyền Factory Sort: queue trên conveyor ngang</title>
+<desc id='hero-art-desc'>Queue ba slot nằm trên cùng. Bên dưới là conveyor ngang màu xám có shipbox ở cuối. Hàng box thao tác ở giữa, hàng box chờ ở dưới; các mũi tên hướng lên cho thấy box chờ trượt lên vị trí thao tác.</desc>
 <rect x='1' y='1' width='558' height='338' rx='26' fill='#fbf6ea' stroke='#d8d1c4'/>
-<rect x='206' y='34' width='318' height='30' rx='15' fill='#15233b'/>
-<text x='206' y='26' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>CONVEYOR XUẤT HÀNG</text>
-<path d='M526 49h18m-7-6 7 6-7 6' fill='none' stroke='#e9685b' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/>
-<text x='204' y='78' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>QUEUE · 3 SLOT</text>
-<g>
-<rect x='206' y='86' width='62' height='48' rx='12' fill='#bfe8d4' stroke='#2f7d65'/>
-<rect x='278' y='86' width='62' height='48' rx='12' fill='#e9f7ef' stroke='#9dcdb9' stroke-dasharray='4 4'/>
-<rect x='350' y='86' width='62' height='48' rx='12' fill='#e9f7ef' stroke='#9dcdb9' stroke-dasharray='4 4'/>
-<image href='assets/carton.svg' x='213' y='89' width='48' height='42'/>
-<text x='309' y='116' font-size='10' fill='#5c667a' text-anchor='middle' font-family='Verdana, sans-serif'>trống</text>
-<text x='381' y='116' font-size='10' fill='#5c667a' text-anchor='middle' font-family='Verdana, sans-serif'>trống</text>
+<text x='20' y='20' font-size='11' font-weight='700' fill='#15233b' font-family='Verdana, sans-serif'>QUEUE</text>
+<g aria-hidden='true'>
+<rect x='180' y='30' width='74' height='50' rx='12' fill='#bfe8d4' stroke='#2f7d65'/>
+<rect x='264' y='30' width='74' height='50' rx='12' fill='#e9f7ef' stroke='#9dcdb9' stroke-dasharray='4 4'/>
+<rect x='348' y='30' width='74' height='50' rx='12' fill='#e9f7ef' stroke='#9dcdb9' stroke-dasharray='4 4'/>
+<image href='assets/carton.svg' x='192' y='34' width='50' height='42'/>
+<text x='301' y='60' font-size='9' fill='#5c667a' text-anchor='middle' font-family='Verdana, sans-serif'>trống</text>
+<text x='385' y='60' font-size='9' fill='#5c667a' text-anchor='middle' font-family='Verdana, sans-serif'>trống</text>
 </g>
-<rect x='82' y='166' width='62' height='118' rx='14' fill='#dff2e8' stroke='#9dcdb9'/>
-<rect x='252' y='166' width='62' height='118' rx='14' fill='#dff2e8' stroke='#9dcdb9'/>
-<rect x='422' y='166' width='62' height='118' rx='14' fill='#dff2e8' stroke='#9dcdb9'/>
-<text x='78' y='158' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>3 CONVEYOR DỌC</text>
-<image href='assets/carton.svg' x='64' y='250' width='98' height='64'/>
-<image href='assets/carton.svg' x='234' y='250' width='98' height='64'/>
-<image href='assets/carton.svg' x='404' y='250' width='98' height='64'/>
-<image href='assets/candy.svg' x='72' y='214' width='22' height='22'/>
-<image href='assets/cookie.svg' x='98' y='214' width='22' height='22'/>
-<image href='assets/padlock.svg' x='270' y='214' width='24' height='24'/>
-<image href='assets/ice.svg' x='94' y='238' width='20' height='20'/>
-<text x='64' y='332' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>BOX THAO TÁC</text>
+<text x='20' y='110' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>CONVEYOR NGANG</text>
+<rect x='20' y='120' width='520' height='30' rx='15' fill='#c9ced6' stroke='#9aa1ad'/>
+<path d='M42 135h420' stroke='#b4bac4' stroke-width='2' stroke-linecap='round' stroke-dasharray='8 8'/>
+<rect x='466' y='125' width='58' height='30' rx='7' fill='#15233b' stroke='#0d1727'/>
+<text x='495' y='145' font-size='9' font-weight='700' fill='#fbf6ea' text-anchor='middle' font-family='Verdana, sans-serif'>SHIP</text>
+<text x='20' y='190' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>BOX THAO TÁC</text>
+<g>
+<path d='M70 210l14-10h62l14 10' fill='#e9c08b' stroke='#b97e3f' stroke-width='2' stroke-linejoin='round'/>
+<rect x='70' y='210' width='90' height='44' rx='8' fill='#d7a05f' stroke='#b97e3f' stroke-width='2'/>
+<image href='assets/candy.svg' x='92' y='194' width='18' height='18'/>
+<image href='assets/cookie.svg' x='116' y='194' width='18' height='18'/>
+<path d='M230 210l14-10h62l14 10' fill='#e9c08b' stroke='#b97e3f' stroke-width='2' stroke-linejoin='round'/>
+<rect x='230' y='210' width='90' height='44' rx='8' fill='#d7a05f' stroke='#b97e3f' stroke-width='2'/>
+<image href='assets/padlock.svg' x='252' y='193' width='20' height='20'/>
+<image href='assets/ice.svg' x='276' y='194' width='18' height='18'/>
+<path d='M390 210l14-10h62l14 10' fill='#e9c08b' stroke='#b97e3f' stroke-width='2' stroke-linejoin='round'/>
+<rect x='390' y='210' width='90' height='44' rx='8' fill='#d7a05f' stroke='#b97e3f' stroke-width='2'/>
+<image href='assets/candy.svg' x='412' y='194' width='18' height='18'/>
+<image href='assets/cookie.svg' x='436' y='194' width='18' height='18'/>
+</g>
+<text x='20' y='270' font-size='10' font-weight='700' fill='#5c667a' font-family='Verdana, sans-serif'>BOX CHỜ</text>
+<g>
+<path d='M115 272v-14m-5 5 5-5 5 5' fill='none' stroke='#e9685b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/>
+<path d='M275 272v-14m-5 5 5-5 5 5' fill='none' stroke='#e9685b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/>
+<path d='M435 272v-14m-5 5 5-5 5 5' fill='none' stroke='#e9685b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/>
+</g>
+<g>
+<rect x='70' y='275' width='90' height='48' rx='9' fill='#e9f7ef' stroke='#9dcdb9'/>
+<rect x='230' y='275' width='90' height='48' rx='9' fill='#e9f7ef' stroke='#9dcdb9'/>
+<rect x='390' y='275' width='90' height='48' rx='9' fill='#e9f7ef' stroke='#9dcdb9'/>
+<image href='assets/carton.svg' x='82' y='279' width='66' height='40'/>
+<image href='assets/carton.svg' x='242' y='279' width='66' height='40'/>
+<image href='assets/carton.svg' x='402' y='279' width='66' height='40'/>
+</g>
 </svg>
 </div>
 <div class='hero-copy'>
@@ -70,7 +90,7 @@
 </div>
 <div class='rule-box'><h4>Luật</h4><p>Box khóa chỉ mở khi Ship đúng box được chỉ định; ship box khác, lấp item hay xếp queue không thay thế.</p></div>
 <div class='stage-wrap'><div class='demo-stage' data-mechanic='locked' aria-label='Minh họa box khóa mở khi ship đúng box'></div></div>
-<a class='gif-download' href='gifs/locked.gif' download>Tải GIF</a>
+<a class='gif-download' href='gifs/locked.gif?v=queue-top-v4-20261110' download>Tải GIF</a>
 </article>
 <article class='mechanic-card' id='mechanic-frozen'>
 <div class='card-head'>
@@ -82,7 +102,7 @@
 </div>
 <div class='rule-box'><h4>Luật</h4><p>Item còn bị che trong conveyor dọc thì timer chưa chạy. Khi trượt ra và hiện rõ, item bắt đầu đếm N giây; hết giờ băng mới tan (ví dụ N = 5 giây).</p></div>
 <div class='stage-wrap'><div class='demo-stage' data-mechanic='frozen' aria-label='Minh họa item đóng băng và timer bắt đầu khi box hiện ra'></div></div>
-<a class='gif-download' href='gifs/frozen.gif' download>Tải GIF</a>
+<a class='gif-download' href='gifs/frozen.gif?v=queue-top-v4-20261110' download>Tải GIF</a>
 </article>
 <article class='mechanic-card' id='mechanic-stuck'>
 <div class='card-head'>
@@ -94,8 +114,8 @@
 </div>
 <div class='rule-box'><h4>Luật</h4><p>Box kẹt đã đóng nắp chiếm vị trí thao tác; các box phía sau dừng lại và queue không tăng.</p></div>
 <div class='stage-wrap'><div class='demo-stage' data-mechanic='stuck' aria-label='Minh họa box kẹt chiếm vị trí thao tác'></div></div>
-<a class='gif-download' href='gifs/stuck.gif' download>Tải GIF</a>
-<a class='gif-download' href='gifs/stuck-random.gif' download>GIF thu ngẫu nhiên</a>
+<a class='gif-download' href='gifs/stuck.gif?v=queue-top-v4-20261110' download>Tải GIF</a>
+<a class='gif-download' href='gifs/stuck-random.gif?v=queue-top-v4-20261110' download>GIF thu ngẫu nhiên</a>
 </article>
 <article class='mechanic-card' id='mechanic-defective'>
 <div class='card-head'>
@@ -107,7 +127,7 @@
 </div>
 <div class='rule-box'><h4>Luật</h4><p>Box lỗi giữ slot queue đúng N giây (ví dụ N = 5 giây) và không ship trước khi timer về 0.</p></div>
 <div class='stage-wrap'><div class='demo-stage' data-mechanic='defective' aria-label='Minh họa box lỗi giữ queue đúng N giây'></div></div>
-<a class='gif-download' href='gifs/defective.gif' download>Tải GIF</a>
+<a class='gif-download' href='gifs/defective.gif?v=queue-top-v4-20261110' download>Tải GIF</a>
 </article>
 <article class='mechanic-card' id='mechanic-connector'>
 <div class='card-head'>
@@ -119,8 +139,8 @@
 </div>
 <div class='rule-box'><h4>Luật</h4><p>Hai box nối sẵn từ đầu; phải clear cả hai mới cùng lên queue, chiếm hai slot. Với biến thể một box kẹt + một box ăn, clear box ăn kéo cả cặp lên; box kẹt tiếp tục chiếm slot queue.</p></div>
 <div class='stage-wrap'><div class='demo-stage' data-mechanic='connector' aria-label='Minh họa connector: hai box cùng vào queue'></div></div>
-<a class='gif-download' href='gifs/connector.gif' download>Tải GIF</a>
-<a class='gif-download' href='gifs/connector-stuck.gif' download>GIF box kẹt + box ăn</a>
+<a class='gif-download' href='gifs/connector.gif?v=queue-top-v4-20261110' download>Tải GIF</a>
+<a class='gif-download' href='gifs/connector-stuck.gif?v=queue-top-v4-20261110' download>GIF box kẹt + box ăn</a>
 </article>
 <article class='mechanic-card' id='mechanic-hidden-box'>
 <div class='card-head'>
@@ -132,7 +152,7 @@
 </div>
 <div class='rule-box'><h4>Luật</h4><p>Box kín giữ item ẩn đến đầu conveyor dọc; tại đó box mở và lộ đủ 3 item.</p></div>
 <div class='stage-wrap'><div class='demo-stage' data-mechanic='hidden-box' aria-label='Minh họa hidden box mở ở đầu conveyor dọc'></div></div>
-<a class='gif-download' href='gifs/hidden-box.gif' download>Tải GIF</a>
+<a class='gif-download' href='gifs/hidden-box.gif?v=queue-top-v4-20261110' download>Tải GIF</a>
 </article>
 <article class='mechanic-card' id='mechanic-hidden-items'>
 <div class='card-head'>
@@ -144,7 +164,7 @@
 </div>
 <div class='rule-box'><h4>Luật</h4><p>Item ẩn giữ nguyên khi chuyển và chỉ lộ khi match 3; mỗi loại tối đa một item ẩn.</p></div>
 <div class='stage-wrap'><div class='demo-stage' data-mechanic='hidden-items' aria-label='Minh họa hidden item giữ nguyên đến match 3'></div></div>
-<a class='gif-download' href='gifs/hidden-items.gif' download>Tải GIF</a>
+<a class='gif-download' href='gifs/hidden-items.gif?v=queue-top-v4-20261110' download>Tải GIF</a>
 </article>
 <article class='mechanic-card' id='mechanic-urgent'>
 <div class='card-head'>
@@ -156,8 +176,8 @@
 </div>
 <div class='rule-box'><h4>Luật</h4><p>Box cấp bách có timer N giây (ví dụ N = 8 giây); vào queue trước hạn là thành công, hết giờ trước khi vào queue là thất bại.</p></div>
 <div class='stage-wrap'><div class='demo-stage' data-mechanic='urgent' aria-label='Minh họa hàng cấp bách vào queue trước hạn'></div></div>
-<a class='gif-download' href='gifs/urgent.gif' download>Tải GIF</a>
-<a class='gif-download' href='gifs/urgent-fail.gif' download>GIF trễ giờ</a>
+<a class='gif-download' href='gifs/urgent.gif?v=queue-top-v4-20261110' download>Tải GIF</a>
+<a class='gif-download' href='gifs/urgent-fail.gif?v=queue-top-v4-20261110' download>GIF trễ giờ</a>
 </article>
 </div>
 </section>
@@ -173,7 +193,7 @@
 </div>
 <div><p><strong>Bản xem trước cơ chế.</strong> Hình minh họa cho tám tình huống trên dây chuyền.</p><p class='fine'>Dùng nút trong từng thẻ để xem lại.</p></div>
 </footer>
-<script src='renderer.js' defer></script>
-<script src='demo.js' defer></script>
+<script src='renderer.js?v=queue-top-v4-20261110' defer></script>
+<script src='demo.js?v=queue-top-v4-20261110' defer></script>
 </body>
 </html>
