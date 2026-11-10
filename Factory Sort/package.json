@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "node tools/server.mjs",
-    "test": "node tools/selftest.js && node tools/booster-test.js && node tools/booster-ui-test.js && node tools/blocker-test.js",
+    "test": "node tools/selftest.js && node tools/booster-test.js && node tools/booster-ui-test.js && node tools/blocker-test.js && node tools/mechanic-combo-test.js",
     "test:blockers": "node tools/blocker-test.js",
+    "test:combos": "node tools/mechanic-combo-test.js",
     "test:boosters": "node tools/booster-test.js && node tools/booster-ui-test.js",
     "test:ui": "node tools/item-art-test.js",
     "demo": "node tools/demo.js",

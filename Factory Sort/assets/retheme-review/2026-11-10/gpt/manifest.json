@@ -1,0 +1,1521 @@
+{
+  "author": "GPT",
+  "pipeline": "Direct RGBA Slicing (no redraw, preserved alpha)",
+  "date": "2026-11-10",
+  "sourceFiles": {
+    "candyAtlas": "candy-items-v2.png",
+    "foodAtlas": "food-items-v1.png",
+    "candyUI": "candy-ui-v2.png",
+    "foodUI": "food-ui-v2.png",
+    "candyGameplay": "candy-gameplay-v1.png",
+    "foodGameplay": "food-gameplay-v1.png"
+  },
+  "themes": {
+    "candy": {
+      "sourceAtlas": "candy-items-v2.png",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "grid": [
+        8,
+        4
+      ],
+      "cellSize": [
+        221,
+        221
+      ],
+      "items": [
+        {
+          "id": "candy_01",
+          "name": "spiral_lollipop",
+          "row": 0,
+          "col": 0,
+          "family": "Lollipops",
+          "notes": "Spiral swirled round lollipop on stick",
+          "cellRect": [
+            0,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            40,
+            17,
+            212,
+            221
+          ],
+          "contentWidth": 172,
+          "contentHeight": 204,
+          "relativePath": "gpt/candy/items/candy_01_spiral_lollipop.png"
+        },
+        {
+          "id": "candy_02",
+          "name": "heart_lollipop",
+          "row": 0,
+          "col": 1,
+          "family": "Lollipops",
+          "notes": "Glossy heart-shaped candy on stick",
+          "cellRect": [
+            221,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            38,
+            28,
+            217,
+            220
+          ],
+          "contentWidth": 179,
+          "contentHeight": 192,
+          "relativePath": "gpt/candy/items/candy_02_heart_lollipop.png"
+        },
+        {
+          "id": "candy_03",
+          "name": "star_lollipop",
+          "row": 0,
+          "col": 2,
+          "family": "Lollipops",
+          "notes": "Five-pointed rounded star candy on stick",
+          "cellRect": [
+            442,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            19,
+            16,
+            204,
+            216
+          ],
+          "contentWidth": 185,
+          "contentHeight": 200,
+          "relativePath": "gpt/candy/items/candy_03_star_lollipop.png"
+        },
+        {
+          "id": "candy_04",
+          "name": "candy_cane",
+          "row": 0,
+          "col": 3,
+          "family": "Lollipops",
+          "notes": "Hooked peppermint cane with red/white stripes",
+          "cellRect": [
+            663,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            10,
+            15,
+            220,
+            211
+          ],
+          "contentWidth": 210,
+          "contentHeight": 196,
+          "relativePath": "gpt/candy/items/candy_04_candy_cane.png"
+        },
+        {
+          "id": "candy_05",
+          "name": "twistwrapped_bonbon",
+          "row": 0,
+          "col": 4,
+          "family": "Hard Candy",
+          "notes": "Oval candy with pinched twisted ends",
+          "cellRect": [
+            884,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            2,
+            11,
+            221,
+            220
+          ],
+          "contentWidth": 219,
+          "contentHeight": 209,
+          "relativePath": "gpt/candy/items/candy_05_twistwrapped_bonbon.png"
+        },
+        {
+          "id": "candy_06",
+          "name": "round_truffle",
+          "row": 0,
+          "col": 5,
+          "family": "Hard Candy",
+          "notes": "Spherical chocolate truffle with dusting",
+          "cellRect": [
+            1105,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            31,
+            211,
+            210
+          ],
+          "contentWidth": 211,
+          "contentHeight": 179,
+          "relativePath": "gpt/candy/items/candy_06_round_truffle.png"
+        },
+        {
+          "id": "candy_07",
+          "name": "square_praline",
+          "row": 0,
+          "col": 6,
+          "family": "Hard Candy",
+          "notes": "Square chocolate praline with swirl",
+          "cellRect": [
+            1326,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            11,
+            24,
+            204,
+            210
+          ],
+          "contentWidth": 193,
+          "contentHeight": 186,
+          "relativePath": "gpt/candy/items/candy_07_square_praline.png"
+        },
+        {
+          "id": "candy_08",
+          "name": "striped_toffee",
+          "row": 0,
+          "col": 7,
+          "family": "Hard Candy",
+          "notes": "Layered two-tone chewy toffee rectangle",
+          "cellRect": [
+            1547,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            2,
+            37,
+            215,
+            220
+          ],
+          "contentWidth": 213,
+          "contentHeight": 183,
+          "relativePath": "gpt/candy/items/candy_08_striped_toffee.png"
+        },
+        {
+          "id": "candy_09",
+          "name": "gummy_bear",
+          "row": 1,
+          "col": 0,
+          "family": "Gummies",
+          "notes": "Translucent gummy bear with cute ears",
+          "cellRect": [
+            0,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            0,
+            196,
+            221
+          ],
+          "contentWidth": 196,
+          "contentHeight": 221,
+          "relativePath": "gpt/candy/items/candy_09_gummy_bear.png"
+        },
+        {
+          "id": "candy_10",
+          "name": "gummy_ring",
+          "row": 1,
+          "col": 1,
+          "family": "Gummies",
+          "notes": "Two-tone gummy donut ring",
+          "cellRect": [
+            221,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            20,
+            0,
+            213,
+            215
+          ],
+          "contentWidth": 193,
+          "contentHeight": 215,
+          "relativePath": "gpt/candy/items/candy_10_gummy_ring.png"
+        },
+        {
+          "id": "candy_11",
+          "name": "gummy_worm",
+          "row": 1,
+          "col": 2,
+          "family": "Gummies",
+          "notes": "Segmented wavy gummy worm",
+          "cellRect": [
+            442,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            8,
+            18,
+            209,
+            216
+          ],
+          "contentWidth": 201,
+          "contentHeight": 198,
+          "relativePath": "gpt/candy/items/candy_11_gummy_worm.png"
+        },
+        {
+          "id": "candy_12",
+          "name": "gummy_peach",
+          "row": 1,
+          "col": 3,
+          "family": "Gummies",
+          "notes": "Sugared heart-shaped gummy peach slice",
+          "cellRect": [
+            663,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            13,
+            19,
+            210,
+            218
+          ],
+          "contentWidth": 197,
+          "contentHeight": 199,
+          "relativePath": "gpt/candy/items/candy_12_gummy_peach.png"
+        },
+        {
+          "id": "candy_13",
+          "name": "jelly_bean",
+          "row": 1,
+          "col": 4,
+          "family": "Drops",
+          "notes": "Kidney bean shaped glossy jelly chew",
+          "cellRect": [
+            884,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            2,
+            2,
+            213,
+            221
+          ],
+          "contentWidth": 211,
+          "contentHeight": 219,
+          "relativePath": "gpt/candy/items/candy_13_jelly_bean.png"
+        },
+        {
+          "id": "candy_14",
+          "name": "sugar_drop",
+          "row": 1,
+          "col": 5,
+          "family": "Drops",
+          "notes": "Teardrop sugar drop with facets",
+          "cellRect": [
+            1105,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            23,
+            22,
+            207,
+            221
+          ],
+          "contentWidth": 184,
+          "contentHeight": 199,
+          "relativePath": "gpt/candy/items/candy_14_sugar_drop.png"
+        },
+        {
+          "id": "candy_15",
+          "name": "candy_corn",
+          "row": 1,
+          "col": 6,
+          "family": "Drops",
+          "notes": "Tri-band triangular candy corn",
+          "cellRect": [
+            1326,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            22,
+            21,
+            220,
+            221
+          ],
+          "contentWidth": 198,
+          "contentHeight": 200,
+          "relativePath": "gpt/candy/items/candy_15_candy_corn.png"
+        },
+        {
+          "id": "candy_16",
+          "name": "mint_disc",
+          "row": 1,
+          "col": 7,
+          "family": "Drops",
+          "notes": "Circular mint lozenge with embossed motif",
+          "cellRect": [
+            1547,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            15,
+            22,
+            211,
+            216
+          ],
+          "contentWidth": 196,
+          "contentHeight": 194,
+          "relativePath": "gpt/candy/items/candy_16_mint_disc.png"
+        },
+        {
+          "id": "candy_17",
+          "name": "pink_macaron",
+          "row": 2,
+          "col": 0,
+          "family": "Bakery",
+          "notes": "Glossy pink macaron with cream filling",
+          "cellRect": [
+            0,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            15,
+            0,
+            214,
+            221
+          ],
+          "contentWidth": 199,
+          "contentHeight": 221,
+          "relativePath": "gpt/candy/items/candy_17_pink_macaron.png"
+        },
+        {
+          "id": "candy_18",
+          "name": "cream_wafer",
+          "row": 2,
+          "col": 1,
+          "family": "Bakery",
+          "notes": "Layered vanilla wafer bar",
+          "cellRect": [
+            221,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            6,
+            21,
+            217,
+            209
+          ],
+          "contentWidth": 211,
+          "contentHeight": 188,
+          "relativePath": "gpt/candy/items/candy_18_cream_wafer.png"
+        },
+        {
+          "id": "candy_19",
+          "name": "chocolate_sandwich_cookie",
+          "row": 2,
+          "col": 2,
+          "family": "Bakery",
+          "notes": "Dark scalloped cookie with white cream",
+          "cellRect": [
+            442,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            10,
+            21,
+            220,
+            221
+          ],
+          "contentWidth": 210,
+          "contentHeight": 200,
+          "relativePath": "gpt/candy/items/candy_19_chocolate_sandwich_cookie.png"
+        },
+        {
+          "id": "candy_20",
+          "name": "butter_biscuit",
+          "row": 2,
+          "col": 3,
+          "family": "Bakery",
+          "notes": "Golden rectangular butter biscuit",
+          "cellRect": [
+            663,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            5,
+            4,
+            214,
+            215
+          ],
+          "contentWidth": 209,
+          "contentHeight": 211,
+          "relativePath": "gpt/candy/items/candy_20_butter_biscuit.png"
+        },
+        {
+          "id": "candy_21",
+          "name": "sprinkle_donut",
+          "row": 2,
+          "col": 4,
+          "family": "Pastry",
+          "notes": "Pink frosted donut with rainbow sprinkles",
+          "cellRect": [
+            884,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            2,
+            0,
+            221,
+            203
+          ],
+          "contentWidth": 219,
+          "contentHeight": 203,
+          "relativePath": "gpt/candy/items/candy_21_sprinkle_donut.png"
+        },
+        {
+          "id": "candy_22",
+          "name": "strawberry_cupcake",
+          "row": 2,
+          "col": 5,
+          "family": "Pastry",
+          "notes": "Swirled frosting cupcake with cherry",
+          "cellRect": [
+            1105,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            0,
+            218,
+            217
+          ],
+          "contentWidth": 218,
+          "contentHeight": 217,
+          "relativePath": "gpt/candy/items/candy_22_strawberry_cupcake.png"
+        },
+        {
+          "id": "candy_23",
+          "name": "cake_roll",
+          "row": 2,
+          "col": 6,
+          "family": "Pastry",
+          "notes": "Spiral cream roll cake slice",
+          "cellRect": [
+            1326,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            1,
+            0,
+            221,
+            205
+          ],
+          "contentWidth": 220,
+          "contentHeight": 205,
+          "relativePath": "gpt/candy/items/candy_23_cake_roll.png"
+        },
+        {
+          "id": "candy_24",
+          "name": "berry_tart",
+          "row": 2,
+          "col": 7,
+          "family": "Pastry",
+          "notes": "Glazed blueberry/blackberry tart",
+          "cellRect": [
+            1547,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            8,
+            216,
+            207
+          ],
+          "contentWidth": 216,
+          "contentHeight": 199,
+          "relativePath": "gpt/candy/items/candy_24_berry_tart.png"
+        },
+        {
+          "id": "candy_25",
+          "name": "popsicle",
+          "row": 3,
+          "col": 0,
+          "family": "Frozen",
+          "notes": "Frozen twin-stick fruit popsicle",
+          "cellRect": [
+            0,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            30,
+            0,
+            200,
+            214
+          ],
+          "contentWidth": 170,
+          "contentHeight": 214,
+          "relativePath": "gpt/candy/items/candy_25_popsicle.png"
+        },
+        {
+          "id": "candy_26",
+          "name": "icecream_cone",
+          "row": 3,
+          "col": 1,
+          "family": "Frozen",
+          "notes": "Waffle cone with ice cream scoop",
+          "cellRect": [
+            221,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            4,
+            0,
+            213,
+            221
+          ],
+          "contentWidth": 209,
+          "contentHeight": 221,
+          "relativePath": "gpt/candy/items/candy_26_icecream_cone.png"
+        },
+        {
+          "id": "candy_27",
+          "name": "sundae_cup",
+          "row": 3,
+          "col": 2,
+          "family": "Frozen",
+          "notes": "Fluted sundae cup with swirl cream",
+          "cellRect": [
+            442,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            8,
+            0,
+            207,
+            212
+          ],
+          "contentWidth": 199,
+          "contentHeight": 212,
+          "relativePath": "gpt/candy/items/candy_27_sundae_cup.png"
+        },
+        {
+          "id": "candy_28",
+          "name": "mochi_ball",
+          "row": 3,
+          "col": 3,
+          "family": "Frozen",
+          "notes": "Pillowy matcha dusted mochi sphere",
+          "cellRect": [
+            663,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            14,
+            30,
+            207,
+            194
+          ],
+          "contentWidth": 193,
+          "contentHeight": 164,
+          "relativePath": "gpt/candy/items/candy_28_mochi_ball.png"
+        },
+        {
+          "id": "candy_29",
+          "name": "chocolate_bar",
+          "row": 3,
+          "col": 4,
+          "family": "Confection",
+          "notes": "Segmented rectangular chocolate block",
+          "cellRect": [
+            884,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            7,
+            217,
+            213
+          ],
+          "contentWidth": 217,
+          "contentHeight": 206,
+          "relativePath": "gpt/candy/items/candy_29_chocolate_bar.png"
+        },
+        {
+          "id": "candy_30",
+          "name": "peanut_brittle",
+          "row": 3,
+          "col": 5,
+          "family": "Confection",
+          "notes": "Amber caramel peanut brittle slab",
+          "cellRect": [
+            1105,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            8,
+            13,
+            216,
+            208
+          ],
+          "contentWidth": 208,
+          "contentHeight": 195,
+          "relativePath": "gpt/candy/items/candy_30_peanut_brittle.png"
+        },
+        {
+          "id": "candy_31",
+          "name": "fudge_cube",
+          "row": 3,
+          "col": 6,
+          "family": "Confection",
+          "notes": "Dense chocolate fudge cube",
+          "cellRect": [
+            1326,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            13,
+            13,
+            218,
+            206
+          ],
+          "contentWidth": 205,
+          "contentHeight": 193,
+          "relativePath": "gpt/candy/items/candy_31_fudge_cube.png"
+        },
+        {
+          "id": "candy_32",
+          "name": "marshmallow_twist",
+          "row": 3,
+          "col": 7,
+          "family": "Confection",
+          "notes": "Pastel braided marshmallow cord",
+          "cellRect": [
+            1547,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            17,
+            13,
+            201,
+            209
+          ],
+          "contentWidth": 184,
+          "contentHeight": 196,
+          "relativePath": "gpt/candy/items/candy_32_marshmallow_twist.png"
+        }
+      ]
+    },
+    "food": {
+      "sourceAtlas": "food-items-v1.png",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "grid": [
+        8,
+        4
+      ],
+      "cellSize": [
+        221,
+        221
+      ],
+      "items": [
+        {
+          "id": "food_01",
+          "name": "apple",
+          "row": 0,
+          "col": 0,
+          "family": "Fruits",
+          "notes": "Red apple with green leaf stem",
+          "cellRect": [
+            0,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            23,
+            16,
+            210,
+            221
+          ],
+          "contentWidth": 187,
+          "contentHeight": 205,
+          "relativePath": "gpt/food/items/food_01_apple.png"
+        },
+        {
+          "id": "food_02",
+          "name": "orange",
+          "row": 0,
+          "col": 1,
+          "family": "Fruits",
+          "notes": "Spherical citrus orange with texture",
+          "cellRect": [
+            221,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            21,
+            27,
+            217,
+            221
+          ],
+          "contentWidth": 196,
+          "contentHeight": 194,
+          "relativePath": "gpt/food/items/food_02_orange.png"
+        },
+        {
+          "id": "food_03",
+          "name": "strawberry",
+          "row": 0,
+          "col": 2,
+          "family": "Fruits",
+          "notes": "Conical red berry with yellow seeds and calyx",
+          "cellRect": [
+            442,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            32,
+            23,
+            207,
+            221
+          ],
+          "contentWidth": 175,
+          "contentHeight": 198,
+          "relativePath": "gpt/food/items/food_03_strawberry.png"
+        },
+        {
+          "id": "food_04",
+          "name": "pear",
+          "row": 0,
+          "col": 3,
+          "family": "Fruits",
+          "notes": "Teardrop shaped olive-yellow pear",
+          "cellRect": [
+            663,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            25,
+            14,
+            200,
+            221
+          ],
+          "contentWidth": 175,
+          "contentHeight": 207,
+          "relativePath": "gpt/food/items/food_04_pear.png"
+        },
+        {
+          "id": "food_05",
+          "name": "broccoli",
+          "row": 0,
+          "col": 4,
+          "family": "Veggies",
+          "notes": "Cluster of deep green broccoli florets",
+          "cellRect": [
+            884,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            21,
+            219,
+            221
+          ],
+          "contentWidth": 219,
+          "contentHeight": 200,
+          "relativePath": "gpt/food/items/food_05_broccoli.png"
+        },
+        {
+          "id": "food_06",
+          "name": "carrot",
+          "row": 0,
+          "col": 5,
+          "family": "Veggies",
+          "notes": "Tapered orange carrot with green frills",
+          "cellRect": [
+            1105,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            1,
+            16,
+            206,
+            221
+          ],
+          "contentWidth": 205,
+          "contentHeight": 205,
+          "relativePath": "gpt/food/items/food_06_carrot.png"
+        },
+        {
+          "id": "food_07",
+          "name": "corn_cob",
+          "row": 0,
+          "col": 6,
+          "family": "Veggies",
+          "notes": "Golden sweetcorn ear with partial husk",
+          "cellRect": [
+            1326,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            16,
+            19,
+            202,
+            221
+          ],
+          "contentWidth": 186,
+          "contentHeight": 202,
+          "relativePath": "gpt/food/items/food_07_corn_cob.png"
+        },
+        {
+          "id": "food_08",
+          "name": "mushroom",
+          "row": 0,
+          "col": 7,
+          "family": "Veggies",
+          "notes": "Brown button mushroom with white stem",
+          "cellRect": [
+            1547,
+            0,
+            221,
+            221
+          ],
+          "contentBBox": [
+            16,
+            37,
+            209,
+            221
+          ],
+          "contentWidth": 193,
+          "contentHeight": 184,
+          "relativePath": "gpt/food/items/food_08_mushroom.png"
+        },
+        {
+          "id": "food_09",
+          "name": "fried_egg",
+          "row": 1,
+          "col": 0,
+          "family": "Breakfast",
+          "notes": "Sunny-side egg with glossy yellow yolk",
+          "cellRect": [
+            0,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            0,
+            221,
+            215
+          ],
+          "contentWidth": 221,
+          "contentHeight": 215,
+          "relativePath": "gpt/food/items/food_09_fried_egg.png"
+        },
+        {
+          "id": "food_10",
+          "name": "croissant",
+          "row": 1,
+          "col": 1,
+          "family": "Breakfast",
+          "notes": "Buttery flaky crescent croissant",
+          "cellRect": [
+            221,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            0,
+            221,
+            213
+          ],
+          "contentWidth": 221,
+          "contentHeight": 213,
+          "relativePath": "gpt/food/items/food_10_croissant.png"
+        },
+        {
+          "id": "food_11",
+          "name": "pancake_stack",
+          "row": 1,
+          "col": 2,
+          "family": "Breakfast",
+          "notes": "Stack of pancakes with butter pat",
+          "cellRect": [
+            442,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            4,
+            0,
+            213,
+            221
+          ],
+          "contentWidth": 209,
+          "contentHeight": 221,
+          "relativePath": "gpt/food/items/food_11_pancake_stack.png"
+        },
+        {
+          "id": "food_12",
+          "name": "toast",
+          "row": 1,
+          "col": 3,
+          "family": "Breakfast",
+          "notes": "Square toasted bread with crust",
+          "cellRect": [
+            663,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            10,
+            0,
+            210,
+            215
+          ],
+          "contentWidth": 200,
+          "contentHeight": 215,
+          "relativePath": "gpt/food/items/food_12_toast.png"
+        },
+        {
+          "id": "food_13",
+          "name": "burger",
+          "row": 1,
+          "col": 4,
+          "family": "Fast Food",
+          "notes": "Layered burger with patty, cheese, lettuce",
+          "cellRect": [
+            884,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            2,
+            0,
+            216,
+            219
+          ],
+          "contentWidth": 214,
+          "contentHeight": 219,
+          "relativePath": "gpt/food/items/food_13_burger.png"
+        },
+        {
+          "id": "food_14",
+          "name": "pizza_slice",
+          "row": 1,
+          "col": 5,
+          "family": "Fast Food",
+          "notes": "Triangular pizza slice with pepperoni",
+          "cellRect": [
+            1105,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            15,
+            0,
+            220,
+            221
+          ],
+          "contentWidth": 205,
+          "contentHeight": 221,
+          "relativePath": "gpt/food/items/food_14_pizza_slice.png"
+        },
+        {
+          "id": "food_15",
+          "name": "taco",
+          "row": 1,
+          "col": 6,
+          "family": "Fast Food",
+          "notes": "Folded crisp corn taco with fillings",
+          "cellRect": [
+            1326,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            12,
+            0,
+            220,
+            215
+          ],
+          "contentWidth": 208,
+          "contentHeight": 215,
+          "relativePath": "gpt/food/items/food_15_taco.png"
+        },
+        {
+          "id": "food_16",
+          "name": "hotdog",
+          "row": 1,
+          "col": 7,
+          "family": "Fast Food",
+          "notes": "Sausage in bun with mustard swirl",
+          "cellRect": [
+            1547,
+            221,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            0,
+            221,
+            216
+          ],
+          "contentWidth": 221,
+          "contentHeight": 216,
+          "relativePath": "gpt/food/items/food_16_hotdog.png"
+        },
+        {
+          "id": "food_17",
+          "name": "sushi_roll",
+          "row": 2,
+          "col": 0,
+          "family": "Asian",
+          "notes": "Maki sushi slice with nori, rice, salmon",
+          "cellRect": [
+            0,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            19,
+            25,
+            212,
+            212
+          ],
+          "contentWidth": 193,
+          "contentHeight": 187,
+          "relativePath": "gpt/food/items/food_17_sushi_roll.png"
+        },
+        {
+          "id": "food_18",
+          "name": "dumpling",
+          "row": 2,
+          "col": 1,
+          "family": "Asian",
+          "notes": "Steamed potsticker dumpling with pleats",
+          "cellRect": [
+            221,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            2,
+            34,
+            221,
+            211
+          ],
+          "contentWidth": 219,
+          "contentHeight": 177,
+          "relativePath": "gpt/food/items/food_18_dumpling.png"
+        },
+        {
+          "id": "food_19",
+          "name": "rice_ball",
+          "row": 2,
+          "col": 2,
+          "family": "Asian",
+          "notes": "Onigiri triangle rice ball with nori strip",
+          "cellRect": [
+            442,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            23,
+            217,
+            206
+          ],
+          "contentWidth": 217,
+          "contentHeight": 183,
+          "relativePath": "gpt/food/items/food_19_rice_ball.png"
+        },
+        {
+          "id": "food_20",
+          "name": "noodle_bowl",
+          "row": 2,
+          "col": 3,
+          "family": "Asian",
+          "notes": "Ramen bowl with chopsticks and broth",
+          "cellRect": [
+            663,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            5,
+            25,
+            221,
+            217
+          ],
+          "contentWidth": 216,
+          "contentHeight": 192,
+          "relativePath": "gpt/food/items/food_20_noodle_bowl.png"
+        },
+        {
+          "id": "food_21",
+          "name": "chicken_drumstick",
+          "row": 2,
+          "col": 4,
+          "family": "Mains",
+          "notes": "Fried crispy chicken drumstick",
+          "cellRect": [
+            884,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            23,
+            211,
+            217
+          ],
+          "contentWidth": 211,
+          "contentHeight": 194,
+          "relativePath": "gpt/food/items/food_21_chicken_drumstick.png"
+        },
+        {
+          "id": "food_22",
+          "name": "steak",
+          "row": 2,
+          "col": 5,
+          "family": "Mains",
+          "notes": "Seared steak cut with grill marks",
+          "cellRect": [
+            1105,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            9,
+            26,
+            219,
+            206
+          ],
+          "contentWidth": 210,
+          "contentHeight": 180,
+          "relativePath": "gpt/food/items/food_22_steak.png"
+        },
+        {
+          "id": "food_23",
+          "name": "shrimp",
+          "row": 2,
+          "col": 6,
+          "family": "Mains",
+          "notes": "Pink cooked shrimp with curled tail",
+          "cellRect": [
+            1326,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            15,
+            26,
+            214,
+            211
+          ],
+          "contentWidth": 199,
+          "contentHeight": 185,
+          "relativePath": "gpt/food/items/food_23_shrimp.png"
+        },
+        {
+          "id": "food_24",
+          "name": "salmon_fillet",
+          "row": 2,
+          "col": 7,
+          "family": "Mains",
+          "notes": "Fresh salmon steak with white striations",
+          "cellRect": [
+            1547,
+            442,
+            221,
+            221
+          ],
+          "contentBBox": [
+            4,
+            46,
+            219,
+            221
+          ],
+          "contentWidth": 215,
+          "contentHeight": 175,
+          "relativePath": "gpt/food/items/food_24_salmon_fillet.png"
+        },
+        {
+          "id": "food_25",
+          "name": "fries_carton",
+          "row": 3,
+          "col": 0,
+          "family": "Sides",
+          "notes": "Red sleeve with golden potato fries",
+          "cellRect": [
+            0,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            12,
+            12,
+            211,
+            212
+          ],
+          "contentWidth": 199,
+          "contentHeight": 200,
+          "relativePath": "gpt/food/items/food_25_fries_carton.png"
+        },
+        {
+          "id": "food_26",
+          "name": "pretzel",
+          "row": 3,
+          "col": 1,
+          "family": "Sides",
+          "notes": "Baked knotted pretzel with salt crystals",
+          "cellRect": [
+            221,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            7,
+            29,
+            219,
+            208
+          ],
+          "contentWidth": 212,
+          "contentHeight": 179,
+          "relativePath": "gpt/food/items/food_26_pretzel.png"
+        },
+        {
+          "id": "food_27",
+          "name": "sandwich",
+          "row": 3,
+          "col": 2,
+          "family": "Sides",
+          "notes": "Club sandwich cut into triangle layers",
+          "cellRect": [
+            442,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            15,
+            219,
+            208
+          ],
+          "contentWidth": 219,
+          "contentHeight": 193,
+          "relativePath": "gpt/food/items/food_27_sandwich.png"
+        },
+        {
+          "id": "food_28",
+          "name": "soup_bowl",
+          "row": 3,
+          "col": 3,
+          "family": "Sides",
+          "notes": "Warm ceramic bowl with vegetable soup",
+          "cellRect": [
+            663,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            8,
+            29,
+            221,
+            209
+          ],
+          "contentWidth": 213,
+          "contentHeight": 180,
+          "relativePath": "gpt/food/items/food_28_soup_bowl.png"
+        },
+        {
+          "id": "food_29",
+          "name": "milk_carton",
+          "row": 3,
+          "col": 4,
+          "family": "Drinks",
+          "notes": "Classic carton with milk packaging",
+          "cellRect": [
+            884,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            12,
+            197,
+            215
+          ],
+          "contentWidth": 197,
+          "contentHeight": 203,
+          "relativePath": "gpt/food/items/food_29_milk_carton.png"
+        },
+        {
+          "id": "food_30",
+          "name": "juice_bottle",
+          "row": 3,
+          "col": 5,
+          "family": "Drinks",
+          "notes": "Glass bottle filled with orange juice",
+          "cellRect": [
+            1105,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            50,
+            9,
+            172,
+            221
+          ],
+          "contentWidth": 122,
+          "contentHeight": 212,
+          "relativePath": "gpt/food/items/food_30_juice_bottle.png"
+        },
+        {
+          "id": "food_31",
+          "name": "tea_cup",
+          "row": 3,
+          "col": 6,
+          "family": "Drinks",
+          "notes": "Ceramic teacup on saucer with steam",
+          "cellRect": [
+            1326,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            3,
+            38,
+            221,
+            206
+          ],
+          "contentWidth": 218,
+          "contentHeight": 168,
+          "relativePath": "gpt/food/items/food_31_tea_cup.png"
+        },
+        {
+          "id": "food_32",
+          "name": "smoothie_glass",
+          "row": 3,
+          "col": 7,
+          "family": "Drinks",
+          "notes": "Tall glass with berry smoothie and straw",
+          "cellRect": [
+            1547,
+            663,
+            221,
+            221
+          ],
+          "contentBBox": [
+            0,
+            0,
+            194,
+            214
+          ],
+          "contentWidth": 194,
+          "contentHeight": 214,
+          "relativePath": "gpt/food/items/food_32_smoothie_glass.png"
+        }
+      ]
+    }
+  }
+}

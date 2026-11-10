@@ -1,3 +1,5 @@
+import { getThemedItemLabel } from './ThemeManager.js';
+
 export class TutorialManager {
     constructor(uiManager, gameEngine) {
         this.ui = uiManager;
@@ -75,6 +77,11 @@ export class TutorialManager {
         }
 
         window.addEventListener('resize', this._resizeHandler);
+        document.addEventListener('themechange', () => {
+            if (this.active && this.currentStep && this.currentStep !== 'STEP_COMPLETE') {
+                this.setStep(this.currentStep);
+            }
+        });
     }
 
     _parseId(id) {
@@ -206,6 +213,8 @@ export class TutorialManager {
     setStep(step) {
         if (!this.active) return;
         this.currentStep = step;
+        const penguinLabel = getThemedItemLabel('penguin');
+        const bearLabel = getThemedItemLabel('bear');
 
         switch (step) {
             case 'STEP_1_PICK_PENGUIN': {
@@ -217,10 +226,10 @@ export class TutorialManager {
                 this.showStep({
                     targetEl: target,
                     badge: 'BƯỚC 1 / 4 • KÉO THẢ MÓN ĐỒ',
-                    text: '<b>Kéo</b> chú <b>Chim cánh cụt 🐧</b> thả vào <b>Thùng chim cánh cụt 🐧</b> bên cạnh!',
+                    text: `<b>Kéo</b> <b>${penguinLabel}</b> thả vào <b>Thùng ${penguinLabel}</b> bên cạnh!`,
                     handOffset: { x: 0, y: 55 },
                     handDirection: 'up',
-                    handText: 'Kéo thả vào thùng 🐧',
+                    handText: `Kéo thả vào thùng ${penguinLabel}`,
                     padding: 8,
                     pulse: true
                 });
@@ -234,7 +243,7 @@ export class TutorialManager {
                 this.showStep({
                     targetEl: box0El,
                     badge: 'BƯỚC 2 / 4 • GOM 3 MÓN CÙNG LOẠI',
-                    text: 'Thả vào <b>Thùng chim cánh cụt 🐧</b> để gom đủ 3 món!',
+                    text: `Thả vào <b>Thùng ${penguinLabel}</b> để gom đủ 3 món!`,
                     handOffset: { x: 0, y: 65 },
                     handDirection: 'up',
                     handText: 'Thả vào đây!',
@@ -254,7 +263,7 @@ export class TutorialManager {
                 this.showStep({
                     targetEl: targetArea,
                     badge: 'BƯỚC 3 / 4 • ĐÓNG GÓI & XUẤT HÀNG',
-                    text: '📦 <b>Đóng gói thành công!</b> Thùng đủ 3 món dán kín và bay xuống <b>Hàng chờ</b>.<br>Khay 🐧 trên băng chuyền sẽ <b>tự động nhận hàng</b> khi chạy ngang qua!',
+                    text: `📦 <b>Đóng gói thành công!</b> Thùng đủ 3 món dán kín và bay xuống <b>Hàng chờ</b>.<br>Khay ${penguinLabel} trên băng chuyền sẽ <b>tự động nhận hàng</b> khi chạy ngang qua!`,
                     handOffset: { x: 0, y: -45 },
                     handDirection: 'down',
                     handText: 'Băng chuyền tự nhận hàng',
@@ -272,11 +281,11 @@ export class TutorialManager {
 
                 this.showStep({
                     targetEl: target,
-                    badge: 'BƯỚC 4 / 4 • GOM GẤU BÔNG 🧸',
-                    text: 'Rất tốt! Giờ hãy <b>kéo</b> chú <b>Gấu bông 🧸</b> thả vào <b>Thùng gấu bông 🧸</b> phía trên!',
+                    badge: `BƯỚC 4 / 4 • GOM ${bearLabel}`,
+                    text: `Rất tốt! Giờ hãy <b>kéo</b> <b>${bearLabel}</b> thả vào <b>Thùng ${bearLabel}</b> phía trên!`,
                     handOffset: { x: 0, y: 55 },
                     handDirection: 'up',
-                    handText: 'Kéo gấu bông 🧸',
+                    handText: `Kéo ${bearLabel}`,
                     padding: 8,
                     pulse: true
                 });
@@ -289,8 +298,8 @@ export class TutorialManager {
 
                 this.showStep({
                     targetEl: box2El,
-                    badge: 'HOÀN THÀNH • GOM ĐỦ 3 GẤU BÔNG',
-                    text: 'Thả vào <b>Thùng gấu bông 🧸</b> phía trên để hoàn tất đóng gói!',
+                    badge: `HOÀN THÀNH • GOM ĐỦ 3 ${bearLabel}`,
+                    text: `Thả vào <b>Thùng ${bearLabel}</b> phía trên để hoàn tất đóng gói!`,
                     handOffset: { x: 0, y: 65 },
                     handDirection: 'up',
                     handText: 'Thả vào đây!',
@@ -306,7 +315,7 @@ export class TutorialManager {
                 this.showStep({
                     targetEl: queueArea,
                     badge: 'XUẤT HÀNG CUỐI CÙNG 🚚',
-                    text: 'Thùng gấu bông đã đóng gói! Chờ Khay 🧸 nhận hàng để hoàn thành màn chơi...',
+                    text: `Thùng ${bearLabel} đã đóng gói! Chờ Khay ${bearLabel} nhận hàng để hoàn thành màn chơi...`,
                     handOffset: { x: 0, y: -45 },
                     handDirection: 'down',
                     handText: 'Xuất kho thành công',

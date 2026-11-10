@@ -1,4 +1,5 @@
 // ItemArt.js — vector illustration helper for the 32 catalog item ids.
+import { getThemedItemAsset, getThemedItemLabel } from './ThemeManager.js';
 // Renders a flat, outlined SVG (stroke #3b2a20, candy fills, white highlight)
 // as a data:image/svg+xml CSS variable on elements marked .item-art.
 // The emoji/text content stays intact as the accessible fallback.
@@ -285,9 +286,65 @@ export function getItemArtDataUri(itemId) {
     return URI_CACHE.get(itemId);
 }
 
-// Applies the vector illustration to an element while keeping the text
-// (emoji/label) as the accessible fallback. Unknown/null clears stale art
-// so reused DOM slots never inherit a previous identity's drawing.
+// Clears only theme-owned art attributes; never touches textContent.
+function clearItemArtOwned(element) {
+    if (element.classList && typeof element.classList.remove === 'function') {
+        element.classList.remove('item-art');
+    }
+    if (element.style && typeof element.style.removeProperty === 'function') {
+        element.style.removeProperty('--item-art');
+    }
+    if (element.dataset && Object.prototype.hasOwnProperty.call(element.dataset, 'itemArt')) {
+        delete element.dataset.itemArt;
+    }
+    const ds = element.dataset;
+    if (typeof element.removeAttribute === 'function') {
+        const curTitle = 'title' in element ? element.title : undefined;
+        if (ds && curTitle !== undefined && curTitle === (ds.themeTitle || '')) {
+            element.removeAttribute('title');
+            delete ds.themeTitle;
+        }
+        const curAria = element.getAttribute('aria-label');
+        if (ds && curAria !== undefined && curAria === ds.themeAriaLabel) {
+            element.removeAttribute('aria-label');
+            delete ds.themeAriaLabel;
+        }
+    }
+    if ('title' in element && typeof element.title === 'string') {
+        if (ds && (!ds.themeTitle || element.title === ds.themeTitle)) {
+            element.title = '';
+        }
+    }
+}
+
+// Áp label chỉ khi element chưa có label do blocker quản lý, hoặc label hiện
+// tại chính là label theme đã đặt trước đó (qua dataset.themeTitle/themeAriaLabel).
+function applyItemArtOwnedLabel(element, label) {
+    if (!label) return;
+    const ds = element.dataset;
+    const prevTitle = ds && ds.themeTitle;
+    const prevAria = ds && ds.themeAriaLabel;
+    const curTitle = 'title' in element ? element.title : undefined;
+    const curAria = typeof element.getAttribute === 'function' ? element.getAttribute('aria-label') : undefined;
+    if (curTitle === undefined || curTitle === '' || curTitle === prevTitle) {
+        if ('title' in element) element.title = label;
+        if (ds) ds.themeTitle = label;
+    }
+    if (curAria === undefined || curAria === null || curAria === '' || curAria === prevAria) {
+        if (typeof element.setAttribute === 'function') element.setAttribute('aria-label', label);
+        if (ds) ds.themeAriaLabel = label;
+    }
+}
+
+// Applies the illustration to an element while keeping the text
+// (emoji/label) as the accessible fallback.
+//
+// Element THẬT trong DOM (có `dataset`) => dùng PNG themed qua ThemeManager,
+// gắn dataset.itemId + dataset.itemArt, title/aria-label.
+// Element giả của unit test cũ (không có `dataset`) => giữ đúng hành vi SVG
+// data-uri legacy để test cũ không phải sửa (item-art-test.js tạo element
+// không có dataset, kỳ vọng `--item-art` là data:image/svg+xml).
+// Unknown/null chỉ xoá thuộc tính art do module này sở hữu; không đổi textContent.
 export function applyItemArt(element, itemId) {
     if (!element || !element.style || !element.classList) return;
     if (typeof element.style.setProperty !== 'function' ||
@@ -296,12 +353,37 @@ export function applyItemArt(element, itemId) {
         typeof element.classList.remove !== 'function') {
         return;
     }
-    const uri = getItemArtDataUri(itemId);
-    if (uri) {
-        element.classList.add('item-art');
-        element.style.setProperty('--item-art', `url("${uri}")`);
-    } else {
-        element.classList.remove('item-art');
-        element.style.removeProperty('--item-art');
+
+    if (!element.dataset) {
+        // Legacy SVG path — giữ nguyên hành vi cho test cũ.
+        const uri = getItemArtDataUri(itemId);
+        if (uri) {
+            element.classList.add('item-art');
+            element.style.setProperty('--item-art', `url("${uri}")`);
+        } else {
+            element.classList.remove('item-art');
+            element.style.removeProperty('--item-art');
+        }
+        return;
     }
+
+    if (!itemId) {
+        clearItemArtOwned(element);
+        delete element.dataset.itemId;
+        return;
+    }
+
+    const uri = getThemedItemAsset(itemId);
+    if (!uri) {
+        clearItemArtOwned(element);
+        delete element.dataset.itemId;
+        return;
+    }
+
+    element.dataset.itemId = itemId;
+    element.dataset.itemArt = uri;
+    element.classList.add('item-art');
+    element.style.setProperty('--item-art', `url("${uri}")`);
+    const label = getThemedItemLabel(itemId);
+    applyItemArtOwnedLabel(element, label);
 }

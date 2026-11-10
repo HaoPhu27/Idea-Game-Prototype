@@ -97,3 +97,11 @@ Tier trên là nhãn thiết kế theo yêu cầu, chưa phải kết quả cân
 
 ### Checkpoint 50% — dừng đúng ngưỡng
 Agent chính đã dừng feature work và workers ở 50%. 10 nhóm test blocker chuyên biệt pass; Hidden Item và Connector thắng trên trình duyệt, Frozen tan trong lúc global timer vẫn dừng ở02:00. Sáu tổ hợp và menu Lab riêng chưa được tích hợp; đã lưu bản nháp worker và các lỗi cần sửa trong docs/blocker-drafts để tiếp tục. Campaign, main, master và Pages không đổi.
+
+## Tiếp tục ngày 2026-11-10
+- Người dùng nhắc lại: GPT chỉ lập kế hoạch/review/kiểm thử, không viết code ứng dụng hoặc test. River và Lite thực hiện toàn bộ coding; agent chính chỉ nhập bản worker đã review bằng đối chiếu chính xác.
+- Ngưỡng dừng vẫn 50% usage phiên5giờ. Bắt đầu phiên mới2%.
+- River nhận B5: hoàn thiện module combo/sáu màn/test và nối build, xử lý timer wrapped chưaqueue, Extra không được tạm6slot, chặn booster khi solver chưa biếtcombo, validation nguyên tử và snapshot campaign thật.
+- Lite nhận B6: hoàn thiện menu Lab riêng, responsive320px, modalpause/input/focus, che hiddenurgent, feedbackx2sticky. Chỉ sửa UI, không đụng generator/core.
+- Agent chính đã chạy npm test và build trước thay đổi: pass. Không sửa campaign/seed/curve. Branchnew-mechanic; không merge/deployPages.
+- Nghiệm thu sau worker: read mọi diff; test6traces+UI-delayedcallbacks+matching invariants; kiểm tra15màn trongLab vàreturn/retry; desktop/320px + standalonebuild; cập nhật tiến trình rồicommitpushchỉnew-mechanic.

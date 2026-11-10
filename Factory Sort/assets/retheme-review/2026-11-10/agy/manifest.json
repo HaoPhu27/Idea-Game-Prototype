@@ -1,0 +1,2150 @@
+{
+  "generator": "Agy (Independent Production)",
+  "pipelineVersion": "2.1-raster-floodfill",
+  "date": "2026-11-10",
+  "artDirection": {
+    "candy": "Premium casual, charming sculpted matte-toy forms, cream/berry/pistachio palette, soft bevels",
+    "food": "Cozy bakery/market, warm cream/coral/leaf green palette, tactile forms, golden crust"
+  },
+  "themes": {
+    "candy": {
+      "theme": "candy",
+      "sourceFiles": {
+        "atlasJpg": "candy_items_atlas_1794278920398.jpg",
+        "uiJpg": "candy_environment_ui_1794278946705.jpg",
+        "mockupJpg": "candy_gameplay_mockup_1794278972590.jpg"
+      },
+      "outputFiles": {
+        "environmentUI": "candy/candy_environment_ui.png",
+        "gameplayMockup": "candy/candy_gameplay_mockup.png",
+        "itemsAtlasOpaque": "candy/candy_items_atlas.png",
+        "itemsAtlasTransparent": "candy/candy_items_atlas_transparent.png"
+      },
+      "items": [
+        {
+          "id": "candy_01",
+          "name": "spiral_lollipop",
+          "row": 0,
+          "col": 0,
+          "family": "Lollipop & Hard Candy",
+          "colorProfile": "Berry Pink / Cream swirl",
+          "atlasRect": [
+            0,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            49,
+            35,
+            142,
+            190
+          ],
+          "contentWidth": 94,
+          "contentHeight": 156,
+          "alphaRatio": 0.7569,
+          "filePath": "candy/items/candy_01_spiral_lollipop.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_02",
+          "name": "heart_lollipop",
+          "row": 0,
+          "col": 1,
+          "family": "Lollipop & Hard Candy",
+          "colorProfile": "Ruby Berry Red",
+          "atlasRect": [
+            172,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            42,
+            40,
+            137,
+            188
+          ],
+          "contentWidth": 96,
+          "contentHeight": 149,
+          "alphaRatio": 0.7957,
+          "filePath": "candy/items/candy_02_heart_lollipop.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_03",
+          "name": "star_lollipop",
+          "row": 0,
+          "col": 2,
+          "family": "Lollipop & Hard Candy",
+          "colorProfile": "Honey Amber Gold",
+          "atlasRect": [
+            344,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            36,
+            32,
+            139,
+            191
+          ],
+          "contentWidth": 104,
+          "contentHeight": 160,
+          "alphaRatio": 0.7808,
+          "filePath": "candy/items/candy_03_star_lollipop.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_04",
+          "name": "candy_cane",
+          "row": 0,
+          "col": 3,
+          "family": "Lollipop & Hard Candy",
+          "colorProfile": "Peppermint Red / White",
+          "atlasRect": [
+            516,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            41,
+            35,
+            130,
+            191
+          ],
+          "contentWidth": 90,
+          "contentHeight": 157,
+          "alphaRatio": 0.8138,
+          "filePath": "candy/items/candy_04_candy_cane.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_05",
+          "name": "twistwrapped_bonbon",
+          "row": 0,
+          "col": 4,
+          "family": "Lollipop & Hard Candy",
+          "colorProfile": "Turquoise Mint",
+          "atlasRect": [
+            688,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            9,
+            36,
+            156,
+            188
+          ],
+          "contentWidth": 148,
+          "contentHeight": 153,
+          "alphaRatio": 0.7113,
+          "filePath": "candy/items/candy_05_twistwrapped_bonbon.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_06",
+          "name": "round_truffle",
+          "row": 0,
+          "col": 5,
+          "family": "Lollipop & Hard Candy",
+          "colorProfile": "Cocoa Bronze",
+          "atlasRect": [
+            860,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            22,
+            56,
+            138,
+            169
+          ],
+          "contentWidth": 117,
+          "contentHeight": 114,
+          "alphaRatio": 0.6823,
+          "filePath": "candy/items/candy_06_round_truffle.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_07",
+          "name": "square_praline",
+          "row": 0,
+          "col": 6,
+          "family": "Lollipop & Hard Candy",
+          "colorProfile": "Pistachio / Cream Drizzle",
+          "atlasRect": [
+            1032,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            16,
+            55,
+            139,
+            170
+          ],
+          "contentWidth": 124,
+          "contentHeight": 116,
+          "alphaRatio": 0.6899,
+          "filePath": "candy/items/candy_07_square_praline.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_08",
+          "name": "striped_toffee",
+          "row": 0,
+          "col": 7,
+          "family": "Lollipop & Hard Candy",
+          "colorProfile": "Warm Caramel Ochre",
+          "atlasRect": [
+            1204,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            13,
+            59,
+            134,
+            166
+          ],
+          "contentWidth": 122,
+          "contentHeight": 108,
+          "alphaRatio": 0.7087,
+          "filePath": "candy/items/candy_08_striped_toffee.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_09",
+          "name": "gummy_bear",
+          "row": 1,
+          "col": 0,
+          "family": "Gummies & Drops",
+          "colorProfile": "Translucent Strawberry Red",
+          "atlasRect": [
+            0,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            50,
+            29,
+            140,
+            176
+          ],
+          "contentWidth": 91,
+          "contentHeight": 148,
+          "alphaRatio": 0.6737,
+          "filePath": "candy/items/candy_09_gummy_bear.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_10",
+          "name": "gummy_ring",
+          "row": 1,
+          "col": 1,
+          "family": "Gummies & Drops",
+          "colorProfile": "Lemon Yellow / Lime",
+          "atlasRect": [
+            172,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            28,
+            50,
+            154,
+            156
+          ],
+          "contentWidth": 127,
+          "contentHeight": 107,
+          "alphaRatio": 0.6702,
+          "filePath": "candy/items/candy_10_gummy_ring.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_11",
+          "name": "gummy_worm",
+          "row": 1,
+          "col": 2,
+          "family": "Gummies & Drops",
+          "colorProfile": "Tropical Orange / Cyan",
+          "atlasRect": [
+            344,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            21,
+            0,
+            155,
+            169
+          ],
+          "contentWidth": 135,
+          "contentHeight": 170,
+          "alphaRatio": 0.7919,
+          "filePath": "candy/items/candy_11_gummy_worm.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_12",
+          "name": "gummy_peach",
+          "row": 1,
+          "col": 3,
+          "family": "Gummies & Drops",
+          "colorProfile": "Coral / Sugar Crystal",
+          "atlasRect": [
+            516,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            26,
+            45,
+            146,
+            160
+          ],
+          "contentWidth": 121,
+          "contentHeight": 116,
+          "alphaRatio": 0.6787,
+          "filePath": "candy/items/candy_12_gummy_peach.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_13",
+          "name": "jelly_bean",
+          "row": 1,
+          "col": 4,
+          "family": "Gummies & Drops",
+          "colorProfile": "Grape Purple Berry",
+          "atlasRect": [
+            688,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            30,
+            46,
+            136,
+            160
+          ],
+          "contentWidth": 107,
+          "contentHeight": 115,
+          "alphaRatio": 0.7547,
+          "filePath": "candy/items/candy_13_jelly_bean.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_14",
+          "name": "sugar_drop",
+          "row": 1,
+          "col": 5,
+          "family": "Gummies & Drops",
+          "colorProfile": "Icy Crystalline Sky Blue",
+          "atlasRect": [
+            860,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            26,
+            44,
+            135,
+            161
+          ],
+          "contentWidth": 110,
+          "contentHeight": 118,
+          "alphaRatio": 0.6904,
+          "filePath": "candy/items/candy_14_sugar_drop.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_15",
+          "name": "candy_corn",
+          "row": 1,
+          "col": 6,
+          "family": "Gummies & Drops",
+          "colorProfile": "White / Orange / Yellow tri-band",
+          "atlasRect": [
+            1032,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            28,
+            43,
+            127,
+            163
+          ],
+          "contentWidth": 100,
+          "contentHeight": 121,
+          "alphaRatio": 0.7377,
+          "filePath": "candy/items/candy_15_candy_corn.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_16",
+          "name": "mint_disc",
+          "row": 1,
+          "col": 7,
+          "family": "Gummies & Drops",
+          "colorProfile": "Pale Pistachio Mint",
+          "atlasRect": [
+            1204,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            17,
+            52,
+            130,
+            153
+          ],
+          "contentWidth": 114,
+          "contentHeight": 102,
+          "alphaRatio": 0.7109,
+          "filePath": "candy/items/candy_16_mint_disc.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_17",
+          "name": "pink_macaron",
+          "row": 2,
+          "col": 0,
+          "family": "Bakery & Cookies",
+          "colorProfile": "Pastel Rose Pink / White Cream",
+          "atlasRect": [
+            0,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            32,
+            31,
+            158,
+            191
+          ],
+          "contentWidth": 127,
+          "contentHeight": 161,
+          "alphaRatio": 0.6036,
+          "filePath": "candy/items/candy_17_pink_macaron.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_18",
+          "name": "cream_wafer",
+          "row": 2,
+          "col": 1,
+          "family": "Bakery & Cookies",
+          "colorProfile": "Laminated Golden Wafer",
+          "atlasRect": [
+            172,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            21,
+            30,
+            161,
+            191
+          ],
+          "contentWidth": 141,
+          "contentHeight": 162,
+          "alphaRatio": 0.6372,
+          "filePath": "candy/items/candy_18_cream_wafer.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_19",
+          "name": "chocolate_sandwich_cookie",
+          "row": 2,
+          "col": 2,
+          "family": "Bakery & Cookies",
+          "colorProfile": "Dark Cookie with CREAM texture imprint (stylistic detail, not trademark)",
+          "atlasRect": [
+            344,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            21,
+            29,
+            155,
+            157
+          ],
+          "contentWidth": 135,
+          "contentHeight": 129,
+          "alphaRatio": 0.5673,
+          "filePath": "candy/items/candy_19_chocolate_sandwich_cookie.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_20",
+          "name": "butter_biscuit",
+          "row": 2,
+          "col": 3,
+          "family": "Bakery & Cookies",
+          "colorProfile": "Fluted Golden Butter Biscuit",
+          "atlasRect": [
+            516,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            14,
+            30,
+            156,
+            155
+          ],
+          "contentWidth": 143,
+          "contentHeight": 126,
+          "alphaRatio": 0.5899,
+          "filePath": "candy/items/candy_20_butter_biscuit.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_21",
+          "name": "sprinkle_donut",
+          "row": 2,
+          "col": 4,
+          "family": "Bakery & Cookies",
+          "colorProfile": "Glazed Pink Donut / Sprinkles",
+          "atlasRect": [
+            688,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            12,
+            31,
+            155,
+            154
+          ],
+          "contentWidth": 144,
+          "contentHeight": 124,
+          "alphaRatio": 0.5718,
+          "filePath": "candy/items/candy_21_sprinkle_donut.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_22",
+          "name": "strawberry_cupcake",
+          "row": 2,
+          "col": 5,
+          "family": "Bakery & Cookies",
+          "colorProfile": "Swirled Cream / Cherry",
+          "atlasRect": [
+            860,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            20,
+            18,
+            140,
+            169
+          ],
+          "contentWidth": 121,
+          "contentHeight": 152,
+          "alphaRatio": 0.6108,
+          "filePath": "candy/items/candy_22_strawberry_cupcake.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_23",
+          "name": "cake_roll",
+          "row": 2,
+          "col": 6,
+          "family": "Bakery & Cookies",
+          "colorProfile": "Golden Roll / Chocolate Swirl",
+          "atlasRect": [
+            1032,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            11,
+            18,
+            144,
+            168
+          ],
+          "contentWidth": 134,
+          "contentHeight": 151,
+          "alphaRatio": 0.598,
+          "filePath": "candy/items/candy_23_cake_roll.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_24",
+          "name": "berry_tart",
+          "row": 2,
+          "col": 7,
+          "family": "Bakery & Cookies",
+          "colorProfile": "Blueberry / Pastry Shell",
+          "atlasRect": [
+            1204,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            3,
+            33,
+            143,
+            154
+          ],
+          "contentWidth": 141,
+          "contentHeight": 122,
+          "alphaRatio": 0.6093,
+          "filePath": "candy/items/candy_24_berry_tart.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_25",
+          "name": "popsicle",
+          "row": 3,
+          "col": 0,
+          "family": "Frozen & Sweets",
+          "colorProfile": "Electric Raspberry Twin Stick",
+          "atlasRect": [
+            0,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            42,
+            0,
+            150,
+            164
+          ],
+          "contentWidth": 109,
+          "contentHeight": 165,
+          "alphaRatio": 0.6325,
+          "filePath": "candy/items/candy_25_popsicle.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_26",
+          "name": "icecream_cone",
+          "row": 3,
+          "col": 1,
+          "family": "Frozen & Sweets",
+          "colorProfile": "Waffle Cone / Pistachio Scoop",
+          "atlasRect": [
+            172,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            43,
+            0,
+            140,
+            163
+          ],
+          "contentWidth": 98,
+          "contentHeight": 164,
+          "alphaRatio": 0.6817,
+          "filePath": "candy/items/candy_26_icecream_cone.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_27",
+          "name": "sundae_cup",
+          "row": 3,
+          "col": 2,
+          "family": "Frozen & Sweets",
+          "colorProfile": "Glass Cup / Vanilla Swirl",
+          "atlasRect": [
+            344,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            36,
+            3,
+            140,
+            160
+          ],
+          "contentWidth": 105,
+          "contentHeight": 158,
+          "alphaRatio": 0.7056,
+          "filePath": "candy/items/candy_27_sundae_cup.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_28",
+          "name": "mochi_ball",
+          "row": 3,
+          "col": 3,
+          "family": "Frozen & Sweets",
+          "colorProfile": "Soft Matcha Pistachio",
+          "atlasRect": [
+            516,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            16,
+            23,
+            155,
+            140
+          ],
+          "contentWidth": 140,
+          "contentHeight": 118,
+          "alphaRatio": 0.6045,
+          "filePath": "candy/items/candy_28_mochi_ball.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_29",
+          "name": "chocolate_bar",
+          "row": 3,
+          "col": 4,
+          "family": "Frozen & Sweets",
+          "colorProfile": "Segmented Milk Chocolate",
+          "atlasRect": [
+            688,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            12,
+            10,
+            156,
+            152
+          ],
+          "contentWidth": 145,
+          "contentHeight": 143,
+          "alphaRatio": 0.6462,
+          "filePath": "candy/items/candy_29_chocolate_bar.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_30",
+          "name": "peanut_brittle",
+          "row": 3,
+          "col": 5,
+          "family": "Frozen & Sweets",
+          "colorProfile": "Honey Caramel Nut Slab",
+          "atlasRect": [
+            860,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            10,
+            24,
+            151,
+            138
+          ],
+          "contentWidth": 142,
+          "contentHeight": 115,
+          "alphaRatio": 0.6666,
+          "filePath": "candy/items/candy_30_peanut_brittle.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_31",
+          "name": "fudge_cube",
+          "row": 3,
+          "col": 6,
+          "family": "Frozen & Sweets",
+          "colorProfile": "Dark Cocoa Fudge Cube",
+          "atlasRect": [
+            1032,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            16,
+            19,
+            139,
+            144
+          ],
+          "contentWidth": 124,
+          "contentHeight": 126,
+          "alphaRatio": 0.6342,
+          "filePath": "candy/items/candy_31_fudge_cube.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "candy_32",
+          "name": "marshmallow_twist",
+          "row": 3,
+          "col": 7,
+          "family": "Frozen & Sweets",
+          "colorProfile": "Pastel Pink / Cyan Braid",
+          "atlasRect": [
+            1204,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            14,
+            13,
+            132,
+            149
+          ],
+          "contentWidth": 119,
+          "contentHeight": 137,
+          "alphaRatio": 0.7277,
+          "filePath": "candy/items/candy_32_marshmallow_twist.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        }
+      ],
+      "environmentUIDimensions": [
+        1376,
+        768
+      ],
+      "environmentUINote": "REVIEW MASTER (opaque presentation board, not sliced runtime components)",
+      "gameplayMockupDimensions": [
+        768,
+        1376
+      ],
+      "gameplayMockupNote": "VISUAL CONCEPT ONLY (not a playable game retheme)",
+      "atlasDimensions": [
+        1376,
+        768
+      ],
+      "cellSize": [
+        172,
+        192
+      ],
+      "atlasAlphaMetrics": {
+        "width": 1376,
+        "height": 768,
+        "totalPixels": 1056768,
+        "bgTransparentPixels": 717992,
+        "fgOpaquePixels": 338776,
+        "transparencyRatio": 0.6794,
+        "contentBounds": [
+          32,
+          32,
+          1347,
+          740
+        ],
+        "contentWidth": 1316,
+        "contentHeight": 709,
+        "qaNote": "Heuristic alpha extraction; needs visual edge/white-object inspection."
+      }
+    },
+    "food": {
+      "theme": "food",
+      "sourceFiles": {
+        "atlasJpg": "food_items_atlas_1794278929764.jpg",
+        "uiJpg": "food_environment_ui_1794278951537.jpg",
+        "mockupJpg": "food_gameplay_mockup_1794278976183.jpg"
+      },
+      "outputFiles": {
+        "environmentUI": "food/food_environment_ui.png",
+        "gameplayMockup": "food/food_gameplay_mockup.png",
+        "itemsAtlasOpaque": "food/food_items_atlas.png",
+        "itemsAtlasTransparent": "food/food_items_atlas_transparent.png"
+      },
+      "items": [
+        {
+          "id": "food_01",
+          "name": "apple",
+          "row": 0,
+          "col": 0,
+          "family": "Fruits & Veggies",
+          "colorProfile": "Crisp Crimson Red with Stem",
+          "atlasRect": [
+            0,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            32,
+            35,
+            138,
+            154
+          ],
+          "contentWidth": 107,
+          "contentHeight": 120,
+          "alphaRatio": 0.7038,
+          "filePath": "food/items/food_01_apple.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_02",
+          "name": "orange",
+          "row": 0,
+          "col": 1,
+          "family": "Fruits & Veggies",
+          "colorProfile": "Pebbled Citrus Orange",
+          "atlasRect": [
+            172,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            31,
+            36,
+            140,
+            155
+          ],
+          "contentWidth": 110,
+          "contentHeight": 120,
+          "alphaRatio": 0.6979,
+          "filePath": "food/items/food_02_orange.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_03",
+          "name": "strawberry",
+          "row": 0,
+          "col": 2,
+          "family": "Fruits & Veggies",
+          "colorProfile": "Conical Red Berry with Calyx",
+          "atlasRect": [
+            344,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            34,
+            36,
+            142,
+            154
+          ],
+          "contentWidth": 109,
+          "contentHeight": 119,
+          "alphaRatio": 0.7334,
+          "filePath": "food/items/food_03_strawberry.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_04",
+          "name": "pear",
+          "row": 0,
+          "col": 3,
+          "family": "Fruits & Veggies",
+          "colorProfile": "Teardrop Olive / Yellow Pear",
+          "atlasRect": [
+            516,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            40,
+            28,
+            131,
+            161
+          ],
+          "contentWidth": 92,
+          "contentHeight": 134,
+          "alphaRatio": 0.7575,
+          "filePath": "food/items/food_04_pear.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_05",
+          "name": "broccoli",
+          "row": 0,
+          "col": 4,
+          "family": "Fruits & Veggies",
+          "colorProfile": "Forest Green Floret Cluster",
+          "atlasRect": [
+            688,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            29,
+            32,
+            142,
+            158
+          ],
+          "contentWidth": 114,
+          "contentHeight": 127,
+          "alphaRatio": 0.7118,
+          "filePath": "food/items/food_05_broccoli.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_06",
+          "name": "carrot",
+          "row": 0,
+          "col": 5,
+          "family": "Fruits & Veggies",
+          "colorProfile": "Tapered Orange Cone / Green Frills",
+          "atlasRect": [
+            860,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            26,
+            28,
+            146,
+            161
+          ],
+          "contentWidth": 121,
+          "contentHeight": 134,
+          "alphaRatio": 0.8007,
+          "filePath": "food/items/food_06_carrot.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_07",
+          "name": "corn_cob",
+          "row": 0,
+          "col": 6,
+          "family": "Fruits & Veggies",
+          "colorProfile": "Golden Kernel Cob / Husk",
+          "atlasRect": [
+            1032,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            35,
+            31,
+            147,
+            159
+          ],
+          "contentWidth": 113,
+          "contentHeight": 129,
+          "alphaRatio": 0.7206,
+          "filePath": "food/items/food_07_corn_cob.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_08",
+          "name": "mushroom",
+          "row": 0,
+          "col": 7,
+          "family": "Fruits & Veggies",
+          "colorProfile": "Chestnut Brown Dome / White Stem",
+          "atlasRect": [
+            1204,
+            0,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            34,
+            40,
+            137,
+            149
+          ],
+          "contentWidth": 104,
+          "contentHeight": 110,
+          "alphaRatio": 0.7737,
+          "filePath": "food/items/food_08_mushroom.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_09",
+          "name": "fried_egg",
+          "row": 1,
+          "col": 0,
+          "family": "Breakfast & Fast Food",
+          "colorProfile": "Sunny White / Golden Spherical Yolk",
+          "atlasRect": [
+            0,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            17,
+            49,
+            153,
+            142
+          ],
+          "contentWidth": 137,
+          "contentHeight": 94,
+          "alphaRatio": 0.6748,
+          "filePath": "food/items/food_09_fried_egg.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_10",
+          "name": "croissant",
+          "row": 1,
+          "col": 1,
+          "family": "Breakfast & Fast Food",
+          "colorProfile": "Layered Toasted Crescent",
+          "atlasRect": [
+            172,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            15,
+            39,
+            156,
+            152
+          ],
+          "contentWidth": 142,
+          "contentHeight": 114,
+          "alphaRatio": 0.7164,
+          "filePath": "food/items/food_10_croissant.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_11",
+          "name": "pancake_stack",
+          "row": 1,
+          "col": 2,
+          "family": "Breakfast & Fast Food",
+          "colorProfile": "Three Golden Cakes / Butter Pat",
+          "atlasRect": [
+            344,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            16,
+            35,
+            155,
+            155
+          ],
+          "contentWidth": 140,
+          "contentHeight": 121,
+          "alphaRatio": 0.5983,
+          "filePath": "food/items/food_11_pancake_stack.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_12",
+          "name": "toast",
+          "row": 1,
+          "col": 3,
+          "family": "Breakfast & Fast Food",
+          "colorProfile": "Square Wheat Slice / Grill Marks",
+          "atlasRect": [
+            516,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            17,
+            35,
+            154,
+            155
+          ],
+          "contentWidth": 138,
+          "contentHeight": 121,
+          "alphaRatio": 0.6612,
+          "filePath": "food/items/food_12_toast.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_13",
+          "name": "burger",
+          "row": 1,
+          "col": 4,
+          "family": "Fast Food",
+          "colorProfile": "Sesame Bun / Patty / Lettuce",
+          "atlasRect": [
+            688,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            20,
+            30,
+            151,
+            162
+          ],
+          "contentWidth": 132,
+          "contentHeight": 133,
+          "alphaRatio": 0.5826,
+          "filePath": "food/items/food_13_burger.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_14",
+          "name": "pizza_slice",
+          "row": 1,
+          "col": 5,
+          "family": "Fast Food",
+          "colorProfile": "Cheese Wedge / Pepperoni Discs",
+          "atlasRect": [
+            860,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            21,
+            33,
+            151,
+            158
+          ],
+          "contentWidth": 131,
+          "contentHeight": 126,
+          "alphaRatio": 0.7213,
+          "filePath": "food/items/food_14_pizza_slice.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_15",
+          "name": "taco",
+          "row": 1,
+          "col": 6,
+          "family": "Fast Food",
+          "colorProfile": "Folded Corn Shell / Fillings",
+          "atlasRect": [
+            1032,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            21,
+            37,
+            154,
+            155
+          ],
+          "contentWidth": 134,
+          "contentHeight": 119,
+          "alphaRatio": 0.6947,
+          "filePath": "food/items/food_15_taco.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_16",
+          "name": "hotdog",
+          "row": 1,
+          "col": 7,
+          "family": "Fast Food",
+          "colorProfile": "Bun / Sausage / Mustard Stripe",
+          "atlasRect": [
+            1204,
+            192,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            17,
+            35,
+            155,
+            156
+          ],
+          "contentWidth": 139,
+          "contentHeight": 122,
+          "alphaRatio": 0.6828,
+          "filePath": "food/items/food_16_hotdog.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_17",
+          "name": "sushi_roll",
+          "row": 2,
+          "col": 0,
+          "family": "Asian & Entrees",
+          "colorProfile": "Black Nori / White Rice / Salmon",
+          "atlasRect": [
+            0,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            28,
+            36,
+            142,
+            156
+          ],
+          "contentWidth": 115,
+          "contentHeight": 121,
+          "alphaRatio": 0.6292,
+          "filePath": "food/items/food_17_sushi_roll.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_18",
+          "name": "dumpling",
+          "row": 2,
+          "col": 1,
+          "family": "Asian & Entrees",
+          "colorProfile": "Pleated Steamed Dumpling",
+          "atlasRect": [
+            172,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            27,
+            45,
+            144,
+            150
+          ],
+          "contentWidth": 118,
+          "contentHeight": 106,
+          "alphaRatio": 0.7084,
+          "filePath": "food/items/food_18_dumpling.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_19",
+          "name": "rice_ball",
+          "row": 2,
+          "col": 2,
+          "family": "Asian & Entrees",
+          "colorProfile": "Onigiri Triangle / Nori Wrap",
+          "atlasRect": [
+            344,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            25,
+            37,
+            147,
+            156
+          ],
+          "contentWidth": 123,
+          "contentHeight": 120,
+          "alphaRatio": 0.6847,
+          "filePath": "food/items/food_19_rice_ball.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_20",
+          "name": "noodle_bowl",
+          "row": 2,
+          "col": 3,
+          "family": "Asian & Entrees",
+          "colorProfile": "Ramen Bowl / Broth / Chopsticks",
+          "atlasRect": [
+            516,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            6,
+            30,
+            165,
+            161
+          ],
+          "contentWidth": 160,
+          "contentHeight": 132,
+          "alphaRatio": 0.5844,
+          "filePath": "food/items/food_20_noodle_bowl.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_21",
+          "name": "chicken_drumstick",
+          "row": 2,
+          "col": 4,
+          "family": "Asian & Entrees",
+          "colorProfile": "Meaty Golden Fried Drumstick",
+          "atlasRect": [
+            688,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            23,
+            29,
+            149,
+            163
+          ],
+          "contentWidth": 127,
+          "contentHeight": 135,
+          "alphaRatio": 0.7576,
+          "filePath": "food/items/food_21_chicken_drumstick.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_22",
+          "name": "steak",
+          "row": 2,
+          "col": 5,
+          "family": "Asian & Entrees",
+          "colorProfile": "Seared Cut / Diamond Grill Marks",
+          "atlasRect": [
+            860,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            17,
+            39,
+            155,
+            154
+          ],
+          "contentWidth": 139,
+          "contentHeight": 116,
+          "alphaRatio": 0.6655,
+          "filePath": "food/items/food_22_steak.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_23",
+          "name": "shrimp",
+          "row": 2,
+          "col": 6,
+          "family": "Asian & Entrees",
+          "colorProfile": "Curved Blanched Coral Prawn",
+          "atlasRect": [
+            1032,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            32,
+            38,
+            143,
+            154
+          ],
+          "contentWidth": 112,
+          "contentHeight": 117,
+          "alphaRatio": 0.7524,
+          "filePath": "food/items/food_23_shrimp.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_24",
+          "name": "salmon_fillet",
+          "row": 2,
+          "col": 7,
+          "family": "Asian & Entrees",
+          "colorProfile": "Coral Steak with White Striations",
+          "atlasRect": [
+            1204,
+            384,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            22,
+            37,
+            150,
+            155
+          ],
+          "contentWidth": 129,
+          "contentHeight": 119,
+          "alphaRatio": 0.6548,
+          "filePath": "food/items/food_24_salmon_fillet.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_25",
+          "name": "fries_carton",
+          "row": 3,
+          "col": 0,
+          "family": "Sides & Drinks",
+          "colorProfile": "Paper Sleeve / Golden Fries",
+          "atlasRect": [
+            0,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            32,
+            23,
+            138,
+            167
+          ],
+          "contentWidth": 107,
+          "contentHeight": 145,
+          "alphaRatio": 0.6372,
+          "filePath": "food/items/food_25_fries_carton.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_26",
+          "name": "pretzel",
+          "row": 3,
+          "col": 1,
+          "family": "Sides & Drinks",
+          "colorProfile": "Knotted Dough / Salt Grains",
+          "atlasRect": [
+            172,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            18,
+            35,
+            153,
+            155
+          ],
+          "contentWidth": 136,
+          "contentHeight": 121,
+          "alphaRatio": 0.5915,
+          "filePath": "food/items/food_26_pretzel.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_27",
+          "name": "sandwich",
+          "row": 3,
+          "col": 2,
+          "family": "Sides & Drinks",
+          "colorProfile": "Club Sandwich / Triangle Layers",
+          "atlasRect": [
+            344,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            15,
+            36,
+            155,
+            154
+          ],
+          "contentWidth": 141,
+          "contentHeight": 119,
+          "alphaRatio": 0.6353,
+          "filePath": "food/items/food_27_sandwich.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_28",
+          "name": "soup_bowl",
+          "row": 3,
+          "col": 3,
+          "family": "Sides & Drinks",
+          "colorProfile": "Ceramic Bowl / Vegetable Soup",
+          "atlasRect": [
+            516,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            19,
+            35,
+            152,
+            155
+          ],
+          "contentWidth": 134,
+          "contentHeight": 121,
+          "alphaRatio": 0.6647,
+          "filePath": "food/items/food_28_soup_bowl.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_29",
+          "name": "milk_carton",
+          "row": 3,
+          "col": 4,
+          "family": "Sides & Drinks",
+          "colorProfile": "Gable-top Dairy Carton with generic cow icon",
+          "atlasRect": [
+            688,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            40,
+            22,
+            132,
+            168
+          ],
+          "contentWidth": 93,
+          "contentHeight": 147,
+          "alphaRatio": 0.6661,
+          "filePath": "food/items/food_29_milk_carton.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_30",
+          "name": "juice_bottle",
+          "row": 3,
+          "col": 5,
+          "family": "Sides & Drinks",
+          "colorProfile": "Glass Bottle / Orange Juice",
+          "atlasRect": [
+            860,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            53,
+            21,
+            119,
+            169
+          ],
+          "contentWidth": 67,
+          "contentHeight": 149,
+          "alphaRatio": 0.7455,
+          "filePath": "food/items/food_30_juice_bottle.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_31",
+          "name": "tea_cup",
+          "row": 3,
+          "col": 6,
+          "family": "Sides & Drinks",
+          "colorProfile": "Ceramic Cup / Saucer / Steam",
+          "atlasRect": [
+            1032,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            27,
+            21,
+            148,
+            156
+          ],
+          "contentWidth": 122,
+          "contentHeight": 136,
+          "alphaRatio": 0.6849,
+          "filePath": "food/items/food_31_tea_cup.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        },
+        {
+          "id": "food_32",
+          "name": "smoothie_glass",
+          "row": 3,
+          "col": 7,
+          "family": "Sides & Drinks",
+          "colorProfile": "Faceted Glass / Swirl Cream",
+          "atlasRect": [
+            1204,
+            576,
+            172,
+            192
+          ],
+          "canvasDimensions": [
+            172,
+            192
+          ],
+          "contentBounds": [
+            42,
+            21,
+            129,
+            168
+          ],
+          "contentWidth": 88,
+          "contentHeight": 148,
+          "alphaRatio": 0.7137,
+          "filePath": "food/items/food_32_smoothie_glass.png",
+          "inspectionStatus": "needs visual edge/white-object inspection"
+        }
+      ],
+      "environmentUIDimensions": [
+        1376,
+        768
+      ],
+      "environmentUINote": "REVIEW MASTER (opaque presentation board, not sliced runtime components)",
+      "gameplayMockupDimensions": [
+        768,
+        1376
+      ],
+      "gameplayMockupNote": "VISUAL CONCEPT ONLY (not a playable game retheme)",
+      "atlasDimensions": [
+        1376,
+        768
+      ],
+      "cellSize": [
+        172,
+        192
+      ],
+      "atlasAlphaMetrics": {
+        "width": 1376,
+        "height": 768,
+        "totalPixels": 1056768,
+        "bgTransparentPixels": 727482,
+        "fgOpaquePixels": 329286,
+        "transparencyRatio": 0.6884,
+        "contentBounds": [
+          17,
+          28,
+          1359,
+          745
+        ],
+        "contentWidth": 1343,
+        "contentHeight": 718,
+        "qaNote": "Heuristic alpha extraction; needs visual edge/white-object inspection."
+      }
+    }
+  },
+  "blockersAudit": [
+    {
+      "id": "lock",
+      "name": "Lock",
+      "status": "COMBINED_WITH_KEY",
+      "type": "Container Gate",
+      "notes": "Shown paired with key on UI sheet; lacks isolated standalone asset"
+    },
+    {
+      "id": "key",
+      "name": "Key",
+      "status": "COMBINED_WITH_LOCK",
+      "type": "Item / Unlocker",
+      "notes": "Depicted alongside lock badge; separate unlocker sprite needs dedicated extraction"
+    },
+    {
+      "id": "ice",
+      "name": "Ice Block",
+      "status": "PRESENT",
+      "type": "Cell Enclosure",
+      "notes": "Frosted crystalline casing overlay"
+    },
+    {
+      "id": "stucklid",
+      "name": "Stuck Lid",
+      "status": "PRESENT",
+      "type": "Box State",
+      "notes": "Crossed tape/strap sealing box intake"
+    },
+    {
+      "id": "defect",
+      "name": "Defect Item",
+      "status": "PRESENT",
+      "type": "Sort Hazard",
+      "notes": "Hazard symbol / crack mark on spoiled unit"
+    },
+    {
+      "id": "connector",
+      "name": "Connector Chain",
+      "status": "PRESENT",
+      "type": "Coupling",
+      "notes": "Heavy iron link linking two boxes together"
+    },
+    {
+      "id": "hiddenbox",
+      "name": "Hidden Box",
+      "status": "SHARED_COVER",
+      "type": "Cover",
+      "notes": "Wrapped gift box representation; shares concept role with hidden item"
+    },
+    {
+      "id": "hiddenitem",
+      "name": "Hidden Item (?)",
+      "status": "SHARED_COVER",
+      "type": "Cover",
+      "notes": "Mystery question mark dome / cloche; distinct standalone overlay pending dedicated slicing"
+    },
+    {
+      "id": "urgent",
+      "name": "Urgent Timer",
+      "status": "PRESENT",
+      "type": "Countdown",
+      "notes": "Ticking clock with fuse/alarm badge"
+    },
+    {
+      "id": "sticky",
+      "name": "Sticky Pair",
+      "status": "PRESENT",
+      "type": "Coupling",
+      "notes": "Viscous honey/sauce globule bonding two items"
+    },
+    {
+      "id": "oneway",
+      "name": "One-Way Arrow",
+      "status": "PRESENT",
+      "type": "Flow Restriction",
+      "notes": "Directional chevron track segment"
+    },
+    {
+      "id": "restricted",
+      "name": "Restricted Queue",
+      "status": "PRESENT",
+      "type": "Dock Gate",
+      "notes": "Striped barrier blocking dock slot"
+    },
+    {
+      "id": "colorswap",
+      "name": "Color Swap Badge",
+      "status": "PRESENT",
+      "type": "Mutator",
+      "notes": "Reciprocal orbital arrows mutator"
+    },
+    {
+      "id": "priority",
+      "name": "Priority Star",
+      "status": "PRESENT",
+      "type": "Score / Goal",
+      "notes": "Golden star pinned for bonus target"
+    }
+  ],
+  "chapterProgressionPlan": [
+    {
+      "chapter": 1,
+      "levels": "1-50",
+      "name": "Morning Sunrise",
+      "candyPalette": "Warm vanilla cream, blush berry, buttercup gold",
+      "foodPalette": "Warm sourdough cream, terracotta, butter",
+      "mechanics": "Basic conveyor, Ice Block, Lock & Key intro",
+      "renderedStatus": "Base theme rendered"
+    },
+    {
+      "chapter": 2,
+      "levels": "51-110",
+      "name": "Orchard Blossom",
+      "candyPalette": "Pistachio leaf green, wild raspberry, lilac mist",
+      "foodPalette": "Celery green, carrot coral, chalk white",
+      "mechanics": "Sticky Pairs & Connector Chains",
+      "renderedStatus": "Palette specification (LUT)"
+    },
+    {
+      "chapter": 3,
+      "levels": "111-175",
+      "name": "Neon Carnival",
+      "candyPalette": "Electric grape, spun sugar cyan, lemon glaze",
+      "foodPalette": "Midnight charcoal, neon tomato, mustard yellow",
+      "mechanics": "One-Way Arrows, Urgent Timers, Fast Conveyors",
+      "renderedStatus": "Palette specification (LUT)"
+    },
+    {
+      "chapter": 4,
+      "levels": "176-240",
+      "name": "Winter Frost",
+      "candyPalette": "Glacier blue, peppermint red, marshmallow white",
+      "foodPalette": "Snowy pine, smoked cedar, roasted chestnut",
+      "mechanics": "Deep Ice Blocks, Stuck Lids, Freeze Boosters",
+      "renderedStatus": "Palette specification (LUT)"
+    },
+    {
+      "chapter": 5,
+      "levels": "241-305",
+      "name": "Golden Harvest",
+      "candyPalette": "Amber caramel, almond bronze, molasses brown",
+      "foodPalette": "Pumpkin orange, golden wheat, sage olive",
+      "mechanics": "Heavy boxes, Color Swap, Restricted Queue",
+      "renderedStatus": "Palette specification (LUT)"
+    },
+    {
+      "chapter": 6,
+      "levels": "306-370",
+      "name": "Tropical Lagoon",
+      "candyPalette": "Mango yellow, guava pink, coconut milk white",
+      "foodPalette": "Turquoise wave, charred bamboo, grilled coral",
+      "mechanics": "Multi-path split conveyors, Hidden Cloches (?)",
+      "renderedStatus": "Palette specification (LUT)"
+    },
+    {
+      "chapter": 7,
+      "levels": "371-440",
+      "name": "Royal Confection",
+      "candyPalette": "Royal velvet purple, gilded gold trim, ivory",
+      "foodPalette": "Parisian navy, polished copper, warm baguette",
+      "mechanics": "Priority Stars, Defect Items, Dual-layer puzzles",
+      "renderedStatus": "Palette specification (LUT)"
+    },
+    {
+      "chapter": 8,
+      "levels": "441-500",
+      "name": "Cosmic Sugar",
+      "candyPalette": "Deep indigo, iridescent crystal, starlight mint",
+      "foodPalette": "Deep slate, chrome steel, botanical green",
+      "mechanics": "Master tier: 4 simultaneous blockers",
+      "renderedStatus": "Palette specification (LUT)"
+    }
+  ],
+  "qaAndInspectionNotes": [
+    "UI/environment sheets are REVIEW MASTERS, not sliced runtime components.",
+    "Near-white floodfill is a heuristic and cannot guarantee zero interior whites altered. All extracted items require visual edge/white-object inspection.",
+    "Candy cookie asset features embossed 'CREAM' lettering as a stylized decorative relief, not a trademark or brand logo.",
+    "14-Blocker coverage audit acknowledges combined lock+key and shared cover states on current sheet.",
+    "Gameplay mockups are visual concept representations, not playable game rethemes."
+  ]
+}

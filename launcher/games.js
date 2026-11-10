@@ -1,6 +1,18 @@
 // Danh sách game cho launcher. Đường dẫn tương đối từ thư mục gốc, giữ nguyên dấu cách.
 window.GAMES = [
   {
+    "id": "factory-sort-new-mechanic",
+    "title": "Factory Sort · New Mechanic",
+    "description": "Chủ đề Kẹo / Đồ ăn kết hợp Mechanic Lab để thử nghiệm cơ chế phân loại mới.",
+    "genre": "Sort / Puzzle",
+    "status": "Preview",
+    "play": "previews/new-mechanic/FactorySort.html",
+    "dev": "previews/new-mechanic/FactorySort.html",
+    "version": "new-mechanic-20261110",
+    "thumb": "launcher/thumbs/factory-sort-inverted.svg",
+    "updated": "2026-11-10"
+  },
+  {
     "id": "factory-sort",
     "title": "Factory Sort",
     "description": "Xếp hàng hóa với băng chuyền ở trên, thùng hàng ở dưới.",

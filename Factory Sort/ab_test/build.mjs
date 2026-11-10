@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { execFileSync } from 'child_process';
+import { ITEM_CATALOG } from './src/data/ItemCatalog.js';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 
@@ -17,6 +18,7 @@ const JS_FILES = [
   'src/core/Conveyor.js',
   'src/core/BoosterSolver.js',
   'src/core/BlockerRules.js',
+  'src/core/MechanicCombos.js',
   'src/core/GameEngine.js',
   'src/generator/Solver.js',
   'src/generator/CuratedLevelSeeds.js',
@@ -24,6 +26,8 @@ const JS_FILES = [
   'src/generator/SolvableLevelGenerator.js',
   'src/generator/LevelGenerator.js',
   'src/generator/BlockerLevels.js',
+  'src/generator/MechanicComboLevels.js',
+  'src/ui/ThemeManager.js',
   'src/ui/ItemArt.js',
   'src/ui/AudioManager.js',
   'src/ui/VFXManager.js',
@@ -68,7 +72,47 @@ for (const rel of JS_FILES) {
   content = stripExports(stripImports(content, rel), rel);
   parts.push(`// --- ${rel} ---\n${content}\n`);
 }
-const bundle = parts.join('\n');
+const bundleBody = parts.join('\n');
+
+// Build-time theme asset mapping (offline portable standalone).
+// Đọc manifest 32 item mỗi theme, nhúng data:image/png;base64 vào
+// globalThis.__FACTORY_THEME_ASSETS__ (chèn TRƯỚC bundle trong standalone).
+const THEME_CATALOG_IDS = ITEM_CATALOG.categories.reduce((acc, cat) => {
+  for (const item of cat.items) acc.push(item.id);
+  return acc;
+}, []);
+
+function themeBuildAssetMapping() {
+  const manifestPath = path.join(DIR, '..', 'assets', 'retheme-review', '2026-11-10', 'gpt', 'manifest.json');
+  if (!fs.existsSync(manifestPath)) throw new Error('[FACTORY SORT] Thieu manifest theme: ' + manifestPath);
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  // relativePath dang 'gpt/candy/items/...', tinh tu reviewdirectory
+  // (assets/retheme-review/2026-11-10), KHONG phai tu thu muc manifest (gpt/).
+  const baseDir = path.dirname(path.dirname(manifestPath));
+  const mapping = {};
+  for (const themeId of Object.keys(manifest.themes)) {
+    const theme = manifest.themes[themeId];
+    if (!Array.isArray(theme.items) || theme.items.length !== 32) {
+      throw new Error('[FACTORY SORT] theme ' + themeId + ' phai co dung 32 items');
+    }
+    const perTheme = {};
+    for (let i = 0; i < theme.items.length; i++) {
+      const item = theme.items[i];
+      const catalogId = THEME_CATALOG_IDS[i];
+      if (!catalogId) throw new Error('[FACTORY SORT] thieu catalog id o index ' + i);
+      const rel = item.relativePath;
+      const abs = path.join(baseDir, rel);
+      if (!fs.existsSync(abs)) throw new Error('[FACTORY SORT] theme asset khong ton tai: ' + rel);
+      perTheme[catalogId] = 'data:image/png;base64,' + fs.readFileSync(abs).toString('base64');
+    }
+    mapping[themeId] = perTheme;
+  }
+  return mapping;
+}
+
+const themeAssetMapping = themeBuildAssetMapping();
+const themeInjection = 'globalThis.__FACTORY_THEME_ASSETS__ = ' + JSON.stringify(themeAssetMapping) + ';\n';
+const bundle = bundleBody;
 
 const leftover = bundle.split('\n').findIndex((l) => /^\s*(import|export)\b/.test(l));
 if (leftover !== -1) throw new Error(`[FACTORY SORT] Bundle con sot dong ${leftover + 1}: ${bundle.split('\n')[leftover]}`);
@@ -140,7 +184,7 @@ const htmlInlined = inlineImgSrc(html);
 
 const standalone = htmlInlined
   .replace(LINK_REGEX, `<style>\n${cssInlined}\n</style>`)
-  .replace(SCRIPT_REGEX, `<script>\n${bundle}\n</script>`);
+  .replace(SCRIPT_REGEX, `<script>\n${themeInjection}${bundle}\n</script>`);
 
 const externals = standalone.match(/(?:src|href)\s*=\s*["']https?:\/\/[^"']+/g);
 if (externals) {

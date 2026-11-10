@@ -3,6 +3,7 @@ import { Box } from './Box.js';
 import { Conveyor } from './Conveyor.js';
 import { Tray } from './Tray.js';
 import { installBlockerRules } from './BlockerRules.js';
+import { installMechanicCombos } from './MechanicCombos.js';
 
 export class GameEngine {
     constructor() {
@@ -34,6 +35,7 @@ export class GameEngine {
         this.onMoveCountUpdated = null;
 
         installBlockerRules(this);
+        installMechanicCombos(this);
     }
 
     startLevel(levelConfig) {

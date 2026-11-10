@@ -34,3 +34,17 @@ Feature work and workers stopped at usedPercent=50. Local test server stopped. N
 - Application source/build remains the tested single-blocker checkpoint. Dedicated Lab overlay and six combos are NOT integrated/accepted. Their portable drafts and exact continuation cautions are under Factory Sort/docs/blocker-drafts/README.md.
 - No campaign generator/curve/seed edits. main remains0ed76f0; master remainsa019d29. Onlynew-mechanic pushed. Never merge/deploy until user authorizes.
 - Originalfeedback-engine fixture failure remains separate. Full combined npm test should be rerun nextsession after anyadditionalappchanges; appbuild alreadypassed beforehalt, onlytests/docs addedafterthatbuild.
+
+## 2026-11-10 — Theme integration and separate Pages preview
+
+DeepSeek-only API policy is persisted globally and in repository AGENTS.md. River, Lite and Lite2 authored implementation through their external DeepSeek API providers. Main agent reviewed, integrated and tested.
+
+Implemented Candy/Food runtime switch with persistence, 32 mapped item assets per theme, themed environment, tutorial names and standalone embedded PNGs. The asset review folder includes GPT and Agy Candy/Food alternatives (128 individual item PNGs). Runtime selects the coherent GPT set.
+
+Mechanic Lab remains separate from existing campaign levels: nine single scenarios and six authored combination demonstrations. No campaign generator/seed/curve changes. Combo tier labels are design targets; no claim of calibrated 500-level progression.
+
+Publication uses gh-pages based on master with only previews/new-mechanic/FactorySort.html and launcher entry additions. Source stays new-mechanic; main/master are not merged. Existing game artifacts on the publishing branch are preserved.
+
+Verified: source and standalone theme switch/persistence, tutorial names, PNG embedding, 320px width without horizontal overflow, preview loaded through launcher; theme/booster/blocker regression and build. Remaining state and exact commits are recorded in Git history; public deployment is checked at handoff. Existing optional feedback-engine-test previously failed and is outside required regression; not represented as resolved.
+
+Final required checks PASS: npm test, node tools/theme-test.js, npm run test:ui, npm run build (2026-11-10).

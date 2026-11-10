@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factory Sort — Triển lãm So sánh Đồ họa Độc lập (GPT vs Agy)</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #181c25;
+      --surface-2: #232936;
+      --border: #2e3648;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-candy: #f472b6;
+      --accent-food: #fb923c;
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding-bottom: 60px;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 28px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-review { background: #388bfd26; color: #58a6ff; border: 1px solid #388bfd4d; }
+    .badge-independent { background: #d2992226; color: #e3b341; border: 1px solid #d299224d; }
+
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .btn-group {
+      display: flex;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .btn-group button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-group button:hover { color: var(--text); }
+    .btn-group button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--text); background: var(--surface-2); }
+    .tab-btn.active { color: #fff; background: var(--surface-2); border-bottom: 2px solid var(--accent); }
+
+    main {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 20px 28px;
+    }
+
+    .notice-banner {
+      background: #1c2128;
+      border-left: 4px solid var(--accent);
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+      color: #c9d1d9;
+    }
+    .notice-banner strong { color: #fff; }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 1300px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 720px) { .grid-4 { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-header {
+      padding: 12px 14px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .author-pill {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+    .author-gpt { background: #8957e533; color: #a371f7; border: 1px solid #8957e566; }
+    .author-agy { background: #23863633; color: #3fb950; border: 1px solid #23863666; }
+
+    .panel-body {
+      padding: 14px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .viewport {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: auto;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 280px;
+      max-height: 480px;
+      transition: background 0.2s;
+    }
+
+    /* Background Modes */
+    .bg-light { background-color: #f6f8fa !important; }
+    .bg-checker {
+      background-color: #1e232d !important;
+      background-image: linear-gradient(45deg, #2a303c 25%, transparent 25%),
+                        linear-gradient(-45deg, #2a303c 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #2a303c 75%),
+                        linear-gradient(-45deg, transparent 75%, #2a303c 75%) !important;
+      background-size: 16px 16px !important;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0 !important;
+    }
+    .bg-dark { background-color: #0d1117 !important; }
+
+    .asset-img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      transition: transform 0.2s;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+    }
+
+    /* Offline Local Fallback for Missing Images */
+    .local-fallback {
+      display: none;
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .local-fallback strong { color: #f85149; display: block; margin-bottom: 4px; }
+
+    .zoom-40 .asset-img { transform: scale(0.4); transform-origin: top center; }
+    .zoom-64 .asset-img { transform: scale(0.65); transform-origin: top center; }
+    .zoom-native .asset-img { transform: scale(1); }
+
+    .meta-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .meta-row:last-child { margin-bottom: 0; }
+    .meta-val { color: var(--text); font-weight: 500; word-break: break-all; }
+
+    /* Slicer Section */
+    .sprite-slicer-section {
+      margin-top: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .slicer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .slicer-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 8px;
+    }
+    @media (max-width: 1200px) { .slicer-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 600px) { .slicer-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .sprite-cell {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      text-align: center;
+    }
+
+    .sprite-thumb-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .sprite-css-slice {
+      width: 40px;
+      height: 40px;
+      background-size: 800% 400%;
+      image-rendering: pixelated;
+    }
+
+    .sprite-id { font-size: 11px; font-weight: 700; color: var(--accent); }
+    .sprite-name { font-size: 11px; color: var(--text); line-height: 1.2; }
+    .sprite-family { font-size: 9px; color: var(--text-muted); }
+    .sprite-qa { font-size: 9px; color: #d29922; font-weight: 600; }
+
+    /* Tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+    .data-table th, .data-table td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+    }
+    .data-table th { background: var(--surface-2); color: var(--text); font-weight: 600; }
+    .data-table tr:nth-child(even) { background: var(--bg); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .status-ok { background: #23863633; color: #3fb950; border: 1px solid #23863666; }
+    .status-combined { background: #d2992226; color: #e3b341; border: 1px solid #d299224d; }
+    .status-missing { background: #f8514926; color: #f85149; border: 1px solid #f851494d; }
+    .status-planned { background: #388bfd26; color: #58a6ff; border: 1px solid #388bfd4d; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-top">
+      <h1>
+        Factory Sort — Bảng So sánh Đồ họa Retheme
+        <span class="badge badge-review">Chỉ xem xét (Review Only)</span>
+        <span class="badge badge-independent">Hai tác giả độc lập</span>
+      </h1>
+      <div style="font-size: 12px; color: var(--text-muted);">
+        Ngày: <strong>10/11/2026</strong> | Phạm vi: <strong>Candy & Food (32 vật phẩm x 2)</strong>
+      </div>
+    </div>
+
+    <div class="controls-bar">
+      <!-- Background Mode -->
+      <div class="control-group">
+        <span>Nền hiển thị:</span>
+        <div class="btn-group" id="bg-controls">
+          <button data-bg="bg-light">Sáng</button>
+          <button data-bg="bg-checker" class="active">Ca-rô (Alpha)</button>
+          <button data-bg="bg-dark">Tối</button>
+        </div>
+      </div>
+
+      <!-- Zoom / Micro-Readability Scale -->
+      <div class="control-group">
+        <span>Tỷ lệ kiểm tra:</span>
+        <div class="btn-group" id="zoom-controls">
+          <button data-zoom="zoom-40">40px (Thu nhỏ)</button>
+          <button data-zoom="zoom-64">64px (Trong game)</button>
+          <button data-zoom="zoom-native" class="active">Gốc (100%)</button>
+        </div>
+      </div>
+
+      <!-- Image Source Toggle for Agy -->
+      <div class="control-group">
+        <span>Nguồn Agy:</span>
+        <div class="btn-group" id="src-controls">
+          <button data-src="raw" class="active">JPG Gốc (Master)</button>
+          <button data-src="proc">PNG Đã xử lý (Pack)</button>
+        </div>
+      </div>
+
+      <!-- Slicer Mode: CSS Atlas vs Individual PNGs -->
+      <div class="control-group">
+        <span>Chế độ Slicer:</span>
+        <div class="btn-group" id="slicer-mode-controls">
+          <button data-mode="css" class="active">CSS Atlas Slicer</button>
+          <button data-mode="individual">PNG Từng vật phẩm</button>
+        </div>
+      </div>
+    </div>
+
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-items">1. Atlas 32 Vật phẩm & Slicer</button>
+      <button class="tab-btn" data-tab="tab-ui">2. Môi trường Modular & Giao diện UI</button>
+      <button class="tab-btn" data-tab="tab-gameplay">3. Mockup Gameplay (3 Cột dọc)</button>
+      <button class="tab-btn" data-tab="tab-mechanics">4. Kiểm toán 14 Cơ chế & Blocker</button>
+      <button class="tab-btn" data-tab="tab-scaling">5. Kiến trúc Mở rộng 500 Màn</button>
+    </nav>
+  </header>
+
+  <main>
+    <div class="notice-banner">
+      <strong>Quy tắc Độc lập & Trung thực Kỹ thuật (QA):</strong>
+      <ul style="margin-left: 20px; margin-top: 4px;">
+        <li>Hai tác giả sáng tác độc lập: <strong>GPT</strong> (phong cách 3D casual bóng bẩy, đậm chất bánh kẹo mobile) và <strong>Agy</strong> (phong cách đồ chơi đắp nổi matte-toy, vát cạnh mềm mại).</li>
+        <li><strong>Tấm UI/Môi trường là TẤM ĐÁNH GIÁ (REVIEW MASTERS):</strong> Đây là các bảng tổng hợp để duyệt hướng thị giác, không phải các linh kiện runtime đã cắt rời.</li>
+        <li><strong>Khử phông gần trắng là heuristic:</strong> Khử phông bằng floodfill viền không thể bảo đảm 100% không ảnh hưởng vùng trắng bên trong. Các vật thể màu sáng (cơm, lòng trắng trứng, hộp sữa, kem vanilla) cần kiểm tra thị giác thủ công (needs visual edge/white-object inspection).</li>
+        <li><strong>Chi tiết chữ trên bánh cookie:</strong> Chữ dập nổi "CREAM" trên bánh quy chocolate (`candy_19`) là chi tiết vân nổi trang trí mô tả loại nhân bánh, không phải logo hay nhãn hiệu thương mại.</li>
+        <li>Mã nguồn game chính, nhánh production và Pages giữ nguyên 100%.</li>
+      </ul>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- TAB 1: 32-ITEM ATLASES -->
+    <!-- =================================================================== -->
+    <section id="tab-items" class="tab-content active">
+      <div class="grid-4">
+        <!-- Panel 1: GPT Candy -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Candy 32-Item Atlas</span></div>
+            <span class="author-pill author-gpt">GPT</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-checker">
+              <img src="gpt/candy-items-v2.png" alt="GPT Candy Atlas" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>gpt/candy-items-v2.png</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Phong cách:</span><span class="meta-val">Bóng bẩy, confectionery 3D</span></div>
+              <div class="meta-row"><span>Bảng màu:</span><span class="meta-val">Cream, Bạc hà, Quả mọng</span></div>
+              <div class="meta-row"><span>Định dạng:</span><span class="meta-val">PNG RGBA trong suốt (v2)</span></div>
+              <div class="meta-row"><span>Đường dẫn:</span><span class="meta-val">gpt/candy-items-v2.png</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: GPT Food -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Food 32-Item Atlas</span></div>
+            <span class="author-pill author-gpt">GPT</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-checker">
+              <img src="gpt/food-items-v1.png" alt="GPT Food Atlas" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>gpt/food-items-v1.png</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Phong cách:</span><span class="meta-val">Bóng bẩy, ẩm thực tươi mới</span></div>
+              <div class="meta-row"><span>Bảng màu:</span><span class="meta-val">Kem ấm, Cà chua, Húng quế</span></div>
+              <div class="meta-row"><span>Định dạng:</span><span class="meta-val">PNG RGBA trong suốt (v1)</span></div>
+              <div class="meta-row"><span>Đường dẫn:</span><span class="meta-val">gpt/food-items-v1.png</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Agy Candy -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Candy 32-Item Atlas</span></div>
+            <span class="author-pill author-agy">Agy</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-checker">
+              <img id="agy-candy-atlas-img" src="agy/candy_items_atlas_1794278920398.jpg" alt="Agy Candy Atlas" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>agy/candy_items_atlas_1794278920398.jpg</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Phong cách:</span><span class="meta-val">Đồ chơi matte-toy, bo góc mềm</span></div>
+              <div class="meta-row"><span>Bảng màu:</span><span class="meta-val">Kem, Mâm xôi, Hạt dẻ cười (Pistachio)</span></div>
+              <div class="meta-row"><span>Trạng thái:</span><span class="meta-val" id="agy-candy-atlas-fmt">JPG Gốc (Cần pack_assets.py xuất PNG)</span></div>
+              <div class="meta-row"><span>Đường dẫn:</span><span class="meta-val" id="agy-candy-atlas-path">agy/candy_items_atlas_1794278920398.jpg</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 4: Agy Food -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Food 32-Item Atlas</span></div>
+            <span class="author-pill author-agy">Agy</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-checker">
+              <img id="agy-food-atlas-img" src="agy/food_items_atlas_1794278929764.jpg" alt="Agy Food Atlas" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>agy/food_items_atlas_1794278929764.jpg</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Phong cách:</span><span class="meta-val">Tiệm bánh ấm cúng, chợ rau củ</span></div>
+              <div class="meta-row"><span>Bảng màu:</span><span class="meta-val">Kem ấm, San hô, Lá xanh, Vỏ bánh nướng</span></div>
+              <div class="meta-row"><span>Trạng thái:</span><span class="meta-val" id="agy-food-atlas-fmt">JPG Gốc (Cần pack_assets.py xuất PNG)</span></div>
+              <div class="meta-row"><span>Đường dẫn:</span><span class="meta-val" id="agy-food-atlas-path">agy/food_items_atlas_1794278929764.jpg</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLICER: Agy Candy -->
+      <div class="sprite-slicer-section">
+        <div class="slicer-header">
+          <div>
+            <h3>Agy Candy: 32 Vật phẩm Slicer kiểm tra độ nét ở 40×40 px</h3>
+            <p style="font-size: 12px; color: var(--text-muted);">Trích xuất trực tiếp theo lưới chuẩn 8×4 có padding đồng đều. Hiển thị ghi chú kiểm tra chất lượng cạnh.</p>
+          </div>
+          <span class="badge badge-review">8 Họ vật phẩm × 4 Hình dáng</span>
+        </div>
+        <div class="slicer-grid" id="candy-slicer-container"></div>
+      </div>
+
+      <!-- SLICER: Agy Food -->
+      <div class="sprite-slicer-section">
+        <div class="slicer-header">
+          <div>
+            <h3>Agy Food: 32 Vật phẩm Slicer kiểm tra độ nét ở 40×40 px</h3>
+            <p style="font-size: 12px; color: var(--text-muted);">Trích xuất trực tiếp theo lưới chuẩn 8×4 có padding đồng đều. Hiển thị ghi chú kiểm tra chất lượng cạnh.</p>
+          </div>
+          <span class="badge badge-review">8 Họ vật phẩm × 4 Hình dáng</span>
+        </div>
+        <div class="slicer-grid" id="food-slicer-container"></div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 2: MODULAR ENVIRONMENT & UI ASSETS -->
+    <!-- =================================================================== -->
+    <section id="tab-ui" class="tab-content">
+      <div class="notice-banner">
+        <strong>Lưu ý về Tấm UI:</strong> Các tấm môi trường và UI dưới đây là <strong>BẢNG ĐÁNH GIÁ THỊ GIÁC (REVIEW MASTERS)</strong>, phục vụ phê duyệt ngôn ngữ thiết kế, màu sắc và độ tương phản. Chúng không phải là các sprite linh kiện đã cắt nhỏ runtime.
+      </div>
+      <div class="grid-4">
+        <!-- Panel 1: GPT Candy UI -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Candy Modular UI Sheet (v2)</span></div>
+            <span class="author-pill author-gpt">GPT</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-checker">
+              <img src="gpt/candy-ui-v2.png" alt="GPT Candy UI" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>gpt/candy-ui-v2.png</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Phân loại:</span><span class="meta-val">Tấm đánh giá môi trường / UI</span></div>
+              <div class="meta-row"><span>Đường dẫn:</span><span class="meta-val">gpt/candy-ui-v2.png</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: GPT Food UI -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Food Modular UI Sheet (v2)</span></div>
+            <span class="author-pill author-gpt">GPT</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-checker">
+              <img src="gpt/food-ui-v2.png" alt="GPT Food UI" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>gpt/food-ui-v2.png</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Phân loại:</span><span class="meta-val">Tấm đánh giá môi trường / UI</span></div>
+              <div class="meta-row"><span>Đường dẫn:</span><span class="meta-val">gpt/food-ui-v2.png</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Agy Candy UI -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Candy Modular UI Sheet</span></div>
+            <span class="author-pill author-agy">Agy</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-checker">
+              <img id="agy-candy-ui-img" src="agy/candy_environment_ui_1794278946705.jpg" alt="Agy Candy UI" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>agy/candy_environment_ui_1794278946705.jpg</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Bao phủ:</span><span class="meta-val">Băng chuyền, Hộp 3 ngăn, Hộp quà, Khay, HUD</span></div>
+              <div class="meta-row"><span>Booster:</span><span class="meta-val">Đóng băng, Xáo trộn, Thêm ô, Thu hồi</span></div>
+              <div class="meta-row"><span>Blocker:</span><span class="meta-val">12 biểu tượng (10 riêng lẻ, 2 cặp ghép)</span></div>
+              <div class="meta-row"><span>Nguồn:</span><span class="meta-val" id="agy-candy-ui-path">agy/candy_environment_ui_1794278946705.jpg</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 4: Agy Food UI -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Food Modular UI Sheet</span></div>
+            <span class="author-pill author-agy">Agy</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-checker">
+              <img id="agy-food-ui-img" src="agy/food_environment_ui_1794278951537.jpg" alt="Agy Food UI" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>agy/food_environment_ui_1794278951537.jpg</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Bao phủ:</span><span class="meta-val">Băng chuyền, Kiện gỗ 3 ngăn, Khay, HUD gỗ</span></div>
+              <div class="meta-row"><span>Booster:</span><span class="meta-val">Đóng băng, Xáo trộn, Thêm ô, Nĩa gắp</span></div>
+              <div class="meta-row"><span>Blocker:</span><span class="meta-val">12 biểu tượng (10 riêng lẻ, 2 cặp ghép)</span></div>
+              <div class="meta-row"><span>Nguồn:</span><span class="meta-val" id="agy-food-ui-path">agy/food_environment_ui_1794278951537.jpg</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 3: GAMEPLAY CONCEPTS (3-COLUMN MOCKUP) -->
+    <!-- =================================================================== -->
+    <section id="tab-gameplay" class="tab-content">
+      <div class="notice-banner" style="border-left-color: var(--warning);">
+        <strong>Thông báo Bản vẽ Khái niệm (Concept Only):</strong> Các ảnh mockup màn hình dọc dưới đây là bản vẽ ý niệm về bố cục 3 cột băng chuyền, hàng đợi 5+1 và độ tương phản. Đây <strong>KHÔNG</strong> phải là game thực tế đang chạy.
+      </div>
+      <div class="grid-4">
+        <!-- Panel 1: GPT Candy Mockup -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Candy Portrait Concept</span></div>
+            <span class="author-pill author-gpt">GPT</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-dark">
+              <img src="gpt/candy-gameplay-v1.png" alt="GPT Candy Mockup" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>gpt/candy-gameplay-v1.png</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Bố cục:</span><span class="meta-val">3 cột băng chuyền, 5 ô chờ</span></div>
+              <div class="meta-row"><span>Đường dẫn:</span><span class="meta-val">gpt/candy-gameplay-v1.png</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: GPT Food Mockup -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Food Portrait Concept</span></div>
+            <span class="author-pill author-gpt">GPT</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-dark">
+              <img src="gpt/food-gameplay-v1.png" alt="GPT Food Mockup" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>gpt/food-gameplay-v1.png</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Bố cục:</span><span class="meta-val">3 cột băng chuyền, 5 ô chờ</span></div>
+              <div class="meta-row"><span>Đường dẫn:</span><span class="meta-val">gpt/food-gameplay-v1.png</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Agy Candy Mockup -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Candy Portrait Concept</span></div>
+            <span class="author-pill author-agy">Agy</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-dark">
+              <img id="agy-candy-mockup-img" src="agy/candy_gameplay_mockup_1794278972590.jpg" alt="Agy Candy Mockup" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>agy/candy_gameplay_mockup_1794278972590.jpg</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Bố cục:</span><span class="meta-val">3 cột băng chuyền, 5+1 ô chờ mở rộng</span></div>
+              <div class="meta-row"><span>Độ tương phản:</span><span class="meta-val">Kẹo nổi bật trên nền kem/pistachio yên tĩnh</span></div>
+              <div class="meta-row"><span>Đường dẫn:</span><span class="meta-val" id="agy-candy-mockup-path">agy/candy_gameplay_mockup_1794278972590.jpg</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 4: Agy Food Mockup -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span>Food Portrait Concept</span></div>
+            <span class="author-pill author-agy">Agy</span>
+          </div>
+          <div class="panel-body">
+            <div class="viewport bg-dark">
+              <img id="agy-food-mockup-img" src="agy/food_gameplay_mockup_1794278976183.jpg" alt="Agy Food Mockup" class="asset-img" onerror="showFallback(this);">
+              <div class="local-fallback"><strong>Chưa tìm thấy tệp</strong>agy/food_gameplay_mockup_1794278976183.jpg</div>
+            </div>
+            <div class="meta-box">
+              <div class="meta-row"><span>Bố cục:</span><span class="meta-val">3 cột băng chuyền, 5+1 ô chờ mở rộng</span></div>
+              <div class="meta-row"><span>Độ tương phản:</span><span class="meta-val">Gỗ ấm cúng, món ăn phân biệt rõ ràng</span></div>
+              <div class="meta-row"><span>Đường dẫn:</span><span class="meta-val" id="agy-food-mockup-path">agy/food_gameplay_mockup_1794278976183.jpg</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 4: 14 MECHANICS & BLOCKERS AUDIT -->
+    <!-- =================================================================== -->
+    <section id="tab-mechanics" class="tab-content">
+      <div class="sprite-slicer-section" style="margin-top:0;">
+        <h3>Kiểm toán Thực tế 14 Cơ chế & Blocker (Trung thực QA)</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+          Báo cáo trung thực tình trạng 14 cơ chế game theo yêu cầu của Lab. Tấm review của Agy hiện thể hiện <strong>12 biểu tượng đồ họa</strong> (trong đó Khóa + Chìa khóa được vẽ chung cặp; Hộp quà ẩn và Vật phẩm ẩn dùng chung hình tượng che phủ).
+        </p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Mã cơ chế</th>
+              <th>Tên hiển thị</th>
+              <th>Phân loại</th>
+              <th>Biểu diễn trên Tấm UI Candy</th>
+              <th>Biểu diễn trên Tấm UI Food</th>
+              <th>Trạng thái Asset Thực tế</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td><code>lock</code></td>
+              <td>Ổ khóa (Padlock)</td>
+              <td>Khóa thùng chứa</td>
+              <td>Ổ khóa đồ chơi màu vàng đồng</td>
+              <td>Ổ khóa sắt vintage</td>
+              <td><span class="status-badge status-combined">GHÉP CẶP (Khóa + Chìa)</span></td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td><code>key</code></td>
+              <td>Chìa khóa vàng</td>
+              <td>Vật phẩm mở khóa</td>
+              <td>Chìa khóa nằm cạnh ổ khóa</td>
+              <td>Chìa khóa đồng cạnh ổ khóa</td>
+              <td><span class="status-badge status-combined">GHÉP CẶP (Chưa tách riêng)</span></td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td><code>ice</code></td>
+              <td>Khối băng (Ice Block)</td>
+              <td>Vỏ bọc ô chứa</td>
+              <td>Khối băng trong suốt có vết nứt</td>
+              <td>Khối băng bao quanh thức ăn</td>
+              <td><span class="status-badge status-ok">CÓ MẶT (Riêng lẻ)</span></td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td><code>stucklid</code></td>
+              <td>Nắp kẹt / Băng dính</td>
+              <td>Trạng thái hộp</td>
+              <td>Băng keo dán chéo miệng hộp</td>
+              <td>Dây đai niêm phong nắp thùng gỗ</td>
+              <td><span class="status-badge status-ok">CÓ MẶT (Riêng lẻ)</span></td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td><code>defect</code></td>
+              <td>Vật phẩm lỗi / Hỏng</td>
+              <td>Nguy cơ phân loại</td>
+              <td>Kẹo nứt có dấu cảnh báo lỗi</td>
+              <td>Thức ăn có vết mốc / hỏng</td>
+              <td><span class="status-badge status-ok">CÓ MẶT (Riêng lẻ)</span></td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td><code>connector</code></td>
+              <td>Xích liên kết</td>
+              <td>Ghép đôi thùng</td>
+              <td>Xích sắt nối 2 hộp kẹo</td>
+              <td>Xích lớn nối 2 thùng gỗ</td>
+              <td><span class="status-badge status-ok">CÓ MẶT (Riêng lẻ)</span></td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td><code>hiddenbox</code></td>
+              <td>Hộp quà ẩn</td>
+              <td>Che phủ thùng</td>
+              <td>Hộp quà thắt nơ niêm phong</td>
+              <td>Kiện hàng bọc kín</td>
+              <td><span class="status-badge status-combined">DÙNG CHUNG CHE PHỦ</span></td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td><code>hiddenitem</code></td>
+              <td>Vật phẩm bí ẩn (?)</td>
+              <td>Che phủ vật phẩm</td>
+              <td>Vòm che có dấu hỏi chấm (?)</td>
+              <td>Nắp đậy đĩa bạc có dấu hỏi (?)</td>
+              <td><span class="status-badge status-combined">DÙNG CHUNG CHE PHỦ</span></td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td><code>urgent</code></td>
+              <td>Đồng hồ khẩn cấp</td>
+              <td>Đếm ngược</td>
+              <td>Đồng hồ báo thức kèm ngòi nổ</td>
+              <td>Đồng hồ hẹn giờ nhà bếp</td>
+              <td><span class="status-badge status-ok">CÓ MẶT (Riêng lẻ)</span></td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td><code>sticky</code></td>
+              <td>Cặp dính (Sticky Pair)</td>
+              <td>Liên kết vật phẩm</td>
+              <td>Giọt siro / mật ong dính 2 viên kẹo</td>
+              <td>Giọt phô mai / sốt dính 2 món ăn</td>
+              <td><span class="status-badge status-ok">CÓ MẶT (Riêng lẻ)</span></td>
+            </tr>
+            <tr>
+              <td>11</td>
+              <td><code>oneway</code></td>
+              <td>Mũi tên một chiều</td>
+              <td>Giới hạn luồng</td>
+              <td>Mũi tên chevron phát sáng trên ray</td>
+              <td>Mũi tên sơn chỉ hướng băng chuyền</td>
+              <td><span class="status-badge status-ok">CÓ MẶT (Riêng lẻ)</span></td>
+            </tr>
+            <tr>
+              <td>12</td>
+              <td><code>restricted</code></td>
+              <td>Hàng rào ô chờ</td>
+              <td>Khóa ô đệm</td>
+              <td>Thanh chắn sọc kẹo gậy</td>
+              <td>Rào chắn đỏ trắng chặn ô chờ</td>
+              <td><span class="status-badge status-ok">CÓ MẶT (Riêng lẻ)</span></td>
+            </tr>
+            <tr>
+              <td>13</td>
+              <td><code>colorswap</code></td>
+              <td>Huy hiệu Đổi màu</td>
+              <td>Biến đổi</td>
+              <td>Hai mũi tên xoay vòng quỹ đạo</td>
+              <td>Mũi tên đổi công thức món</td>
+              <td><span class="status-badge status-ok">CÓ MẶT (Riêng lẻ)</span></td>
+            </tr>
+            <tr>
+              <td>14</td>
+              <td><code>priority</code></td>
+              <td>Ngôi sao ưu tiên</td>
+              <td>Mục tiêu thưởng</td>
+              <td>Ngôi sao vàng đính trên hộp/kẹo</td>
+              <td>Huy hiệu đầu bếp ngôi sao vàng</td>
+              <td><span class="status-badge status-ok">CÓ MẶT (Riêng lẻ)</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top: 12px; font-size: 12px; color: var(--text-muted);">
+          * Kết luận kiểm toán: Đã có 10 asset riêng biệt hoàn chỉnh + 2 hình ảnh đại diện chung cho 4 cơ chế liên quan = 12 biểu tượng trên sheet. Khi đưa vào runtime thực tế, 2 overlay (chìa khóa đơn lẻ và mặt nạ hộp ẩn) sẽ được xuất bổ sung độc lập.
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 5: 500-LEVEL SCALING ARCHITECTURE -->
+    <!-- =================================================================== -->
+    <section id="tab-scaling" class="tab-content">
+      <div class="sprite-slicer-section" style="margin-top:0;">
+        <h3>Kiến trúc Mở rộng 500 Màn & Kế hoạch 8 Chương Bảng màu</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+          <strong>Nguyên tắc Kiến trúc Trọng yếu:</strong> 500 màn chơi <strong>KHÔNG CẦN</strong> 500 hình nền vẽ tay độc nhất. Trong Factory Sort, 500 màn được sinh ra từ ma trận hoán vị: <strong>32 ID Vật phẩm ổn định × Đồ thị băng chuyền × Mật độ blocker × Dung lượng hàng đợi</strong>. Giữ nguyên 32 hình dáng chuẩn giúp người chơi ghi nhớ phản xạ và đảm bảo thuật toán giải đố luôn công bằng.
+        </p>
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Chương</th>
+              <th>Màn chơi</th>
+              <th>Tên Bối cảnh</th>
+              <th>Biến thể Màu Kẹo (Candy)</th>
+              <th>Biến thể Màu Món ăn (Food)</th>
+              <th>Cơ chế Giới thiệu</th>
+              <th>Trạng thái Xuất xưởng</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Ch. 1</strong></td>
+              <td>1 – 50</td>
+              <td>Bình minh Ngọt ngào</td>
+              <td>Kem vani ấm, hồng dâu, vàng bơ</td>
+              <td>Bột mì ấm, đất nung terracotta, bơ tươi</td>
+              <td>Hộp 3 ngăn cơ bản, Khối băng, Khóa & Chìa</td>
+              <td><span class="status-badge status-ok">Bộ Master Render Hoàn chỉnh</span></td>
+            </tr>
+            <tr>
+              <td><strong>Ch. 2</strong></td>
+              <td>51 – 110</td>
+              <td>Vườn Quả Nở hoa</td>
+              <td>Xanh lá hạt dẻ cười, mâm xôi dại, tím nhạt</td>
+              <td>Xanh cần tây, san hô cà rốt, trắng phấn</td>
+              <td>Cặp dính (Sticky) & Xích liên kết</td>
+              <td><span class="status-badge status-planned">Đặc tả Bảng màu (LUT)</span></td>
+            </tr>
+            <tr>
+              <td><strong>Ch. 3</strong></td>
+              <td>111 – 175</td>
+              <td>Hội chợ Neon</td>
+              <td>Nho điện tử, kẹo bông cyan, men chanh</td>
+              <td>Than củi nửa đêm, đỏ cà chua, vàng mù tạt</td>
+              <td>Mũi tên một chiều, Đồng hồ khẩn, Băng chuyền nhanh</td>
+              <td><span class="status-badge status-planned">Đặc tả Bảng màu (LUT)</span></td>
+            </tr>
+            <tr>
+              <td><strong>Ch. 4</strong></td>
+              <td>176 – 240</td>
+              <td>Băng giá Mùa đông</td>
+              <td>Xanh sông băng, đỏ kẹo bạc hà, trắng marshmallow</td>
+              <td>Thông tuyết, tuyết tùng hun khói, hạt dẻ nướng</td>
+              <td>Khối băng dày, Nắp kẹt, Booster Đóng băng</td>
+              <td><span class="status-badge status-planned">Đặc tả Bảng màu (LUT)</span></td>
+            </tr>
+            <tr>
+              <td><strong>Ch. 5</strong></td>
+              <td>241 – 305</td>
+              <td>Mùa gặt Hoàng kim</td>
+              <td>Caramel hổ phách, đồng hạnh nhân, mật mía</td>
+              <td>Cam bí ngô, lúa mì vàng, xanh xô thơm</td>
+              <td>Hộp nặng, Đổi màu, Rào chắn hàng đợi</td>
+              <td><span class="status-badge status-planned">Đặc tả Bảng màu (LUT)</span></td>
+            </tr>
+            <tr>
+              <td><strong>Ch. 6</strong></td>
+              <td>306 – 370</td>
+              <td>Vịnh Nhiệt đới</td>
+              <td>Vàng xoài, hồng ổi, trắng cốt dừa</td>
+              <td>Sóng biển ngọc lam, tre nướng, san hô tôm nướng</td>
+              <td>Băng chuyền rẽ nhánh, Nắp đĩa bí ẩn (?)</td>
+              <td><span class="status-badge status-planned">Đặc tả Bảng màu (LUT)</span></td>
+            </tr>
+            <tr>
+              <td><strong>Ch. 7</strong></td>
+              <td>371 – 440</td>
+              <td>Yến tiệc Hoàng gia</td>
+              <td>Tím nhung hoàng gia, viền mạ vàng, ngà voi</td>
+              <td>Xanh hải quân Paris, đồng thau đánh bóng, bánh mì giòn</td>
+              <td>Ngôi sao ưu tiên, Vật phẩm lỗi, Câu đố 2 tầng</td>
+              <td><span class="status-badge status-planned">Đặc tả Bảng màu (LUT)</span></td>
+            </tr>
+            <tr>
+              <td><strong>Ch. 8</strong></td>
+              <td>441 – 500</td>
+              <td>Vũ trụ Kẹo ngọt</td>
+              <td>Chàm vũ trụ, tinh thể đường óng ánh, bạc hà sao</td>
+              <td>Xám phiến đá, thép mạ crôm, xanh thực vật rạng rỡ</td>
+              <td>Cấp bậc Master: 4 blocker đồng thời, số lượt chặt chẽ</td>
+              <td><span class="status-badge status-planned">Đặc tả Bảng màu (LUT)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Xử lý lỗi tải ảnh cục bộ (Không gọi ra ngoài mạng)
+    function showFallback(img) {
+      img.style.display = "none";
+      const fb = img.parentElement.querySelector(".local-fallback");
+      if (fb) fb.style.display = "block";
+    }
+
+    const candyItems = [
+      { id: "candy_01", name: "Kẹo mút xoắn (Spiral Lollipop)", family: "Kẹo mút", r: 0, c: 0, qa: "Cạnh sắc nét" },
+      { id: "candy_02", name: "Kẹo mút trái tim (Heart Lollipop)", family: "Kẹo mút", r: 0, c: 1, qa: "Cạnh sắc nét" },
+      { id: "candy_03", name: "Kẹo mút ngôi sao (Star Lollipop)", family: "Kẹo mút", r: 0, c: 2, qa: "Cạnh sắc nét" },
+      { id: "candy_04", name: "Kẹo gậy giáng sinh (Candy Cane)", family: "Kẹo mút", r: 0, c: 3, qa: "Cần soi viền sọc trắng" },
+      { id: "candy_05", name: "Kẹo gói xoắn (Twist Bonbon)", family: "Kẹo cứng", r: 0, c: 4, qa: "Cạnh sắc nét" },
+      { id: "candy_06", name: "Kẹo truffle tròn (Round Truffle)", family: "Kẹo cứng", r: 0, c: 5, qa: "Cạnh sắc nét" },
+      { id: "candy_07", name: "Kẹo praline vuông (Square Praline)", family: "Kẹo cứng", r: 0, c: 6, qa: "Cần soi kem trang trí" },
+      { id: "candy_08", name: "Kẹo toffee sọc (Striped Toffee)", family: "Kẹo cứng", r: 0, c: 7, qa: "Cạnh sắc nét" },
+      { id: "candy_09", name: "Gấu dẻo (Gummy Bear)", family: "Kẹo dẻo", r: 1, c: 0, qa: "Bán trong suốt tốt" },
+      { id: "candy_10", name: "Vòng kẹo dẻo (Gummy Ring)", family: "Kẹo dẻo", r: 1, c: 1, qa: "Cạnh sắc nét" },
+      { id: "candy_11", name: "Sâu kẹo dẻo (Gummy Worm)", family: "Kẹo dẻo", r: 1, c: 2, qa: "Cạnh sắc nét" },
+      { id: "candy_12", name: "Đào dẻo phủ đường (Gummy Peach)", family: "Kẹo dẻo", r: 1, c: 3, qa: "Cạnh sắc nét" },
+      { id: "candy_13", name: "Kẹo hạt đậu (Jelly Bean)", family: "Kẹo viên", r: 1, c: 4, qa: "Cạnh sắc nét" },
+      { id: "candy_14", name: "Kẹo giọt đường (Sugar Drop)", family: "Kẹo viên", r: 1, c: 5, qa: "Cần soi viền sáng" },
+      { id: "candy_15", name: "Kẹo ngô (Candy Corn)", family: "Kẹo viên", r: 1, c: 6, qa: "Cần soi đỉnh chóp trắng" },
+      { id: "candy_16", name: "Đồng xu bạc hà (Mint Disc)", family: "Kẹo viên", r: 1, c: 7, qa: "Cạnh sắc nét" },
+      { id: "candy_17", name: "Macaron hồng (Pink Macaron)", family: "Bánh quy", r: 2, c: 0, qa: "Cần soi lớp nhân kem trắng" },
+      { id: "candy_18", name: "Bánh xốp kem (Cream Wafer)", family: "Bánh quy", r: 2, c: 1, qa: "Cần soi lớp kem trắng" },
+      { id: "candy_19", name: "Bánh kẹp socola (Choc Sandwich)", family: "Bánh quy", r: 2, c: 2, qa: "Chữ CREAM dập nổi (vân bánh)" },
+      { id: "candy_20", name: "Bánh quy bơ (Butter Biscuit)", family: "Bánh quy", r: 2, c: 3, qa: "Cạnh sắc nét" },
+      { id: "candy_21", name: "Bánh donut cốm (Sprinkle Donut)", family: "Bánh ngọt", r: 2, c: 4, qa: "Cạnh sắc nét" },
+      { id: "candy_22", name: "Bánh cupcake dâu (Strawberry Cupcake)", family: "Bánh ngọt", r: 2, c: 5, qa: "Cần soi chóp kem trắng" },
+      { id: "candy_23", name: "Bánh cuộn (Cake Roll)", family: "Bánh ngọt", r: 2, c: 6, qa: "Cần soi vòng xoắn kem" },
+      { id: "candy_24", name: "Bánh tart dâu rừng (Berry Tart)", family: "Bánh ngọt", r: 2, c: 7, qa: "Cạnh sắc nét" },
+      { id: "candy_25", name: "Kem que đôi (Popsicle)", family: "Đồ đông lạnh", r: 3, c: 0, qa: "Cạnh sắc nét" },
+      { id: "candy_26", name: "Kem ốc quế (Ice Cream Cone)", family: "Đồ đông lạnh", r: 3, c: 1, qa: "Cạnh sắc nét" },
+      { id: "candy_27", name: "Ly kem sundae (Sundae Cup)", family: "Đồ đông lạnh", r: 3, c: 2, qa: "Cần soi xoắn kem trắng" },
+      { id: "candy_28", name: "Bánh mochi matcha (Mochi Ball)", family: "Đồ đông lạnh", r: 3, c: 3, qa: "Cạnh sắc nét" },
+      { id: "candy_29", name: "Thanh socola (Chocolate Bar)", family: "Kẹo đặc biệt", r: 3, c: 4, qa: "Cạnh sắc nét" },
+      { id: "candy_30", name: "Kẹo kẹo lạc (Peanut Brittle)", family: "Kẹo đặc biệt", r: 3, c: 5, qa: "Cạnh sắc nét" },
+      { id: "candy_31", name: "Khối kẹo fudge (Fudge Cube)", family: "Kẹo đặc biệt", r: 3, c: 6, qa: "Cạnh sắc nét" },
+      { id: "candy_32", name: "Kẹo xoắn bấc (Marshmallow Twist)", family: "Kẹo đặc biệt", r: 3, c: 7, qa: "Cần soi dải xoắn trắng" }
+    ];
+
+    const foodItems = [
+      { id: "food_01", name: "Quả táo (Apple)", family: "Trái cây", r: 0, c: 0, qa: "Cạnh sắc nét" },
+      { id: "food_02", name: "Quả cam (Orange)", family: "Trái cây", r: 0, c: 1, qa: "Cạnh sắc nét" },
+      { id: "food_03", name: "Dâu tây (Strawberry)", family: "Trái cây", r: 0, c: 2, qa: "Cạnh sắc nét" },
+      { id: "food_04", name: "Quả lê (Pear)", family: "Trái cây", r: 0, c: 3, qa: "Cạnh sắc nét" },
+      { id: "food_05", name: "Súp lơ xanh (Broccoli)", family: "Rau củ", r: 0, c: 4, qa: "Cạnh sắc nét" },
+      { id: "food_06", name: "Cà rốt (Carrot)", family: "Rau củ", r: 0, c: 5, qa: "Cạnh sắc nét" },
+      { id: "food_07", name: "Bắp ngô (Corn Cob)", family: "Rau củ", r: 0, c: 6, qa: "Cạnh sắc nét" },
+      { id: "food_08", name: "Nấm rơm (Mushroom)", family: "Rau củ", r: 0, c: 7, qa: "Cần soi chân nấm trắng" },
+      { id: "food_09", name: "Trứng ốp la (Fried Egg)", family: "Điểm tâm", r: 1, c: 0, qa: "Cần soi lòng trắng trứng" },
+      { id: "food_10", name: "Bánh sừng bò (Croissant)", family: "Điểm tâm", r: 1, c: 1, qa: "Cạnh sắc nét" },
+      { id: "food_11", name: "Chồng pancake (Pancake Stack)", family: "Điểm tâm", r: 1, c: 2, qa: "Cạnh sắc nét" },
+      { id: "food_12", name: "Bánh mì nướng (Toast)", family: "Điểm tâm", r: 1, c: 3, qa: "Cạnh sắc nét" },
+      { id: "food_13", name: "Burger kẹp thịt (Burger)", family: "Đồ ăn nhanh", r: 1, c: 4, qa: "Cạnh sắc nét" },
+      { id: "food_14", name: "Miếng pizza (Pizza Slice)", family: "Đồ ăn nhanh", r: 1, c: 5, qa: "Cạnh sắc nét" },
+      { id: "food_15", name: "Bánh taco giòn (Taco)", family: "Đồ ăn nhanh", r: 1, c: 6, qa: "Cạnh sắc nét" },
+      { id: "food_16", name: "Bánh mì xúc xích (Hotdog)", family: "Đồ ăn nhanh", r: 1, c: 7, qa: "Cạnh sắc nét" },
+      { id: "food_17", name: "Cuộn sushi (Sushi Roll)", family: "Món Á", r: 2, c: 0, qa: "Cần soi hạt cơm sushi trắng" },
+      { id: "food_18", name: "Há cảo hấp (Dumpling)", family: "Món Á", r: 2, c: 1, qa: "Cần soi vỏ bột hấp" },
+      { id: "food_19", name: "Cơm nắm onigiri (Rice Ball)", family: "Món Á", r: 2, c: 2, qa: "Cần soi thân cơm trắng" },
+      { id: "food_20", name: "Bát mì ramen (Noodle Bowl)", family: "Món Á", r: 2, c: 3, qa: "Cạnh sắc nét" },
+      { id: "food_21", name: "Đùi gà rán (Chicken Drumstick)", family: "Món chính", r: 2, c: 4, qa: "Cần soi phần khớp xương trắng" },
+      { id: "food_22", name: "Miếng bít tết (Steak)", family: "Món chính", r: 2, c: 5, qa: "Cạnh sắc nét" },
+      { id: "food_23", name: "Tôm luộc (Shrimp)", family: "Món chính", r: 2, c: 6, qa: "Cạnh sắc nét" },
+      { id: "food_24", name: "Phi lê cá hồi (Salmon Fillet)", family: "Món chính", r: 2, c: 7, qa: "Cần soi vân mỡ trắng" },
+      { id: "food_25", name: "Bao khoai tây chiên (Fries)", family: "Ăn kèm", r: 3, c: 0, qa: "Cạnh sắc nét" },
+      { id: "food_26", name: "Bánh xoắn pretzel (Pretzel)", family: "Ăn kèm", r: 3, c: 1, qa: "Cạnh sắc nét" },
+      { id: "food_27", name: "Bánh sandwich tam giác (Sandwich)", family: "Ăn kèm", r: 3, c: 2, qa: "Cạnh sắc nét" },
+      { id: "food_28", name: "Tô súp rau củ (Soup Bowl)", family: "Ăn kèm", r: 3, c: 3, qa: "Cạnh sắc nét" },
+      { id: "food_29", name: "Hộp sữa tươi (Milk Carton)", family: "Đồ uống", r: 3, c: 4, qa: "Cần soi vỏ hộp màu trắng" },
+      { id: "food_30", name: "Chai nước ép cam (Juice Bottle)", family: "Đồ uống", r: 3, c: 5, qa: "Cạnh sắc nét" },
+      { id: "food_31", name: "Tách trà nóng (Tea Cup)", family: "Đồ uống", r: 3, c: 6, qa: "Cần soi làn khói trắng" },
+      { id: "food_32", name: "Ly sinh tố dâu (Smoothie Glass)", family: "Đồ uống", r: 3, c: 7, qa: "Cần soi lớp kem tươi trắng" }
+    ];
+
+    let currentCandyAtlasUrl = "agy/candy_items_atlas_1794278920398.jpg";
+    let currentFoodAtlasUrl = "agy/food_items_atlas_1794278929764.jpg";
+    let slicerMode = "css"; // "css" hoặc "individual"
+
+    function populateSlicer(items, containerId, atlasUrl, theme) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      items.forEach(item => {
+        const posX = item.c * (100 / 7);
+        const posY = item.r * (100 / 3);
+
+        const cell = document.createElement("div");
+        cell.className = "sprite-cell";
+
+        let thumbHtml = "";
+        if (slicerMode === "individual") {
+          // Thử nạp file sprite đã cắt lẻ
+          const cleanName = item.name.split(" (")[1].replace(")", "").toLowerCase().replace(/[\s-]+/g, "_");
+          const spriteSrc = `agy/${theme}/items/${item.id}_${cleanName}.png`;
+          thumbHtml = `
+            <div class="sprite-thumb-box bg-checker">
+              <img src="${spriteSrc}" style="max-width:40px; max-height:40px;" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'sprite-css-slice\\' style=\\'background-image:url(${atlasUrl}); background-position:${posX.toFixed(2)}% ${posY.toFixed(2)}%;\\'></div>';">
+            </div>
+          `;
+        } else {
+          // Cắt mẫu bằng CSS background-position
+          thumbHtml = `
+            <div class="sprite-thumb-box bg-checker">
+              <div class="sprite-css-slice" style="
+                background-image: url('${atlasUrl}');
+                background-position: ${posX.toFixed(2)}% ${posY.toFixed(2)}%;
+              "></div>
+            </div>
+          `;
+        }
+
+        cell.innerHTML = `
+          ${thumbHtml}
+          <div class="sprite-id">${item.id}</div>
+          <div class="sprite-name">${item.name}</div>
+          <div class="sprite-family">${item.family}</div>
+          <div class="sprite-qa">${item.qa}</div>
+        `;
+        container.appendChild(cell);
+      });
+    }
+
+    function renderSlicers() {
+      populateSlicer(candyItems, "candy-slicer-container", currentCandyAtlasUrl, "candy");
+      populateSlicer(foodItems, "food-slicer-container", currentFoodAtlasUrl, "food");
+    }
+
+    renderSlicers();
+
+    // Điều hướng Tab
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach(tc => tc.classList.remove("active"));
+        btn.classList.add("active");
+        const targetId = btn.getAttribute("data-tab");
+        document.getElementById(targetId).classList.add("active");
+      });
+    });
+
+    // Chuyển chế độ Nền
+    document.querySelectorAll("#bg-controls button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#bg-controls button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const mode = btn.getAttribute("data-bg");
+        document.querySelectorAll(".viewport, .sprite-thumb-box").forEach(vp => {
+          vp.classList.remove("bg-light", "bg-checker", "bg-dark");
+          vp.classList.add(mode);
+        });
+      });
+    });
+
+    // Chuyển chế độ Thu phóng
+    document.querySelectorAll("#zoom-controls button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#zoom-controls button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const zoom = btn.getAttribute("data-zoom");
+        document.querySelectorAll(".viewport").forEach(vp => {
+          vp.classList.remove("zoom-40", "zoom-64", "zoom-native");
+          vp.classList.add(zoom);
+        });
+      });
+    });
+
+    // Chuyển nguồn ảnh Agy (JPG Gốc vs PNG Đã xuất)
+    document.querySelectorAll("#src-controls button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#src-controls button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const srcMode = btn.getAttribute("data-src");
+
+        const candyAtlas = document.getElementById("agy-candy-atlas-img");
+        const foodAtlas = document.getElementById("agy-food-atlas-img");
+        const candyUI = document.getElementById("agy-candy-ui-img");
+        const foodUI = document.getElementById("agy-food-ui-img");
+        const candyMockup = document.getElementById("agy-candy-mockup-img");
+        const foodMockup = document.getElementById("agy-food-mockup-img");
+
+        if (srcMode === "proc") {
+          currentCandyAtlasUrl = "agy/candy/candy_items_atlas_transparent.png";
+          currentFoodAtlasUrl = "agy/food/food_items_atlas_transparent.png";
+          candyAtlas.src = currentCandyAtlasUrl;
+          foodAtlas.src = currentFoodAtlasUrl;
+          candyUI.src = "agy/candy/candy_environment_ui.png";
+          foodUI.src = "agy/food/food_environment_ui.png";
+          candyMockup.src = "agy/candy/candy_gameplay_mockup.png";
+          foodMockup.src = "agy/food/food_gameplay_mockup.png";
+
+          document.getElementById("agy-candy-atlas-fmt").textContent = "PNG Trong suốt (Khử phông biên)";
+          document.getElementById("agy-food-atlas-fmt").textContent = "PNG Trong suốt (Khử phông biên)";
+          document.getElementById("agy-candy-atlas-path").textContent = "agy/candy/candy_items_atlas_transparent.png";
+          document.getElementById("agy-food-atlas-path").textContent = "agy/food/food_items_atlas_transparent.png";
+        } else {
+          currentCandyAtlasUrl = "agy/candy_items_atlas_1794278920398.jpg";
+          currentFoodAtlasUrl = "agy/food_items_atlas_1794278929764.jpg";
+          candyAtlas.src = currentCandyAtlasUrl;
+          foodAtlas.src = currentFoodAtlasUrl;
+          candyUI.src = "agy/candy_environment_ui_1794278946705.jpg";
+          foodUI.src = "agy/food_environment_ui_1794278951537.jpg";
+          candyMockup.src = "agy/candy_gameplay_mockup_1794278972590.jpg";
+          foodMockup.src = "agy/food_gameplay_mockup_1794278976183.jpg";
+
+          document.getElementById("agy-candy-atlas-fmt").textContent = "JPG Gốc (Cần pack_assets.py xuất PNG)";
+          document.getElementById("agy-food-atlas-fmt").textContent = "JPG Gốc (Cần pack_assets.py xuất PNG)";
+          document.getElementById("agy-candy-atlas-path").textContent = "agy/candy_items_atlas_1794278920398.jpg";
+          document.getElementById("agy-food-atlas-path").textContent = "agy/food_items_atlas_1794278929764.jpg";
+        }
+        renderSlicers();
+      });
+    });
+
+    // Chuyển chế độ Slicer (CSS vs Từng ảnh PNG)
+    document.querySelectorAll("#slicer-mode-controls button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#slicer-mode-controls button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        slicerMode = btn.getAttribute("data-mode");
+        renderSlicers();
+      });
+    });
+  </script>
+</body>
+</html>

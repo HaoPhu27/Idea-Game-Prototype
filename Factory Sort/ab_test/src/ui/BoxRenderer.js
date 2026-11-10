@@ -208,6 +208,27 @@ export class BoxRenderer {
         return boxEl;
     }
 
+    _concealedUrgencyBadge(coreBadges, view) {
+        const candidates = [];
+        if (view && typeof view.urgentBadge === 'string') candidates.push(view.urgentBadge);
+        if (view && typeof view.urgency === 'string') candidates.push(view.urgency);
+        if (Array.isArray(coreBadges)) {
+            coreBadges.forEach(text => {
+                if (typeof text === 'string') candidates.push(text);
+            });
+        }
+        const allowed = [
+            /^khẩn ẩn \d+s$/i,
+            /^⏱️?\s*gấp:\s*vào hàng chờ trong\s*\d+s$/i
+        ];
+        for (const candidate of candidates) {
+            const text = String(candidate).trim();
+            if (!text) continue;
+            if (allowed.some(pattern => pattern.test(text))) return text;
+        }
+        return '';
+    }
+
     _updateBox(el, box, selectedSource, validTargetIds) {
         const view = typeof this.blockerView === 'function' ? this.blockerView(box.id) : undefined;
         const concealed = !!(view && view.concealed);
@@ -216,6 +237,7 @@ export class BoxRenderer {
             .filter(i => Number.isInteger(i) && i >= 0 && i < 3));
         const hiddenSlots = concealed ? new Set() : toSlotSet(view && view.hiddenSlots);
         const frozenSlots = toSlotSet(view && view.frozenSlots);
+        const stickySlots = concealed ? new Set() : toSlotSet(view && view.stickySlots);
         const coreBadges = view && Array.isArray(view.badges)
             ? view.badges.filter(text => typeof text === 'string' && text.trim().length > 0)
             : [];
@@ -223,7 +245,14 @@ export class BoxRenderer {
         const concealedText = 'Bí mật — lên đầu cột để mở';
         const stuck = !concealed && box.isEmpty() && coreBadges.length > 0;
         const sealed = concealed || stuck;
-        const badgeText = concealed ? concealedText : joinedRules;
+        // Concealed cartons may reveal only the sealed caption and an urgency countdown.
+        // Whitelist the exact urgent-counter badge shapes only, so no item identity can
+        // leak from arbitrary core badge text into the hidden box caption/title/aria.
+        const urgencyBadge = concealed ? this._concealedUrgencyBadge(coreBadges, view) : '';
+        const stickyNote = stickySlots.size > 0 ? '×2 khi di chuyển' : '';
+        const badgeText = concealed
+            ? [concealedText, urgencyBadge].filter(Boolean).join(' · ')
+            : [joinedRules, stickyNote].filter(Boolean).join(' · ');
         const blocked = !!(view && view.blocked);
         const hadBlockerState = el.classList.contains('blocker-marked')
             || el.classList.contains('blocker-concealed')
@@ -244,6 +273,7 @@ export class BoxRenderer {
         el.classList.toggle('blocker-sealed', sealed);
         el.classList.toggle('blocker-masked', concealed || hiddenSlots.size > 0);
         el.classList.toggle('blocker-frozen', frozenSlots.size > 0);
+        el.classList.toggle('blocker-sticky', stickySlots.size > 0);
         el.classList.toggle('blocker-blocked', blocked);
         el.classList.toggle('blocker-marked', badgeText.length > 0);
 
@@ -298,6 +328,7 @@ export class BoxRenderer {
             const has = item !== null && item !== undefined;
             const masked = concealed || hiddenSlots.has(i);
             const frozen = frozenSlots.has(i);
+            const slotSticky = stickySlots.has(i);
             const text = masked ? '?' : (has ? getItemEmoji(item) : '—');
             if (slots[i].textContent !== text) {
                 slots[i].textContent = text;
@@ -305,6 +336,7 @@ export class BoxRenderer {
             slots[i].classList.toggle('placeholder', masked ? false : !has);
             slots[i].classList.toggle('blocker-masked', masked);
             slots[i].classList.toggle('blocker-frozen', frozen);
+            slots[i].classList.toggle('blocker-sticky', slotSticky);
             slots[i].dataset.slotIndex = i;
             slots[i].dataset.hasItem = masked ? 'unknown' : (has ? 'true' : 'false');
             // This also removes every cached custom-art property from a slot that
@@ -312,7 +344,11 @@ export class BoxRenderer {
             applyItemArt(slots[i], masked ? null : (has ? item : null));
             slots[i].classList.toggle('selected', !masked && has && !!selectedSource && selectedSource.boxId === box.id && selectedSource.itemIndex === i);
 
-            const slotRules = concealed ? concealedText : ((masked || frozen) ? joinedRules : '');
+            const slotRules = concealed
+                ? concealedText
+                : ((masked || frozen || slotSticky)
+                    ? [joinedRules, stickyNote].filter(Boolean).join(' · ')
+                    : '');
             if (slotRules) {
                 slots[i].title = slotRules;
                 slots[i].setAttribute('aria-label', slotRules);
@@ -457,9 +493,10 @@ export class BoxRenderer {
 
         const fly = document.createElement('div');
         fly.className = 'item-animating';
-        fly.textContent = srcSlot.textContent;
-        fly.classList.toggle('item-art', srcSlot.classList.contains('item-art'));
-        fly.style.setProperty('--item-art', srcSlot.style.getPropertyValue('--item-art'));
+        const masked = srcSlot.dataset.hasItem === 'unknown' ||
+            srcSlot.classList.contains('blocker-masked');
+        fly.textContent = masked ? '?' : srcSlot.textContent;
+        applyItemArt(fly, masked ? null : (srcSlot.dataset.itemId || null));
         fly.style.left = `${from.left}px`;
         fly.style.top = `${from.top}px`;
         document.body.appendChild(fly);

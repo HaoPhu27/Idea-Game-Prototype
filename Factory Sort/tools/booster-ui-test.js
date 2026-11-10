@@ -8,13 +8,17 @@ const classSource = source.slice(source.indexOf('class UIManager {'), source.ind
 const classList = () => ({ add() {}, remove() {}, toggle() {} });
 const events = new Map();
 const trayElement = { dataset: { trayId: 'tray' } };
-const node = () => ({ addEventListener(type, fn) { events.set(`${this.id || 'node'}:${type}`, fn); }, classList: classList() });
+function addListener(map, key, fn) {
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(fn);
+}
+const node = () => ({ addEventListener(type, fn) { addListener(events, `${this.id || 'node'}:${type}`, fn); }, classList: classList() });
 const trayContainer = Object.assign(node(), { id: 'trays' });
 const document = {
     hidden: false,
     getElementById: id => id === 'trays-container' ? trayContainer : null,
     querySelectorAll: () => [],
-    addEventListener(type, fn) { events.set(`document:${type}`, fn); },
+    addEventListener(type, fn) { addListener(events, `document:${type}`, fn); },
     removeEventListener() {},
 };
 const UI = vm.runInNewContext(`(${classSource})`, { document, performance: { now: () => 1000 } });
@@ -66,18 +70,22 @@ assert.equal(boostCalls, 1);
 for (const name of ['btnNewGame', 'btnCloseLevelSelect', 'btnNextLevel', 'btnRetry']) ui[name] = node();
 ui.bindEvents();
 const keyEvent = key => ({ type: 'keydown', key, target: { closest: () => trayElement }, preventDefault() {} });
+const trayDownHandlers = events.get('trays:keydown');
+assert.ok(trayDownHandlers && trayDownHandlers.length >= 1, 'real bindEvents registers a tray keydown handler');
+const docDownHandlers = events.get('document:keydown');
+assert.ok(docDownHandlers && docDownHandlers.length >= 2, 'real bindEvents registers multiple document keydown handlers');
 ui.removeTrayMode = true;
-events.get('trays:keydown')(keyEvent('ArrowRight'));
+trayDownHandlers.forEach(fn => fn(keyEvent('ArrowRight')));
 assert.equal(boostCalls, 1, 'navigation key must not remove a tray');
-events.get('trays:keydown')(keyEvent('Enter'));
+trayDownHandlers.forEach(fn => fn(keyEvent('Enter')));
 assert.equal(boostCalls, 2, 'Enter selects the active empty tray');
 assert.equal(ui.removeTrayMode, false);
 ui.removeTrayMode = true;
-events.get('document:keydown')({ key: 'Escape' });
+docDownHandlers.forEach(fn => fn({ key: 'Escape' }));
 assert.equal(ui.removeTrayMode, false);
 ui.removeTrayMode = true;
 ui.updateLevelClock = () => { ui.engine.gameState = 'LOST'; };
-events.get('trays:keydown')(keyEvent(' '));
+trayDownHandlers.forEach(fn => fn(keyEvent(' ')));
 assert.equal(boostCalls, 2, 'deadline reached between ticks rejects removal before mutation');
 
 // Queue renderer adds a sixth slot and restores five on the next level.

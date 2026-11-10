@@ -1504,6 +1504,618 @@ function installBlockerRules(engine) {
 }
 
 
+// --- src/core/MechanicCombos.js ---
+
+const COMBO_TYPES = new Set(['combo-key', 'combo-sticky-oneway', 'combo-hidden-urgent',
+    'combo-connector-queue', 'combo-frozen-colors', 'combo-stuck-priority']);
+const EMPTY_VIEW = () => ({ badges: [], concealed: false, hiddenSlots: [], frozenSlots: [], blocked: false, queueHeld: false });
+
+/** Installed after BlockerRules: every captured ordinary method retains blocker semantics. */
+function installMechanicCombos(engine) {
+    if (engine._mechanicCombosInstalled) return;
+    engine._mechanicCombosInstalled = true;
+    const names = ['startLevel', 'startClock', 'advanceClock', 'moveItem', 'selectSource',
+        'getValidTargets', 'moveBoxToQueue', 'findQueueMatch', 'deliverQueueBox', 'completeTrayExit',
+        'startDragWrappedBox', 'dropOnTray', 'checkConditions', 'shuffleItems', 'removeTray',
+        'addExtraTray', 'getBox', 'isAccessible', 'canMoveBlockerItem', 'canDispatchBlockerBox',
+        'canQueueBlockerBox', 'getBlockerView'];
+    const original = {};
+    for (const name of names) original[name] = engine[name];
+    const inactive = () => ({ enabled: false, type: null, viewSignature: '' });
+    let prioritySuspension = 0, pairing = false;
+    engine.mechanicComboState = inactive();
+    engine.lastComboError = '';
+    engine.onComboUpdated = null;
+    const state = () => engine.mechanicComboState;
+    const active = () => !!state()?.enabled;
+    const box = id => original.getBox.call(engine, id);
+    const boardBox = id => { const b = box(id); return b && engine.boxes.includes(b) ? b : null; };
+    const accessible = id => original.isAccessible.call(engine, id);
+    const baseView = id => original.getBlockerView ? original.getBlockerView.call(engine, id) : EMPTY_VIEW();
+    const deny = message => {
+        engine.lastComboError = message;
+        engine.lastBlockerError = message;
+        return false;
+    };
+    const boosterDeny = message => {
+        deny(message);
+        return engine._boosterFail(message);
+    };
+    const seconds = value => Math.ceil(Math.max(0, (value || 0) - 1e-9));
+
+    function validate(level) {
+        const spec = level?.mechanicCombo;
+        if (spec == null) return null;
+        const fail = message => { throw new Error(`Invalid mechanic combo: ${message}`); };
+        if (!level || !Array.isArray(level.boxes) || !Array.isArray(level.trays) ||
+            !COMBO_TYPES.has(spec.type) || !level.layout || !Array.isArray(level.layout.columns)) {
+            fail('supported type, boxes, trays, and columns are required.');
+        }
+        if (level.blockers !== undefined && !Array.isArray(level.blockers)) fail('blockers must be an array.');
+        const blockers = level.blockers || [];
+        if (blockers.length) validateBlockerLevel(level);
+        const count = level.boxes.length;
+        const real = id => Number.isInteger(id) && id >= 0 && id < count;
+        const record = (type, id) => blockers.find(r => r.type === type &&
+            (r.boxId === id || (Array.isArray(r.boxIds) && r.boxIds.includes(id))));
+        const occupied = ref => ref && real(ref.boxId) && Number.isInteger(ref.slot) && ref.slot >= 0 &&
+            ref.slot < level.boxes[ref.boxId].items.length;
+        for (let id = 0; id < count; id++) {
+            const items = level.boxes[id]?.items;
+            if (!Array.isArray(items) || items.length > 3 || items.some(item => typeof item !== 'string' || !item)) {
+                fail(`box ${id} has invalid items.`);
+            }
+            if (!items.length && !record('stuck', id)) fail('only a stuck box may initially be empty.');
+            if (items.length === 3 && items.every(item => item === items[0])) fail('boxes must not initially be wrapped.');
+        }
+        const flat = level.layout.columns.flat();
+        if (level.layout.columns.some(column => !Array.isArray(column)) || flat.length !== count ||
+            new Set(flat).size !== count || flat.some(id => !real(id)) ||
+            Array.from({ length: count }, (_, id) => id).some(id => !flat.includes(id))) {
+            fail('columns must uniquely contain every numeric box ID.');
+        }
+        const expected = new Map();
+        for (const tray of level.trays) {
+            if (!tray || typeof tray.targetItemId !== 'string') fail('every order needs a target item.');
+            expected.set(tray.targetItemId, (expected.get(tray.targetItemId) || 0) + 3);
+        }
+        const inventory = new Map();
+        for (const data of level.boxes) for (const item of data.items) inventory.set(item, (inventory.get(item) || 0) + 1);
+        if (expected.size !== inventory.size || [...expected].some(([item, total]) => inventory.get(item) !== total)) {
+            fail('each item type must total exactly three per matching order.');
+        }
+        for (const b of blockers) if (Object.prototype.hasOwnProperty.call(b, 'duration') &&
+            (!Number.isFinite(b.duration) || b.duration <= 0)) fail('timers must be finite and positive.');
+        if (level.rules?.timeToPlay !== undefined && (!Number.isFinite(level.rules.timeToPlay) || level.rules.timeToPlay <= 0)) {
+            fail('the level timer must be finite and positive.');
+        }
+        const visibleRows = level.layout?.visibleRows;
+        if (!Number.isInteger(visibleRows) || visibleRows <= 0) fail('layout.visibleRows must be a positive integer.');
+        const traysSeen = new Set();
+        for (const tray of level.trays) {
+            if (!tray || !(typeof tray.id === 'string' || (typeof tray.id === 'number' && Number.isFinite(tray.id))) ||
+                traysSeen.has(String(tray.id))) fail('every tray needs a unique valid string or number ID.');
+            traysSeen.add(String(tray.id));
+        }
+        const next = { enabled: true, type: spec.type, label: spec.label || spec.type, viewSignature: '' };
+        if (spec.type === 'combo-key') {
+            const lock = record('locked', spec.lockedBoxId);
+            if (!real(spec.keyBoxId) || !real(spec.lockedBoxId) || spec.keyBoxId === spec.lockedBoxId ||
+                !lock || lock.boxId !== spec.lockedBoxId || lock.dependsOnBoxId !== spec.keyBoxId) {
+                fail('the key and locked box must match their numeric blocker dependency.');
+            }
+            Object.assign(next, { keyBoxId: spec.keyBoxId, lockedBoxId: spec.lockedBoxId, keyUsed: false });
+        } else if (spec.type === 'combo-sticky-oneway') {
+            const sticky = spec.sticky;
+            if (!sticky || !real(sticky.boxId) || !Array.isArray(sticky.slots) || sticky.slots.length !== 2 ||
+                sticky.slots[0] === sticky.slots[1] || !occupied({ boxId: sticky.boxId, slot: sticky.slots[0] }) ||
+                !occupied({ boxId: sticky.boxId, slot: sticky.slots[1] }) || !real(spec.oneWayBoxId) ||
+                spec.oneWayBoxId === sticky.boxId) fail('sticky needs two occupied slots and a distinct one-way box.');
+            const items = level.boxes[sticky.boxId].items;
+            if (items[sticky.slots[0]] !== items[sticky.slots[1]]) fail('paired items must have the same type.');
+            Object.assign(next, { oneWayBoxId: spec.oneWayBoxId,
+                pair: { boxId: sticky.boxId, slots: sticky.slots.slice(), itemId: items[sticky.slots[0]], active: true, status: 'linked' } });
+        } else if (spec.type === 'combo-hidden-urgent') {
+            if (!real(spec.urgentBoxId) || !Number.isFinite(spec.duration) || spec.duration <= 0 ||
+                record('hidden-box', spec.urgentBoxId)?.boxId !== spec.urgentBoxId) {
+                fail('urgency needs its real hidden box and a finite positive duration.');
+            }
+            next.urgent = { boxId: spec.urgentBoxId, duration: spec.duration, remaining: spec.duration,
+                activated: false, completed: false, status: 'waiting' };
+        } else if (spec.type === 'combo-connector-queue') {
+            const ids = spec.boxIds, linked = record('connector', ids?.[0]);
+            if (!Number.isInteger(spec.queueCapacity) || spec.queueCapacity < 2 || !Array.isArray(ids) || ids.length !== 2 ||
+                !ids.every(real) || ids[0] === ids[1] || !linked || !Array.isArray(linked.boxIds) ||
+                linked.boxIds.length !== 2 || !linked.boxIds.every(real) ||
+                linked.boxIds.slice().sort((a, b) => a - b).join(',') !== ids.slice().sort((a, b) => a - b).join(',')) {
+                fail('connector capacity and two distinct numeric blocker IDs are required.');
+            }
+            Object.assign(next, { queueCapacity: spec.queueCapacity, connectorBoxIds: ids.slice() });
+        } else if (spec.type === 'combo-frozen-colors') {
+            if (!Number.isFinite(spec.swapAt) || spec.swapAt <= 0 || !occupied(spec.first) || !occupied(spec.second) ||
+                (spec.first.boxId === spec.second.boxId && spec.first.slot === spec.second.slot)) {
+                fail('color swap needs two occupied physical tokens and a finite positive time.');
+            }
+            const a = level.boxes[spec.first.boxId].items[spec.first.slot];
+            const b = level.boxes[spec.second.boxId].items[spec.second.slot];
+            if (a === b) fail('the initial swap must exchange different item types.');
+            next.swap = { at: spec.swapAt, remaining: spec.swapAt, started: false, status: 'pending',
+                tooltip: spec.tooltip || 'đổi loại sau 4 giây', tokens: [
+                    { id: 'first', boxId: spec.first.boxId, slot: spec.first.slot, itemId: a },
+                    { id: 'second', boxId: spec.second.boxId, slot: spec.second.slot, itemId: b }
+                ] };
+        } else {
+            const tray = level.trays.find(t => String(t.id) === String(spec.priorityTrayId));
+            if (!real(spec.stuckBoxId) || record('stuck', spec.stuckBoxId)?.boxId !== spec.stuckBoxId ||
+                !tray || tray.targetItemId !== spec.priorityItemId) fail('priority needs its actual stuck box and matching tray.');
+            next.priority = { stuckBoxId: spec.stuckBoxId, trayId: spec.priorityTrayId,
+                itemId: spec.priorityItemId, gateOpen: false, fulfilled: false };
+        }
+        return next;
+    }
+
+    function syncPriority() {
+        if (state().type !== 'combo-stuck-priority') return;
+        const p = state().priority, r = engine.blockerState?.records?.get(p.stuckBoxId);
+        if (r?.released && !box(p.stuckBoxId)) p.gateOpen = true;
+    }
+    engine.getMechanicComboView = function() {
+        if (!active()) return { enabled: false, type: null };
+        const s = state(), view = { enabled: true, type: s.type, label: s.label };
+        if (s.type === 'combo-key') Object.assign(view, { keyBoxId: s.keyBoxId, lockedBoxId: s.lockedBoxId, keyUsed: s.keyUsed });
+        if (s.pair) view.sticky = { ...s.pair, slots: s.pair.slots.slice() };
+        if (s.type === 'combo-sticky-oneway') view.oneWayBoxId = s.oneWayBoxId;
+        if (s.urgent) view.urgent = { ...s.urgent, remaining: seconds(s.urgent.remaining) };
+        if (s.type === 'combo-connector-queue') view.queueCapacity = engine.maxQueueSize;
+        if (s.swap) view.swap = { at: s.swap.at, remaining: seconds(s.swap.remaining), started: s.swap.started,
+            status: s.swap.status, tooltip: s.swap.status === 'pending' ? s.swap.tooltip :
+                s.swap.status === 'completed' ? 'đã đổi loại' : 'đã hủy đổi loại',
+            tokens: s.swap.tokens.map(token => ({ ...token })) };
+        if (s.priority) view.priority = { ...s.priority };
+        return view;
+    };
+    engine.getComboView = engine.getMechanicComboView;
+    function notify(force = false) {
+        if (!active()) return;
+        const s = state(), signature = JSON.stringify({ type: s.type, keyUsed: s.keyUsed, pair: s.pair,
+            urgent: s.urgent && [s.urgent.status, s.urgent.activated, s.urgent.completed, seconds(s.urgent.remaining)],
+            capacity: s.type === 'combo-connector-queue' ? engine.maxQueueSize : null,
+            swap: s.swap && [s.swap.status, s.swap.started, seconds(s.swap.remaining), s.swap.tokens],
+            priority: s.priority, queue: engine.queue.map(b => b.id), columns: engine.columns });
+        if (!force && signature === s.viewSignature) return;
+        s.viewSignature = signature;
+        if (engine.onComboUpdated) engine.onComboUpdated(engine.getMechanicComboView());
+        else if (engine.onBlockerUpdated) engine.onBlockerUpdated(engine.blockerState);
+    }
+    function playStarted() {
+        return engine.clockStarted || engine.moveCount > 0 || !!engine.selectedSource;
+    }
+    function refresh() {
+        if (!active()) return;
+        const s = state();
+        if (s.type === 'combo-key') {
+            const r = engine.blockerState?.records?.get(s.lockedBoxId);
+            if (r?.unlocked || engine.blockerState?.shipped?.has(s.keyBoxId)) s.keyUsed = true;
+        }
+        if (s.priority) syncPriority();
+        if (engine.gameState === 'PLAYING' && playStarted()) {
+            if (s.urgent && !s.urgent.completed && !s.urgent.activated && accessible(s.urgent.boxId)) {
+                Object.assign(s.urgent, { activated: true, status: 'ticking', remaining: s.urgent.duration });
+            }
+            if (s.swap?.status === 'pending') s.swap.started = true;
+        }
+        notify();
+    }
+
+    engine.startLevel = function(levelConfig) {
+        const beforeState = state();
+        const prepared = validate(levelConfig); // Deliberately before every engine mutation.
+        if (!engine._mechanicComboDefaults) {
+            engine._mechanicComboDefaults = { maxQueueSize: engine.maxQueueSize, onQueueUpdated: engine.onQueueUpdated };
+        }
+        if (!prepared) {
+            engine.mechanicComboState = inactive();
+            engine.lastComboError = '';
+            prioritySuspension = 0; pairing = false;
+            try {
+                return original.startLevel.call(engine, levelConfig);
+            } catch (error) {
+                engine.mechanicComboState = beforeState;
+                throw error;
+            }
+        }
+        const beforeQueueSize = engine.maxQueueSize, queueCallback = engine.onQueueUpdated;
+        if (prepared.type === 'combo-connector-queue') {
+            engine.onQueueUpdated = function(queue) {
+                engine.maxQueueSize = prepared.queueCapacity;
+                if (queueCallback) queueCallback.call(engine, queue);
+            };
+        }
+        engine.mechanicComboState = prepared;
+        engine.lastComboError = '';
+        prioritySuspension = 0; pairing = false;
+        try {
+            const result = original.startLevel.call(engine, levelConfig);
+            refresh(); notify(true);
+            return result;
+        } catch (error) {
+            engine.mechanicComboState = beforeState;
+            engine.onQueueUpdated = queueCallback;
+            if (beforeState?.enabled && beforeState.type === 'combo-connector-queue') engine.maxQueueSize = beforeQueueSize;
+            else engine.maxQueueSize = engine._mechanicComboDefaults.maxQueueSize;
+            throw error;
+        } finally {
+            engine.onQueueUpdated = queueCallback;
+            if (state()?.enabled && state().type === 'combo-connector-queue') {
+                engine.maxQueueSize = state().queueCapacity;
+                if (queueCallback) queueCallback.call(engine, engine.queue);
+            }
+        }
+    };
+    engine.startClock = function() {
+        const result = original.startClock.call(engine);
+        if (active()) refresh();
+        return result;
+    };
+    function sourceLegal(sourceId, slot) {
+        const source = boardBox(sourceId), view = source ? baseView(source.id) : EMPTY_VIEW();
+        return engine.gameState === 'PLAYING' && source && !source.isWrapped && !source.isEmpty() && accessible(source.id) &&
+            Number.isInteger(slot) && slot >= 0 && slot < source.slots.length && source.slots[slot] != null &&
+            !view.blocked && !(view.frozenSlots || []).map(Number).includes(slot) &&
+            !(state().type === 'combo-sticky-oneway' && source.id === state().oneWayBoxId);
+    }
+    function ordinaryMoveAllowed(sourceId, slot, targetId, targetSlot = null) {
+        if (!sourceLegal(sourceId, slot)) return false;
+        const target = boardBox(targetId);
+        if (!target || target.id === Number(sourceId) || target.isWrapped || !accessible(target.id) ||
+            !target.canAccept(targetSlot) || baseView(target.id).blocked) return false;
+        return !engine.blockerState?.enabled || !!original.canMoveBlockerItem.call(engine, sourceId, slot, targetId, targetSlot);
+    }
+    function pairSource(id, slot) {
+        const p = state().pair;
+        return state().type === 'combo-sticky-oneway' && p?.active && p.boxId === Number(id) && p.slots.includes(slot);
+    }
+    engine.canMoveBlockerItem = function(sourceId, slot, targetId, targetSlot = null) {
+        if (!active()) return original.canMoveBlockerItem.call(engine, sourceId, slot, targetId, targetSlot);
+        if (arguments.length < 3 || targetId === undefined) return sourceLegal(Number(sourceId), slot);
+        if (!ordinaryMoveAllowed(Number(sourceId), slot, Number(targetId), targetSlot)) return false;
+        if (pairSource(sourceId, slot)) {
+            const target = boardBox(targetId), free = target.slots.map((v, i) => v == null ? i : -1).filter(i => i >= 0);
+            return free.length >= 2 && (targetSlot === null || free.includes(targetSlot));
+        }
+        return true;
+    };
+    engine.selectSource = function(id, slot) {
+        if (!active()) return original.selectSource.call(engine, id, slot);
+        if (state().type === 'combo-sticky-oneway' && Number(id) === state().oneWayBoxId) {
+            return deny('Hộp một chiều chỉ nhận vật, không thể lấy vật ra.');
+        }
+        const result = original.selectSource.call(engine, id, slot);
+        if (result) { engine.lastComboError = ''; engine.lastBlockerError = ''; }
+        refresh(); return result;
+    };
+    engine.getValidTargets = function(id) {
+        if (!active() || state().type !== 'combo-sticky-oneway') return original.getValidTargets.call(engine, id);
+        const source = boardBox(id);
+        if (!source || source.id === state().oneWayBoxId || source.isWrapped || source.isEmpty()) return [];
+        const selected = engine.selectedSource?.boxId === source.id ? engine.selectedSource.itemIndex : null;
+        const slots = selected === null ? source.slots.map((v, i) => v != null ? i : -1).filter(i => i >= 0) : [selected];
+        return engine.boxes.filter(target => target !== source && slots.some(slot => {
+            if (!ordinaryMoveAllowed(source.id, slot, target.id, null)) return false;
+            return !pairSource(source.id, slot) || target.slots.filter(v => v == null).length >= 2;
+        })).map(target => target.id);
+    };
+    function movePair(sourceId, sourceSlot, targetId, targetSlot) {
+        if (pairing) return deny('Thao tác cặp dính đang được xử lý.');
+        const p = state().pair, source = boardBox(sourceId), target = boardBox(targetId);
+        if (!source || !target || !ordinaryMoveAllowed(sourceId, sourceSlot, targetId, null)) {
+            return deny('Cặp dính phải di chuyển nguyên cặp giữa hai hộp hợp lệ.');
+        }
+        const free = target.slots.map((v, i) => v == null ? i : -1).filter(i => i >= 0);
+        if (free.length < 2 || (targetSlot !== null && (!Number.isInteger(targetSlot) || !free.includes(targetSlot)))) {
+            return deny('Cặp dính cần đúng hai ô trống ở hộp đích.');
+        }
+        const landings = targetSlot === null ? free.slice(0, 2) : [targetSlot, free.find(i => i !== targetSlot)];
+        const pairSlots = [sourceSlot, p.slots.find(i => i !== sourceSlot)];
+        const participants = [...new Set([...engine.boxes, ...engine.queue])];
+        const snap = { boxes: engine.boxes.slice(), queue: engine.queue.slice(), columns: engine.columns.map(c => c.slice()),
+            slots: participants.map(b => ({ b, slots: b.slots.slice(), wrapped: b.isWrapped })),
+            selected: engine.selectedSource ? { ...engine.selectedSource } : null, moves: engine.moveCount,
+            gameState: engine.gameState, loseReason: engine.loseReason, clock: engine.clockStarted, dragged: engine.draggedBoxId };
+        const cb = { box: engine.onBoxUpdated, wrapped: engine.onBoxWrapped, moves: engine.onMoveCountUpdated };
+        const savedCheck = engine.checkConditions, events = [], wrapped = [];
+        let success = false; pairing = true;
+        engine.onBoxUpdated = (...args) => events.push(args);
+        engine.onBoxWrapped = b => { if (!wrapped.includes(b)) wrapped.push(b); }; // Also suppresses headless auto-delivery.
+        engine.onMoveCountUpdated = () => {};
+        engine.checkConditions = () => {};
+        try {
+            success = !!original.moveItem.call(engine, source.id, pairSlots[0], target.id, landings[0]) &&
+                !!original.moveItem.call(engine, source.id, pairSlots[1], target.id, landings[1]);
+        } finally {
+            engine.onBoxUpdated = cb.box; engine.onBoxWrapped = cb.wrapped;
+            engine.onMoveCountUpdated = cb.moves; engine.checkConditions = savedCheck;
+            if (!success) {
+                engine.boxes = snap.boxes; engine.queue = snap.queue; engine.columns = snap.columns;
+                engine.selectedSource = snap.selected; engine.gameState = snap.gameState;
+                engine.loseReason = snap.loseReason; engine.clockStarted = snap.clock; engine.draggedBoxId = snap.dragged;
+                for (const old of snap.slots) { old.b.slots = old.slots.slice(); old.b.isWrapped = old.wrapped; }
+            }
+            engine.moveCount = success ? snap.moves + 1 : snap.moves;
+            pairing = false;
+        }
+        if (!success) return deny('Không thể di chuyển nguyên cặp; toàn bộ thao tác đã được hoàn tác.');
+        const destinations = target.slots.map((v, i) => v != null && snap.slots.find(x => x.b === target)?.slots[i] == null ? i : -1).filter(i => i >= 0);
+        p.boxId = target.id; p.slots = (destinations.length === 2 ? destinations : landings).sort((a, b) => a - b);
+        p.active = !target.isWrapped; p.status = target.isWrapped ? 'packed' : 'linked';
+        engine.lastComboError = ''; engine.lastBlockerError = '';
+        if (cb.moves) cb.moves.call(engine, engine.moveCount);
+        for (const args of events) if (cb.box) cb.box.apply(engine, args);
+        for (const b of wrapped) {
+            if (cb.wrapped) cb.wrapped.call(engine, b);
+            else if (engine.boxes.includes(b) && b.isWrapped) engine.moveBoxToQueue(b);
+        }
+        if (!cb.wrapped && !engine.onTrayDelivered) while (engine.tryAutoFillTray()) {}
+        refresh(); if (engine.gameState === 'PLAYING') engine.checkConditions();
+        return true;
+    }
+    engine.moveItem = function(sourceId, slot, targetId, targetSlot = null) {
+        if (!active()) return original.moveItem.call(engine, sourceId, slot, targetId, targetSlot);
+        sourceId = Number(sourceId); targetId = Number(targetId);
+        if (state().type === 'combo-sticky-oneway' && sourceId === state().oneWayBoxId) {
+            return deny('Hộp một chiều chỉ nhận vật, không thể lấy vật ra.');
+        }
+        if (pairSource(sourceId, slot)) return movePair(sourceId, slot, targetId, targetSlot);
+        const token = state().swap?.tokens.find(t => t.boxId === sourceId && t.slot === slot);
+        const target = boardBox(targetId), before = target?.slots.slice();
+        const fallback = targetSlot === null ? target?.slots.findIndex(v => v == null) : targetSlot;
+        const priority = state().type === 'combo-stuck-priority';
+        if (priority) prioritySuspension++;
+        let result;
+        try { result = original.moveItem.call(engine, sourceId, slot, targetId, targetSlot); }
+        finally { if (priority) prioritySuspension--; }
+        if (result && token && target) {
+            const changed = target.slots.findIndex((v, i) => before[i] == null && v != null);
+            token.boxId = target.id; token.slot = changed >= 0 ? changed : fallback;
+        }
+        if (result) { engine.lastComboError = ''; engine.lastBlockerError = ''; }
+        refresh(); if (priority && result) engine.checkConditions();
+        return result;
+    };
+    function priorityBox(b) {
+        const p = state().priority;
+        return !!b && b.items.length > 0 && b.items.every(item => item === p.itemId);
+    }
+    function priorityAllows(b, tray) {
+        syncPriority(); const p = state().priority;
+        const isBox = priorityBox(b), isTray = tray && String(tray.id) === String(p.trayId);
+        if (!p.gateOpen) return !(isBox && (isTray || tray?.targetItemId === p.itemId));
+        return p.fulfilled || (isBox && isTray && tray.targetItemId === p.itemId);
+    }
+    function priorityDelivered(b, tray) {
+        const p = state().priority;
+        if (p.gateOpen && !p.fulfilled && priorityBox(b) && String(tray.id) === String(p.trayId)) p.fulfilled = true;
+    }
+    engine.moveBoxToQueue = function(boxOrId) {
+        if (!active()) return original.moveBoxToQueue.call(engine, boxOrId);
+        if (boxOrId && typeof boxOrId === 'object' && box(boxOrId.id) !== boxOrId) return deny('Hộp không còn thuộc bàn chơi hiện tại.');
+        const id = boxOrId && typeof boxOrId === 'object' ? boxOrId.id : boxOrId;
+        const priority = state().type === 'combo-stuck-priority';
+        const delivered = engine.onTrayDelivered;
+        if (priority) prioritySuspension++;
+        let result;
+        try {
+            // Force queue entry in headless mode too; auto-fill below is gated, unlike core's direct delivery shortcut.
+            if (priority && !delivered) engine.onTrayDelivered = () => {};
+            result = original.moveBoxToQueue.call(engine, boxOrId);
+        } finally {
+            engine.onTrayDelivered = delivered;
+            if (priority) prioritySuspension--;
+        }
+        if (result && state().urgent && Number(id) === state().urgent.boxId && !state().urgent.completed &&
+            engine.queue.some(b => b.id === Number(id))) {
+            Object.assign(state().urgent, { completed: true, status: 'completed', remaining: 0 });
+        }
+        if (result && priority && !delivered) while (engine.tryAutoFillTray()) {}
+        if (result) { engine.lastComboError = ''; engine.lastBlockerError = ''; }
+        refresh(); if (priority && result) engine.checkConditions();
+        return result;
+    };
+    engine.canDispatchBlockerBox = function(id) {
+        if (!active()) return original.canDispatchBlockerBox.call(engine, id);
+        if (!original.canDispatchBlockerBox.call(engine, id)) return false;
+        if (state().type !== 'combo-stuck-priority') return true;
+        syncPriority(); const p = state().priority, b = box(id);
+        return p.gateOpen ? (p.fulfilled || priorityBox(b)) : !priorityBox(b);
+    };
+    engine.findQueueMatch = function() {
+        if (!active() || state().type !== 'combo-stuck-priority') return original.findQueueMatch.call(engine);
+        const trays = engine.conveyor.getAllActiveTrays();
+        for (const b of engine.queue) {
+            if (!original.canDispatchBlockerBox.call(engine, b.id)) continue;
+            for (const tray of trays) if (tray.canAccept(b) && priorityAllows(b, tray)) return { box: b, tray };
+        }
+        return null;
+    };
+    engine.deliverQueueBox = function(boxId, trayId) {
+        if (!active()) return original.deliverQueueBox.call(engine, boxId, trayId);
+        const b = box(boxId), tray = engine.conveyor.getAllActiveTrays().find(t => String(t.id) === String(trayId));
+        const priority = state().type === 'combo-stuck-priority';
+        if (priority && (!b || !tray || !original.canDispatchBlockerBox.call(engine, boxId))) return deny('Hộp chờ không hợp lệ để giao.');
+        if (priority && !priorityAllows(b, tray)) return deny('Đơn ưu tiên chưa mở hoặc các đơn khác phải tiếp tục chờ.');
+        if (priority) prioritySuspension++;
+        let result;
+        try { result = original.deliverQueueBox.call(engine, boxId, trayId); }
+        finally { if (priority) prioritySuspension--; }
+        if (result && priority) priorityDelivered(b, tray);
+        refresh(); if (priority && result) engine.checkConditions();
+        return result;
+    };
+    engine.startDragWrappedBox = function(id) {
+        if (active() && state().urgent && Number(id) === state().urgent.boxId) return deny('Hộp khẩn cấp phải đi vào hàng chờ.');
+        return original.startDragWrappedBox.call(engine, id);
+    };
+    engine.dropOnTray = function(trayId) {
+        if (!active()) return original.dropOnTray.call(engine, trayId);
+        const b = engine.draggedBoxId === null ? null : box(engine.draggedBoxId);
+        if (state().urgent && b?.id === state().urgent.boxId) return deny('Hộp khẩn cấp phải đi vào hàng chờ.');
+        const tray = engine.conveyor.getAllActiveTrays().find(t => String(t.id) === String(trayId));
+        const priority = state().type === 'combo-stuck-priority';
+        if (priority && (!b || !tray || !priorityAllows(b, tray))) return deny('Khay ưu tiên đang khóa hoặc đơn khác phải chờ.');
+        if (priority) prioritySuspension++;
+        let result;
+        try { result = original.dropOnTray.call(engine, trayId); }
+        finally { if (priority) prioritySuspension--; }
+        if (result && priority) priorityDelivered(b, tray);
+        refresh(); if (priority && result) engine.checkConditions();
+        return result;
+    };
+    engine.completeTrayExit = function(trayId) {
+        if (!active()) return original.completeTrayExit.call(engine, trayId);
+        const priority = state().type === 'combo-stuck-priority';
+        if (priority) prioritySuspension++;
+        try { return original.completeTrayExit.call(engine, trayId); }
+        finally {
+            if (priority) prioritySuspension--;
+            refresh(); if (priority) engine.checkConditions();
+        }
+    };
+    function colorSwap() {
+        const swap = state().swap;
+        if (!swap || swap.status !== 'pending') return;
+        const found = swap.tokens.map(token => {
+            const b = boardBox(token.boxId);
+            return b && !b.isWrapped && b.slots[token.slot] === token.itemId ? { token, b } : null;
+        });
+        if (found.some(x => !x) || (found[0].b === found[1].b && found[0].token.slot === found[1].token.slot)) {
+            swap.status = 'cancelled'; swap.remaining = 0; return;
+        }
+        const a = found[0], b = found[1];
+        const av = a.b.slots[a.token.slot], bv = b.b.slots[b.token.slot];
+        a.b.slots[a.token.slot] = bv; b.b.slots[b.token.slot] = av;
+        a.token.itemId = bv; b.token.itemId = av;
+        swap.status = 'completed'; swap.remaining = 0;
+        const wrapped = [];
+        for (const affected of [...new Set(found.map(x => x.b))]) {
+            const didWrap = affected.checkWrapped();
+            if (engine.onBoxUpdated) engine.onBoxUpdated(affected);
+            if (didWrap) wrapped.push(affected);
+        }
+        for (const b of wrapped) {
+            if (engine.onBoxWrapped) engine.onBoxWrapped(b);
+            else if (engine.boxes.includes(b)) engine.moveBoxToQueue(b);
+        }
+        if (!engine.onBoxWrapped && !engine.onTrayDelivered) while (engine.tryAutoFillTray()) {}
+    }
+    function expiry() {
+        let value = Infinity;
+        if (state().urgent?.activated && !state().urgent.completed && state().urgent.status === 'ticking') value = state().urgent.remaining;
+        if (state().swap?.started && state().swap.status === 'pending') value = Math.min(value, state().swap.remaining);
+        return value;
+    }
+    function tick(delta) {
+        const urgent = state().urgent;
+        if (urgent?.activated && !urgent.completed && urgent.status === 'ticking') {
+            urgent.remaining = Math.max(0, urgent.remaining - delta);
+            if (urgent.remaining <= 1e-9 && engine.gameState === 'PLAYING') {
+                urgent.remaining = 0; urgent.status = 'expired';
+                engine.loseReason = 'Hết giờ khẩn cấp! Hộp ẩn chưa được đưa vào hàng chờ.';
+                engine.setGameState('LOST');
+            }
+        }
+        const swap = state().swap;
+        if (engine.gameState === 'PLAYING' && swap?.started && swap.status === 'pending') {
+            swap.remaining = Math.max(0, swap.remaining - delta);
+            if (swap.remaining <= 1e-9) colorSwap();
+        }
+    }
+    engine.advanceClock = function(delta) {
+        if (!active()) return original.advanceClock.call(engine, delta);
+        if (engine.gameState !== 'PLAYING' || !engine.clockStarted || !Number.isFinite(delta) || delta <= 0) return;
+        refresh();
+        for (let i = 0; i < 512 && delta > 1e-9 && engine.gameState === 'PLAYING'; i++) {
+            let next = expiry();
+            if (next <= 1e-9) { tick(0); refresh(); next = expiry(); if (next <= 1e-9 || engine.gameState !== 'PLAYING') break; }
+            const step = Math.min(delta, next);
+            if (!(step > 1e-9)) break;
+            original.advanceClock.call(engine, step); // Core already gates on global pause; blocker-local timers must still advance.
+            if (engine.gameState === 'PLAYING') tick(step);
+            delta -= step; refresh();
+        }
+        refresh(); if (engine.gameState === 'PLAYING') engine.checkConditions();
+    };
+    function priorityConditions() {
+        if (engine.gameState !== 'PLAYING' || prioritySuspension > 0) return;
+        refresh(); if (engine.hasPendingTrayExits()) return;
+        const p = state().priority, r = engine.blockerState?.records?.get(p.stuckBoxId);
+        if (engine.boxes.every(b => b.isEmpty()) && !engine.queue.length && r?.released && !engine.conveyor.hasRemainingTrays()) {
+            engine.setGameState('WON'); return;
+        }
+        if (engine.queue.length > engine.maxQueueSize) { engine.loseReason = 'Hàng chờ vượt sức chứa.'; engine.setGameState('LOST'); return; }
+        if (engine.findQueueMatch()) return;
+        const trays = engine.conveyor.getAllActiveTrays();
+        for (const b of engine.boxes) if (b.isWrapped) {
+            if (original.canQueueBlockerBox.call(engine, b.id)) return;
+            if (accessible(b.id) && !baseView(b.id).blocked && trays.some(t => t.canAccept(b) && priorityAllows(b, t))) return;
+        }
+        for (const source of engine.boxes) for (let slot = 0; slot < source.slots.length; slot++) {
+            if (source.slots[slot] == null) continue;
+            for (const target of engine.boxes) if (source !== target && ordinaryMoveAllowed(source.id, slot, target.id, null)) return;
+        }
+        engine.loseReason = 'Không còn thao tác hợp lệ trong khi đơn ưu tiên còn bị chặn.';
+        engine.setGameState('LOST');
+    }
+    engine.checkConditions = function() {
+        if (!active()) return original.checkConditions.call(engine);
+        if (state().type === 'combo-stuck-priority') return priorityConditions();
+        return original.checkConditions.call(engine);
+    };
+    engine.addExtraTray = function() {
+        if (!active()) return original.addExtraTray.call(engine);
+        if (state().type !== 'combo-connector-queue') { const result = original.addExtraTray.call(engine); refresh(); return result; }
+        const old = engine.maxQueueSize, saved = engine.onQueueUpdated;
+        engine.onQueueUpdated = function(...args) {
+            engine.maxQueueSize = old + 1;
+            if (saved) saved.apply(engine, args);
+        };
+        let result;
+        try { result = original.addExtraTray.call(engine); }
+        finally { engine.onQueueUpdated = saved; }
+        engine.maxQueueSize = result ? old + 1 : old;
+        refresh(); return result;
+    };
+    engine.shuffleItems = function() {
+        if (active()) return boosterDeny('Không thể xáo bài ở màn cơ chế kết hợp: bộ giải cũ không hiểu luật mới.');
+        return original.shuffleItems.apply(engine, arguments);
+    };
+    engine.removeTray = function() {
+        if (active()) return boosterDeny('Không thể xóa khay ở màn cơ chế kết hợp: bộ giải cũ không hiểu luật mới.');
+        return original.removeTray.apply(engine, arguments);
+    };
+    engine.canQueueBlockerBox = function(id) { return original.canQueueBlockerBox ? original.canQueueBlockerBox.call(engine, id) : false; };
+    engine.getBlockerView = function(id) {
+        const base = baseView(id) || EMPTY_VIEW();
+        if (!active()) return base;
+        const s = state(), numeric = Number(id), badges = [...(base.badges || [])];
+        const add = text => { if (!badges.includes(text)) badges.push(text); };
+        if (s.type === 'combo-key' && numeric === s.keyBoxId) add(s.keyUsed ? 'chìa khóa đã dùng' : `chìa khóa hộp ${s.lockedBoxId}`);
+        if (s.pair?.boxId === numeric) add(s.pair.status === 'packed' ? 'cặp dính đã đóng gói' : 'cặp dính: di chuyển cùng nhau');
+        if (s.type === 'combo-sticky-oneway' && numeric === s.oneWayBoxId) add('một chiều: chỉ nhận');
+        if (s.urgent && numeric === s.urgent.boxId) add(s.urgent.completed ? 'khẩn cấp đã vào hàng chờ' : `khẩn ẩn ${seconds(s.urgent.remaining)}s`);
+        if (s.type === 'combo-connector-queue' && s.connectorBoxIds.includes(numeric)) add(`hàng chờ tối đa ${engine.maxQueueSize}`);
+        if (s.swap?.tokens.some(t => t.boxId === numeric)) add(s.swap.status === 'pending' ? s.swap.tooltip : s.swap.status === 'completed' ? 'đã đổi loại' : 'đã hủy đổi loại');
+        if (s.priority && numeric === s.priority.stuckBoxId) add('nhả hộp để mở khay ưu tiên');
+        return { ...base, badges, hiddenSlots: (base.hiddenSlots || []).map(x => typeof x === 'number' ? x : { ...x }),
+            frozenSlots: (base.frozenSlots || []).map(Number), blocked: !!base.blocked,
+            queueHeld: !!base.queueHeld || !!(s.priority && box(id) && engine.queue.includes(box(id)) && box(id).items.every(x => x === s.priority.itemId) && !s.priority.fulfilled),
+            comboType: s.type, stickySlots: s.pair?.active && s.pair.boxId === numeric ? s.pair.slots.slice() : [],
+            oneWay: s.type === 'combo-sticky-oneway' && numeric === s.oneWayBoxId,
+            keyForBoxId: s.type === 'combo-key' && numeric === s.keyBoxId ? s.lockedBoxId : null };
+    };
+}
+
+
+
 // --- src/core/GameEngine.js ---
 
 class GameEngine {
@@ -1536,6 +2148,7 @@ class GameEngine {
         this.onMoveCountUpdated = null;
 
         installBlockerRules(this);
+        installMechanicCombos(this);
     }
 
     startLevel(levelConfig) {
@@ -4142,6 +4755,540 @@ function replayBlockerLevel(GameEngineClass, level) {
 }
 
 
+// --- src/generator/MechanicComboLevels.js ---
+const BASE_ITEMS = [['bear', 'bear'], ['bear'], ['duck', 'duck'], ['duck']];
+const move = (from, slot, to) => ({ type: 'move', from, slot, to });
+const wait = seconds => ({ type: 'wait', seconds });
+
+const COMBO_SCENARIOS = [
+    { id: 'combo-key', label: 'Chìa khóa phụ thuộc', tier: 'Normal / Hard', name: 'Chìa khóa phụ thuộc', description: 'Đóng gói hộp chìa khóa để mở đúng hộp khóa có tên.' },
+    { id: 'combo-sticky-oneway', label: 'Cặp dính và hộp một chiều', tier: 'Hard', name: 'Cặp dính và hộp một chiều', description: 'Chuyển nguyên cặp hai vật vào hai ô trống; hộp một chiều chỉ nhận vật.' },
+    { id: 'combo-hidden-urgent', label: 'Hộp ẩn khẩn cấp', tier: 'Hard', name: 'Hộp ẩn khẩn cấp', description: 'Đồng hồ khẩn cấp chạy khi hộp tiếp cận được, kể cả khi vật bên trong còn bị che.' },
+    { id: 'combo-connector-queue', label: 'Liên kết và hàng chờ hẹp', tier: 'Super Hard', name: 'Liên kết và hàng chờ hẹp', description: 'Hai hộp liên kết phải vào hàng chờ nguyên cặp với sức chứa giới hạn.' },
+    { id: 'combo-frozen-colors', label: 'Băng giá đổi màu vật', tier: 'Super Hard', name: 'Băng giá đổi màu vật', description: 'Hai vật được theo dõi đổi loại đồng thời sau bốn giây, không làm thay đổi tổng số mỗi loại.' },
+    { id: 'combo-stuck-priority', label: 'Hộp kẹt và đơn ưu tiên', tier: 'Hard', name: 'Hộp kẹt và đơn ưu tiên', description: 'Giải phóng hộp kẹt để mở khay ưu tiên và chặn các đơn khác cho tới khi hoàn tất.' }
+];
+const SCENARIOS = Object.freeze(COMBO_SCENARIOS.map(scenario => Object.freeze({ ...scenario })));
+const copy = value => JSON.parse(JSON.stringify(value));
+const tray = (id, item) => ({ id, categoryId: 'stuffed_animals', targetItemId: item, matchMode: 'itemType' });
+function assertRealEngineGameplay(engine, level) {
+    const actual = {};
+    for (const box of [...engine.boxes, ...engine.queue]) {
+        for (const item of box.items) actual[item] = (actual[item] || 0) + 1;
+    }
+    const demand = {};
+    for (const tray of engine.conveyor.allTrays) {
+        if (tray.isFull()) continue;
+        demand[tray.targetItemId] = (demand[tray.targetItemId] || 0) + 3;
+    }
+    const items = new Set([...Object.keys(actual), ...Object.keys(demand)]);
+    const completeActual = {}, completeDemand = {};
+    for (const item of items) {
+        completeActual[item] = actual[item] || 0;
+        completeDemand[item] = demand[item] || 0;
+    }
+    const same = JSON.stringify(Object.keys(completeActual).sort()) === JSON.stringify(Object.keys(completeDemand).sort())
+        && Object.keys(completeActual).every(item => completeActual[item] === completeDemand[item]);
+    if (!same) {
+        throw new Error(`${level.id}: demand ${JSON.stringify(completeDemand)} != actual ${JSON.stringify(completeActual)}.`);
+    }
+}
+function drainReplay(engine, level) {
+    for (let pass = 0; pass < 64 && engine.gameState === 'PLAYING'; pass++) {
+        let changed = false;
+        for (const box of [...engine.boxes]) {
+            if (box.isWrapped && engine.canQueueBlockerBox(box.id) && engine.moveBoxToQueue(box)) {
+                changed = true;
+                assertRealEngineGameplay(engine, level);
+            }
+        }
+        for (let delivery = 0; delivery < 64 && engine.gameState === 'PLAYING'; delivery++) {
+            if (!engine.tryAutoFillTray()) break;
+            changed = true;
+            assertRealEngineGameplay(engine, level);
+        }
+        if (!changed) break;
+    }
+}
+/** Replay only authored actions and actual engine operations; solved never means merely accepted moves. */
+function replayMechanicComboLevel(GameEngineClass, level) {
+    const engine = new GameEngineClass();
+    engine.startLevel(level);
+    engine.startClock();
+    let failure = '';
+    try {
+        assertRealEngineGameplay(engine, level);
+        for (const action of level.referenceActions || []) {
+            if (engine.gameState !== 'PLAYING') break;
+            if (action.type === 'wait') engine.advanceClock(action.seconds);
+            else if (action.type === 'move') {
+                if (!engine.moveItem(action.from, action.slot, action.to, action.targetSlot ?? null)) {
+                    failure = `Reference move ${action.from}:${action.slot} -> ${action.to} was rejected: ${engine.lastComboError || engine.lastBlockerError}`;
+                    break;
+                }
+            } else {
+                failure = `Unknown reference action ${action.type}.`;
+                break;
+            }
+            assertRealEngineGameplay(engine, level);
+            drainReplay(engine, level);
+        }
+        if (!failure && engine.gameState === 'PLAYING') {
+            drainReplay(engine, level);
+            engine.checkConditions();
+        }
+    } catch (error) {
+        failure = error.message;
+    }
+    return { solved: engine.gameState === 'WON', state: engine.gameState,
+        failure: failure || engine.loseReason, moveCount: engine.moveCount, engine };
+}
+/** Authored diagnostics only. No campaign seed, pacing curve, or generator data is consulted. */
+function createMechanicComboLevel(levelId) {
+    const scenario = SCENARIOS.find(candidate => candidate.id === levelId);
+    if (!scenario) throw new Error(`Unknown mechanic combo scenario: ${levelId}`);
+    const boxes = BASE_ITEMS.map(items => ({ items: items.slice() }));
+    let blockers = [], mechanicCombo, referenceActions;
+    const ordinaryTrace = () => [move(1, 0, 0), move(3, 0, 2)];
+    if (levelId === 'combo-key') {
+        blockers = [{ id: 'combo-key-lock', type: 'locked', boxId: 2, dependsOnBoxId: 0 }];
+        mechanicCombo = { type: levelId, label: scenario.label, keyBoxId: 0, lockedBoxId: 2 };
+        referenceActions = ordinaryTrace();
+    } else if (levelId === 'combo-sticky-oneway') {
+        mechanicCombo = { type: levelId, label: scenario.label,
+            sticky: { boxId: 0, slots: [0, 1] }, oneWayBoxId: 1 };
+        referenceActions = [move(0, 0, 1), move(3, 0, 2)];
+    } else if (levelId === 'combo-hidden-urgent') {
+        blockers = [{ id: 'combo-hidden-face', type: 'hidden-box', boxId: 2 }];
+        mechanicCombo = { type: levelId, label: scenario.label, urgentBoxId: 2, duration: 30 };
+        referenceActions = ordinaryTrace();
+    } else if (levelId === 'combo-connector-queue') {
+        blockers = [{ id: 'combo-linked-pair', type: 'connector', boxIds: [0, 2], groupId: 'COMBO-A' }];
+        mechanicCombo = { type: levelId, label: scenario.label, boxIds: [0, 2], queueCapacity: 2 };
+        referenceActions = ordinaryTrace();
+    } else if (levelId === 'combo-frozen-colors') {
+        blockers = [{ id: 'combo-color-freeze', type: 'frozen', boxId: 1, slot: 0, duration: 3 }];
+        mechanicCombo = { type: levelId, label: scenario.label, swapAt: 4, tooltip: 'đổi loại sau4s',
+            first: { boxId: 1, slot: 0 }, second: { boxId: 3, slot: 0 } };
+        referenceActions = [wait(4), move(3, 0, 0), move(1, 0, 2)];
+    } else if (levelId === 'combo-stuck-priority') {
+        boxes.push({ items: [] });
+        blockers = [{ id: 'combo-priority-stuck', type: 'stuck', boxId: 4, shipCount: 1 }];
+        mechanicCombo = { type: levelId, label: scenario.label, stuckBoxId: 4,
+            priorityTrayId: 'duck-order', priorityItemId: 'duck' };
+        referenceActions = ordinaryTrace();
+    } else {
+        throw new Error(`Unimplemented mechanic combo scenario: ${levelId}`);
+    }
+    const columns = levelId === 'combo-stuck-priority' ? [[4, 2], [0, 1], [3]] : [[0, 2], [1], [3]];
+    return {
+        id: levelId, name: scenario.name, label: scenario.label, tier: scenario.tier,
+        description: scenario.description, solvable: false, boxes,
+        trays: [tray('bear-order', 'bear'), tray('duck-order', 'duck')], maxActiveTrays: 2,
+        layout: { columns: columns.map(column => column.slice()), visibleRows: 4 },
+        rules: { timeToPlay: 120 },
+        blockers: blockers.map(record => copy(record)), mechanicCombo: copy(mechanicCombo),
+        referenceActions: referenceActions.map(action => ({ ...action })),
+        referenceSolution: referenceActions.filter(action => action.type === 'move')
+            .map(action => ({ from: action.from, index: action.slot, to: action.to }))
+    };
+}
+
+
+// --- src/ui/ThemeManager.js ---
+// ThemeManager.js — quản lý theme skin cho item art (candy mặc định, food, ...).
+// Map 32 catalog id (theo thứ tự ổn định của ItemCatalog) -> asset PNG của theme.
+// Không đụng tới core: chỉ là metadata + helper tra asset/label + refresh DOM.
+
+
+// Thứ tự catalog chính thức, ổn định (8 nhóm x 4 = 32).
+const THEME_CATALOG_IDS = ITEM_CATALOG.categories.reduce((acc, cat) => {
+    for (const item of cat.items) acc.push(item.id);
+    return acc;
+}, []);
+
+// Thứ tự manifest 32 của GPT (candy_01..32 / food_01..32) khớp đúng thứ tự
+// catalog trên. Chỉ khác cách đặt tên file nên ta lưu relativePath theo index.
+const THEME_CANDY_FILES = [
+    'gpt/candy/items/candy_01_spiral_lollipop.png',
+    'gpt/candy/items/candy_02_heart_lollipop.png',
+    'gpt/candy/items/candy_03_star_lollipop.png',
+    'gpt/candy/items/candy_04_candy_cane.png',
+    'gpt/candy/items/candy_05_twistwrapped_bonbon.png',
+    'gpt/candy/items/candy_06_round_truffle.png',
+    'gpt/candy/items/candy_07_square_praline.png',
+    'gpt/candy/items/candy_08_striped_toffee.png',
+    'gpt/candy/items/candy_09_gummy_bear.png',
+    'gpt/candy/items/candy_10_gummy_ring.png',
+    'gpt/candy/items/candy_11_gummy_worm.png',
+    'gpt/candy/items/candy_12_gummy_peach.png',
+    'gpt/candy/items/candy_13_jelly_bean.png',
+    'gpt/candy/items/candy_14_sugar_drop.png',
+    'gpt/candy/items/candy_15_candy_corn.png',
+    'gpt/candy/items/candy_16_mint_disc.png',
+    'gpt/candy/items/candy_17_pink_macaron.png',
+    'gpt/candy/items/candy_18_cream_wafer.png',
+    'gpt/candy/items/candy_19_chocolate_sandwich_cookie.png',
+    'gpt/candy/items/candy_20_butter_biscuit.png',
+    'gpt/candy/items/candy_21_sprinkle_donut.png',
+    'gpt/candy/items/candy_22_strawberry_cupcake.png',
+    'gpt/candy/items/candy_23_cake_roll.png',
+    'gpt/candy/items/candy_24_berry_tart.png',
+    'gpt/candy/items/candy_25_popsicle.png',
+    'gpt/candy/items/candy_26_icecream_cone.png',
+    'gpt/candy/items/candy_27_sundae_cup.png',
+    'gpt/candy/items/candy_28_mochi_ball.png',
+    'gpt/candy/items/candy_29_chocolate_bar.png',
+    'gpt/candy/items/candy_30_peanut_brittle.png',
+    'gpt/candy/items/candy_31_fudge_cube.png',
+    'gpt/candy/items/candy_32_marshmallow_twist.png',
+];
+
+const THEME_FOOD_FILES = [
+    'gpt/food/items/food_01_apple.png',
+    'gpt/food/items/food_02_orange.png',
+    'gpt/food/items/food_03_strawberry.png',
+    'gpt/food/items/food_04_pear.png',
+    'gpt/food/items/food_05_broccoli.png',
+    'gpt/food/items/food_06_carrot.png',
+    'gpt/food/items/food_07_corn_cob.png',
+    'gpt/food/items/food_08_mushroom.png',
+    'gpt/food/items/food_09_fried_egg.png',
+    'gpt/food/items/food_10_croissant.png',
+    'gpt/food/items/food_11_pancake_stack.png',
+    'gpt/food/items/food_12_toast.png',
+    'gpt/food/items/food_13_burger.png',
+    'gpt/food/items/food_14_pizza_slice.png',
+    'gpt/food/items/food_15_taco.png',
+    'gpt/food/items/food_16_hotdog.png',
+    'gpt/food/items/food_17_sushi_roll.png',
+    'gpt/food/items/food_18_dumpling.png',
+    'gpt/food/items/food_19_rice_ball.png',
+    'gpt/food/items/food_20_noodle_bowl.png',
+    'gpt/food/items/food_21_chicken_drumstick.png',
+    'gpt/food/items/food_22_steak.png',
+    'gpt/food/items/food_23_shrimp.png',
+    'gpt/food/items/food_24_salmon_fillet.png',
+    'gpt/food/items/food_25_fries_carton.png',
+    'gpt/food/items/food_26_pretzel.png',
+    'gpt/food/items/food_27_sandwich.png',
+    'gpt/food/items/food_28_soup_bowl.png',
+    'gpt/food/items/food_29_milk_carton.png',
+    'gpt/food/items/food_30_juice_bottle.png',
+    'gpt/food/items/food_31_tea_cup.png',
+    'gpt/food/items/food_32_smoothie_glass.png',
+];
+
+// Label themed thực tế theo THỨ TỰ manifest (khớp catalog index).
+// candy_01 -> bear, candy_02 -> duck, ... (identity mapping ổn định).
+const THEME_CANDY_LABELS = [
+    'Kẹo mút xoắn ốc',
+    'Kẹo mút hình tim',
+    'Kẹo mút ngôi sao',
+    'Gậy kẹo bạc hà',
+    'Kẹo bonbon gói xoắn',
+    'Truffle tròn',
+    'Praline vuông',
+    'Toffee sọc',
+    'Gấu dẻo',
+    'Vòng dẻo',
+    'Sâu dẻo',
+    'Đào dẻo',
+    'Kẹo đậu jelly',
+    'Giọt đường',
+    'Kẹo bắp',
+    'Bánh bạc hà',
+    'Macaron hồng',
+    'Bánh wafer kem',
+    'Bánh quy kem sô-cô-la',
+    'Bánh quy bơ',
+    'Donut rắc',
+    'Cupcake dâu',
+    'Bánh cuộn kem',
+    'Tart quả mọng',
+    'Kem que',
+    'Kem ốc quế',
+    'Ly sundae',
+    'Bánh mochi',
+    'Thanh sô-cô-la',
+    'Kẹo đậu phộng',
+    'Khối fudge',
+    'Kẹo marshmallow xoắn',
+];
+
+const THEME_FOOD_LABELS = [
+    'Quả táo',
+    'Quả cam',
+    'Quả dâu tây',
+    'Quả lê',
+    'Bông cải xanh',
+    'Củ cà rốt',
+    'Bắp ngô',
+    'Cây nấm',
+    'Trứng chiên',
+    'Bánh sừng bò',
+    'Chồng bánh pancake',
+    'Bánh mì nướng',
+    'Bánh mì kẹp',
+    'Miếng pizza',
+    'Bánh taco',
+    'Xúc xích kẹp',
+    'Sushi cuộn',
+    'Bánh há cảo',
+    'Cơm nắm',
+    'Bát mì',
+    'Đùi gà chiên',
+    'Bít tết',
+    'Tôm',
+    'Phi lê cá hồi',
+    'Hộp khoai tây chiên',
+    'Bánh pretzel',
+    'Bánh sandwich',
+    'Bát súp',
+    'Hộp sữa',
+    'Chai nước cam',
+    'Tách trà',
+    'Ly sinh tố',
+];
+
+const THEME_ASSET_ROOT = '../assets/retheme-review/2026-11-10';
+
+function themeBuildRelativeMap(files) {
+    const map = {};
+    THEME_CATALOG_IDS.forEach((id, idx) => {
+        if (files[idx]) map[id] = files[idx];
+    });
+    return map;
+}
+
+function themeBuildLabelMap(labels) {
+    const map = {};
+    THEME_CATALOG_IDS.forEach((id, idx) => {
+        if (labels[idx]) map[id] = labels[idx];
+    });
+    return map;
+}
+
+// Metadata theme: id, label, items {catalogId -> relativePath},
+// labels {catalogId -> themed label}.
+const THEMES = {
+    candy: {
+        id: 'candy',
+        label: 'Kẹo ngọt',
+        items: themeBuildRelativeMap(THEME_CANDY_FILES),
+        labels: themeBuildLabelMap(THEME_CANDY_LABELS),
+    },
+    food: {
+        id: 'food',
+        label: 'Đồ ăn',
+        items: themeBuildRelativeMap(THEME_FOOD_FILES),
+        labels: themeBuildLabelMap(THEME_FOOD_LABELS),
+    },
+};
+
+const DEFAULT_THEME_ID = 'candy';
+const THEME_STORAGE_KEY = 'factory-sort-theme';
+
+function themeHas(id) {
+    return typeof id === 'string' && Object.prototype.hasOwnProperty.call(THEMES, id);
+}
+
+function themeSafeStorageGet() {
+    try {
+        if (typeof localStorage === 'undefined' || !localStorage) return null;
+        return localStorage.getItem(THEME_STORAGE_KEY);
+    } catch (e) {
+        return null;
+    }
+}
+
+function themeSafeStorageSet(id) {
+    try {
+        if (typeof localStorage === 'undefined' || !localStorage) return;
+        localStorage.setItem(THEME_STORAGE_KEY, id);
+    } catch (e) {
+        // ignore quota / security errors
+    }
+}
+
+function themeInitialId() {
+    const stored = themeSafeStorageGet();
+    if (themeHas(stored)) return stored;
+    return DEFAULT_THEME_ID;
+}
+
+let themeCurrentId = themeInitialId();
+
+// Áp vào body.dataset.theme (an toàn khi không có document).
+function themeApplyBodyDataset(id) {
+    try {
+        if (typeof document === 'undefined' || !document) return;
+        const body = document.body;
+        if (!body) return;
+        if (!body.dataset) body.dataset = {};
+        body.dataset.theme = id;
+    } catch (e) {
+        // ignore
+    }
+}
+
+function getTheme() {
+    return themeCurrentId;
+}
+
+// Trả về true nếu theme thay đổi thật sự (và persist + dispatch), false nếu
+// không thay đổi hoặc id không hợp lệ.
+function setTheme(id) {
+    if (!themeHas(id)) return false;
+    if (id === themeCurrentId) return false;
+    themeCurrentId = id;
+    themeSafeStorageSet(id);
+    themeApplyBodyDataset(id);
+    themeRefreshAllElements();
+    try {
+        if (typeof document !== 'undefined' && document &&
+            typeof document.dispatchEvent === 'function' &&
+            typeof CustomEvent !== 'undefined') {
+            document.dispatchEvent(new CustomEvent('themechange', { detail: { theme: id } }));
+        }
+    } catch (e) {
+        // ignore
+    }
+    return true;
+}
+
+function themeIsMaskedElement(el) {
+    if (!el) return false;
+    if (typeof el.closest === 'function') {
+        try {
+            if (el.closest('.blocker-masked, .blocker-concealed')) return true;
+        } catch (e) {
+            // ignore
+        }
+    }
+    if (typeof el.matches === 'function') {
+        try {
+            if (el.matches('.blocker-masked, .blocker-concealed')) return true;
+        } catch (e) {
+            // ignore
+        }
+    }
+    let p = el;
+    while (p && p !== el.ownerDocument) {
+        const cls = p.classList;
+        if (cls && typeof cls.contains === 'function') {
+            if (cls.contains('blocker-masked') || cls.contains('blocker-concealed')) return true;
+        }
+        p = p.parentNode;
+    }
+    return false;
+}
+
+// Cập nhật title/aria-label chỉ khi element chưa có label do blocker quản lý
+// hoặc label hiện tại chính là label theme đã đặt trước đó (qua dataset.themeLabel).
+function themeApplyOwnedLabel(el, label) {
+    if (!label) return;
+    const ds = el.dataset;
+    const prevTitle = ds && ds.themeTitle;
+    const prevAria = ds && ds.themeAriaLabel;
+    const curTitle = 'title' in el ? el.title : undefined;
+    const curAria = typeof el.getAttribute === 'function' ? el.getAttribute('aria-label') : undefined;
+    if (curTitle === undefined || curTitle === '' || curTitle === prevTitle) {
+        if ('title' in el) el.title = label;
+        if (ds) ds.themeTitle = label;
+    }
+    if (curAria === undefined || curAria === null || curAria === '' || curAria === prevAria) {
+        if (typeof el.setAttribute === 'function') el.setAttribute('aria-label', label);
+        if (ds) ds.themeAriaLabel = label;
+    }
+}
+
+function themeRefreshElement(el) {
+    if (!el || !el.dataset) return;
+    if (themeIsMaskedElement(el)) return;
+    const itemId = el.dataset.itemId;
+    if (!itemId) return;
+    const uri = getThemedItemAsset(itemId, themeCurrentId);
+    if (!uri) return;
+    const label = getThemedItemLabel(itemId, themeCurrentId);
+    el.dataset.itemArt = uri;
+    if (el.style && typeof el.style.setProperty === 'function') {
+        el.style.setProperty('--item-art', `url("${uri}")`);
+    }
+    themeApplyOwnedLabel(el, label);
+}
+
+function themeRefreshAllElements() {
+    try {
+        if (typeof document === 'undefined' || !document ||
+            typeof document.querySelectorAll !== 'function') return;
+        const nodes = document.querySelectorAll('[data-item-id]');
+        for (let i = 0; i < nodes.length; i++) themeRefreshElement(nodes[i]);
+    } catch (e) {
+        // ignore
+    }
+}
+
+// Đường dẫn tương đối dùng cho kiểm tra filesystem trong Node.
+function themeNodeRelativeAssetPath(itemId, themeId) {
+    const themeConfig = THEMES[themeId];
+    if (!themeConfig) return null;
+    const rel = themeConfig.items[itemId];
+    if (!rel) return null;
+    return `${THEME_ASSET_ROOT}/${rel}`;
+}
+
+// Trả về URL asset đã theme: ưu tiên map nhúng của build standalone,
+// sau đó URL tương đối theo document.baseURI (xử lý cả /ab_test/dist/).
+function getThemedItemAsset(itemId, themeId = getTheme()) {
+    if (!itemId || !themeHas(themeId)) return null;
+    const themeConfig = THEMES[themeId];
+    const rel = themeConfig.items[itemId];
+    if (!rel) return null;
+
+    // 1) Map nhúng sẵn của build standalone.
+    try {
+        const injected = globalThis.__FACTORY_THEME_ASSETS__;
+        if (injected && injected[themeId] && injected[themeId][itemId]) {
+            return injected[themeId][itemId];
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    // 2) Node / không có document => trả về đường dẫn tương đối cho fs check.
+    if (typeof document === 'undefined' || !document) {
+        return themeNodeRelativeAssetPath(itemId, themeId);
+    }
+
+    // 3) Browser: URL tương đối, detect /dist/ trong base pathname.
+    try {
+        const base = document.baseURI || '';
+        let pathname = base;
+        try {
+            pathname = new URL('.', base).pathname || base;
+        } catch (e) {
+            pathname = base;
+        }
+        const up = /\/dist\/?$/.test(pathname) ? '../../' : '../';
+        return new URL(`${up}assets/retheme-review/2026-11-10/${rel}`, base).href;
+    } catch (e) {
+        return themeNodeRelativeAssetPath(itemId, themeId);
+    }
+}
+
+function getThemedItemLabel(itemId, themeId = getTheme()) {
+    if (!itemId || !themeHas(themeId)) return null;
+    const themeConfig = THEMES[themeId];
+    const label = themeConfig.labels[itemId];
+    if (!label) return null;
+    return label;
+}
+
+// Áp theme đã lưu khi module được import.
+themeApplyBodyDataset(themeCurrentId);
+
+
 // --- src/ui/ItemArt.js ---
 // ItemArt.js — vector illustration helper for the 32 catalog item ids.
 // Renders a flat, outlined SVG (stroke #3b2a20, candy fills, white highlight)
@@ -4430,9 +5577,65 @@ function getItemArtDataUri(itemId) {
     return URI_CACHE.get(itemId);
 }
 
-// Applies the vector illustration to an element while keeping the text
-// (emoji/label) as the accessible fallback. Unknown/null clears stale art
-// so reused DOM slots never inherit a previous identity's drawing.
+// Clears only theme-owned art attributes; never touches textContent.
+function clearItemArtOwned(element) {
+    if (element.classList && typeof element.classList.remove === 'function') {
+        element.classList.remove('item-art');
+    }
+    if (element.style && typeof element.style.removeProperty === 'function') {
+        element.style.removeProperty('--item-art');
+    }
+    if (element.dataset && Object.prototype.hasOwnProperty.call(element.dataset, 'itemArt')) {
+        delete element.dataset.itemArt;
+    }
+    const ds = element.dataset;
+    if (typeof element.removeAttribute === 'function') {
+        const curTitle = 'title' in element ? element.title : undefined;
+        if (ds && curTitle !== undefined && curTitle === (ds.themeTitle || '')) {
+            element.removeAttribute('title');
+            delete ds.themeTitle;
+        }
+        const curAria = element.getAttribute('aria-label');
+        if (ds && curAria !== undefined && curAria === ds.themeAriaLabel) {
+            element.removeAttribute('aria-label');
+            delete ds.themeAriaLabel;
+        }
+    }
+    if ('title' in element && typeof element.title === 'string') {
+        if (ds && (!ds.themeTitle || element.title === ds.themeTitle)) {
+            element.title = '';
+        }
+    }
+}
+
+// Áp label chỉ khi element chưa có label do blocker quản lý, hoặc label hiện
+// tại chính là label theme đã đặt trước đó (qua dataset.themeTitle/themeAriaLabel).
+function applyItemArtOwnedLabel(element, label) {
+    if (!label) return;
+    const ds = element.dataset;
+    const prevTitle = ds && ds.themeTitle;
+    const prevAria = ds && ds.themeAriaLabel;
+    const curTitle = 'title' in element ? element.title : undefined;
+    const curAria = typeof element.getAttribute === 'function' ? element.getAttribute('aria-label') : undefined;
+    if (curTitle === undefined || curTitle === '' || curTitle === prevTitle) {
+        if ('title' in element) element.title = label;
+        if (ds) ds.themeTitle = label;
+    }
+    if (curAria === undefined || curAria === null || curAria === '' || curAria === prevAria) {
+        if (typeof element.setAttribute === 'function') element.setAttribute('aria-label', label);
+        if (ds) ds.themeAriaLabel = label;
+    }
+}
+
+// Applies the illustration to an element while keeping the text
+// (emoji/label) as the accessible fallback.
+//
+// Element THẬT trong DOM (có `dataset`) => dùng PNG themed qua ThemeManager,
+// gắn dataset.itemId + dataset.itemArt, title/aria-label.
+// Element giả của unit test cũ (không có `dataset`) => giữ đúng hành vi SVG
+// data-uri legacy để test cũ không phải sửa (item-art-test.js tạo element
+// không có dataset, kỳ vọng `--item-art` là data:image/svg+xml).
+// Unknown/null chỉ xoá thuộc tính art do module này sở hữu; không đổi textContent.
 function applyItemArt(element, itemId) {
     if (!element || !element.style || !element.classList) return;
     if (typeof element.style.setProperty !== 'function' ||
@@ -4441,14 +5644,39 @@ function applyItemArt(element, itemId) {
         typeof element.classList.remove !== 'function') {
         return;
     }
-    const uri = getItemArtDataUri(itemId);
-    if (uri) {
-        element.classList.add('item-art');
-        element.style.setProperty('--item-art', `url("${uri}")`);
-    } else {
-        element.classList.remove('item-art');
-        element.style.removeProperty('--item-art');
+
+    if (!element.dataset) {
+        // Legacy SVG path — giữ nguyên hành vi cho test cũ.
+        const uri = getItemArtDataUri(itemId);
+        if (uri) {
+            element.classList.add('item-art');
+            element.style.setProperty('--item-art', `url("${uri}")`);
+        } else {
+            element.classList.remove('item-art');
+            element.style.removeProperty('--item-art');
+        }
+        return;
     }
+
+    if (!itemId) {
+        clearItemArtOwned(element);
+        delete element.dataset.itemId;
+        return;
+    }
+
+    const uri = getThemedItemAsset(itemId);
+    if (!uri) {
+        clearItemArtOwned(element);
+        delete element.dataset.itemId;
+        return;
+    }
+
+    element.dataset.itemId = itemId;
+    element.dataset.itemArt = uri;
+    element.classList.add('item-art');
+    element.style.setProperty('--item-art', `url("${uri}")`);
+    const label = getThemedItemLabel(itemId);
+    applyItemArtOwnedLabel(element, label);
 }
 
 
@@ -5535,6 +6763,27 @@ class BoxRenderer {
         return boxEl;
     }
 
+    _concealedUrgencyBadge(coreBadges, view) {
+        const candidates = [];
+        if (view && typeof view.urgentBadge === 'string') candidates.push(view.urgentBadge);
+        if (view && typeof view.urgency === 'string') candidates.push(view.urgency);
+        if (Array.isArray(coreBadges)) {
+            coreBadges.forEach(text => {
+                if (typeof text === 'string') candidates.push(text);
+            });
+        }
+        const allowed = [
+            /^khẩn ẩn \d+s$/i,
+            /^⏱️?\s*gấp:\s*vào hàng chờ trong\s*\d+s$/i
+        ];
+        for (const candidate of candidates) {
+            const text = String(candidate).trim();
+            if (!text) continue;
+            if (allowed.some(pattern => pattern.test(text))) return text;
+        }
+        return '';
+    }
+
     _updateBox(el, box, selectedSource, validTargetIds) {
         const view = typeof this.blockerView === 'function' ? this.blockerView(box.id) : undefined;
         const concealed = !!(view && view.concealed);
@@ -5543,6 +6792,7 @@ class BoxRenderer {
             .filter(i => Number.isInteger(i) && i >= 0 && i < 3));
         const hiddenSlots = concealed ? new Set() : toSlotSet(view && view.hiddenSlots);
         const frozenSlots = toSlotSet(view && view.frozenSlots);
+        const stickySlots = concealed ? new Set() : toSlotSet(view && view.stickySlots);
         const coreBadges = view && Array.isArray(view.badges)
             ? view.badges.filter(text => typeof text === 'string' && text.trim().length > 0)
             : [];
@@ -5550,7 +6800,14 @@ class BoxRenderer {
         const concealedText = 'Bí mật — lên đầu cột để mở';
         const stuck = !concealed && box.isEmpty() && coreBadges.length > 0;
         const sealed = concealed || stuck;
-        const badgeText = concealed ? concealedText : joinedRules;
+        // Concealed cartons may reveal only the sealed caption and an urgency countdown.
+        // Whitelist the exact urgent-counter badge shapes only, so no item identity can
+        // leak from arbitrary core badge text into the hidden box caption/title/aria.
+        const urgencyBadge = concealed ? this._concealedUrgencyBadge(coreBadges, view) : '';
+        const stickyNote = stickySlots.size > 0 ? '×2 khi di chuyển' : '';
+        const badgeText = concealed
+            ? [concealedText, urgencyBadge].filter(Boolean).join(' · ')
+            : [joinedRules, stickyNote].filter(Boolean).join(' · ');
         const blocked = !!(view && view.blocked);
         const hadBlockerState = el.classList.contains('blocker-marked')
             || el.classList.contains('blocker-concealed')
@@ -5571,6 +6828,7 @@ class BoxRenderer {
         el.classList.toggle('blocker-sealed', sealed);
         el.classList.toggle('blocker-masked', concealed || hiddenSlots.size > 0);
         el.classList.toggle('blocker-frozen', frozenSlots.size > 0);
+        el.classList.toggle('blocker-sticky', stickySlots.size > 0);
         el.classList.toggle('blocker-blocked', blocked);
         el.classList.toggle('blocker-marked', badgeText.length > 0);
 
@@ -5625,6 +6883,7 @@ class BoxRenderer {
             const has = item !== null && item !== undefined;
             const masked = concealed || hiddenSlots.has(i);
             const frozen = frozenSlots.has(i);
+            const slotSticky = stickySlots.has(i);
             const text = masked ? '?' : (has ? getItemEmoji(item) : '—');
             if (slots[i].textContent !== text) {
                 slots[i].textContent = text;
@@ -5632,6 +6891,7 @@ class BoxRenderer {
             slots[i].classList.toggle('placeholder', masked ? false : !has);
             slots[i].classList.toggle('blocker-masked', masked);
             slots[i].classList.toggle('blocker-frozen', frozen);
+            slots[i].classList.toggle('blocker-sticky', slotSticky);
             slots[i].dataset.slotIndex = i;
             slots[i].dataset.hasItem = masked ? 'unknown' : (has ? 'true' : 'false');
             // This also removes every cached custom-art property from a slot that
@@ -5639,7 +6899,11 @@ class BoxRenderer {
             applyItemArt(slots[i], masked ? null : (has ? item : null));
             slots[i].classList.toggle('selected', !masked && has && !!selectedSource && selectedSource.boxId === box.id && selectedSource.itemIndex === i);
 
-            const slotRules = concealed ? concealedText : ((masked || frozen) ? joinedRules : '');
+            const slotRules = concealed
+                ? concealedText
+                : ((masked || frozen || slotSticky)
+                    ? [joinedRules, stickyNote].filter(Boolean).join(' · ')
+                    : '');
             if (slotRules) {
                 slots[i].title = slotRules;
                 slots[i].setAttribute('aria-label', slotRules);
@@ -5784,9 +7048,10 @@ class BoxRenderer {
 
         const fly = document.createElement('div');
         fly.className = 'item-animating';
-        fly.textContent = srcSlot.textContent;
-        fly.classList.toggle('item-art', srcSlot.classList.contains('item-art'));
-        fly.style.setProperty('--item-art', srcSlot.style.getPropertyValue('--item-art'));
+        const masked = srcSlot.dataset.hasItem === 'unknown' ||
+            srcSlot.classList.contains('blocker-masked');
+        fly.textContent = masked ? '?' : srcSlot.textContent;
+        applyItemArt(fly, masked ? null : (srcSlot.dataset.itemId || null));
         fly.style.left = `${from.left}px`;
         fly.style.top = `${from.top}px`;
         document.body.appendChild(fly);
@@ -6769,6 +8034,7 @@ class QueueRenderer {
 
 
 // --- src/ui/TutorialManager.js ---
+
 class TutorialManager {
     constructor(uiManager, gameEngine) {
         this.ui = uiManager;
@@ -6846,6 +8112,11 @@ class TutorialManager {
         }
 
         window.addEventListener('resize', this._resizeHandler);
+        document.addEventListener('themechange', () => {
+            if (this.active && this.currentStep && this.currentStep !== 'STEP_COMPLETE') {
+                this.setStep(this.currentStep);
+            }
+        });
     }
 
     _parseId(id) {
@@ -6977,6 +8248,8 @@ class TutorialManager {
     setStep(step) {
         if (!this.active) return;
         this.currentStep = step;
+        const penguinLabel = getThemedItemLabel('penguin');
+        const bearLabel = getThemedItemLabel('bear');
 
         switch (step) {
             case 'STEP_1_PICK_PENGUIN': {
@@ -6988,10 +8261,10 @@ class TutorialManager {
                 this.showStep({
                     targetEl: target,
                     badge: 'BƯỚC 1 / 4 • KÉO THẢ MÓN ĐỒ',
-                    text: '<b>Kéo</b> chú <b>Chim cánh cụt 🐧</b> thả vào <b>Thùng chim cánh cụt 🐧</b> bên cạnh!',
+                    text: `<b>Kéo</b> <b>${penguinLabel}</b> thả vào <b>Thùng ${penguinLabel}</b> bên cạnh!`,
                     handOffset: { x: 0, y: 55 },
                     handDirection: 'up',
-                    handText: 'Kéo thả vào thùng 🐧',
+                    handText: `Kéo thả vào thùng ${penguinLabel}`,
                     padding: 8,
                     pulse: true
                 });
@@ -7005,7 +8278,7 @@ class TutorialManager {
                 this.showStep({
                     targetEl: box0El,
                     badge: 'BƯỚC 2 / 4 • GOM 3 MÓN CÙNG LOẠI',
-                    text: 'Thả vào <b>Thùng chim cánh cụt 🐧</b> để gom đủ 3 món!',
+                    text: `Thả vào <b>Thùng ${penguinLabel}</b> để gom đủ 3 món!`,
                     handOffset: { x: 0, y: 65 },
                     handDirection: 'up',
                     handText: 'Thả vào đây!',
@@ -7025,7 +8298,7 @@ class TutorialManager {
                 this.showStep({
                     targetEl: targetArea,
                     badge: 'BƯỚC 3 / 4 • ĐÓNG GÓI & XUẤT HÀNG',
-                    text: '📦 <b>Đóng gói thành công!</b> Thùng đủ 3 món dán kín và bay xuống <b>Hàng chờ</b>.<br>Khay 🐧 trên băng chuyền sẽ <b>tự động nhận hàng</b> khi chạy ngang qua!',
+                    text: `📦 <b>Đóng gói thành công!</b> Thùng đủ 3 món dán kín và bay xuống <b>Hàng chờ</b>.<br>Khay ${penguinLabel} trên băng chuyền sẽ <b>tự động nhận hàng</b> khi chạy ngang qua!`,
                     handOffset: { x: 0, y: -45 },
                     handDirection: 'down',
                     handText: 'Băng chuyền tự nhận hàng',
@@ -7043,11 +8316,11 @@ class TutorialManager {
 
                 this.showStep({
                     targetEl: target,
-                    badge: 'BƯỚC 4 / 4 • GOM GẤU BÔNG 🧸',
-                    text: 'Rất tốt! Giờ hãy <b>kéo</b> chú <b>Gấu bông 🧸</b> thả vào <b>Thùng gấu bông 🧸</b> phía trên!',
+                    badge: `BƯỚC 4 / 4 • GOM ${bearLabel}`,
+                    text: `Rất tốt! Giờ hãy <b>kéo</b> <b>${bearLabel}</b> thả vào <b>Thùng ${bearLabel}</b> phía trên!`,
                     handOffset: { x: 0, y: 55 },
                     handDirection: 'up',
-                    handText: 'Kéo gấu bông 🧸',
+                    handText: `Kéo ${bearLabel}`,
                     padding: 8,
                     pulse: true
                 });
@@ -7060,8 +8333,8 @@ class TutorialManager {
 
                 this.showStep({
                     targetEl: box2El,
-                    badge: 'HOÀN THÀNH • GOM ĐỦ 3 GẤU BÔNG',
-                    text: 'Thả vào <b>Thùng gấu bông 🧸</b> phía trên để hoàn tất đóng gói!',
+                    badge: `HOÀN THÀNH • GOM ĐỦ 3 ${bearLabel}`,
+                    text: `Thả vào <b>Thùng ${bearLabel}</b> phía trên để hoàn tất đóng gói!`,
                     handOffset: { x: 0, y: 65 },
                     handDirection: 'up',
                     handText: 'Thả vào đây!',
@@ -7077,7 +8350,7 @@ class TutorialManager {
                 this.showStep({
                     targetEl: queueArea,
                     badge: 'XUẤT HÀNG CUỐI CÙNG 🚚',
-                    text: 'Thùng gấu bông đã đóng gói! Chờ Khay 🧸 nhận hàng để hoàn thành màn chơi...',
+                    text: `Thùng ${bearLabel} đã đóng gói! Chờ Khay ${bearLabel} nhận hàng để hoàn thành màn chơi...`,
                     handOffset: { x: 0, y: -45 },
                     handDirection: 'down',
                     handText: 'Xuất kho thành công',
@@ -7328,6 +8601,15 @@ class UIManager {
         this.btnLoseLevels = document.getElementById('btn-lose-levels');
         this.blockerScenarioSelect = document.getElementById('blocker-scenario');
         this.btnBlockerCampaign = document.getElementById('blocker-campaign');
+        this.btnMechanicLab = document.getElementById('btn-mechanic-lab');
+        this.btnHelpMechanicLab = document.getElementById('btn-help-mechanic-lab');
+        this.overlayMechanicLab = document.getElementById('overlay-mechanic-lab');
+        this.btnCloseMechanicLab = document.getElementById('btn-close-mechanic-lab');
+        this.mechanicSingleGrid = document.getElementById('mechanic-single-grid');
+        this.mechanicComboGrid = document.getElementById('mechanic-combo-grid');
+        this._mechanicLabReturnFocus = null;
+        this._mechanicLabPausedGameState = null;
+        this._closeMechanicLab = null;
         
         this.overlayWin = document.getElementById('overlay-win');
         this.overlayLose = document.getElementById('overlay-lose');
@@ -7384,7 +8666,16 @@ class UIManager {
         this._lastAffectedColIndex = null;
         
         this.populateBlockerScenarios();
+        this.populateMechanicLab();
+        // Extend the existing modal booster guard without changing the live level.
+        const boostersBlockedWithoutLab = this.boostersBlocked.bind(this);
+        this.boostersBlocked = () => {
+            const labOpen = this.overlayMechanicLab &&
+                !this.overlayMechanicLab.classList.contains('hidden');
+            return !!labOpen || boostersBlockedWithoutLab();
+        };
         this.bindEvents();
+        this._bindThemeControls();
         this.bindEngineCallbacks();
         this.renderLevelMenu();
         this.updateSoundUI();
@@ -7402,6 +8693,33 @@ class UIManager {
             this.soundIconOn.classList.add('hidden');
             this.soundIconOff.classList.remove('hidden');
         }
+    }
+
+    _bindThemeControls() {
+        this._themeButtons = Array.from(document.querySelectorAll('[data-theme-select]'));
+        this._themeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const id = button.dataset.themeSelect;
+                if (id) setTheme(id);
+            });
+        });
+        document.addEventListener('themechange', () => this._syncThemeControls());
+        this._syncThemeControls();
+    }
+
+    _syncThemeControls() {
+        if (!this._themeButtons) return;
+        const theme = getTheme();
+        this._themeButtons.forEach(button => {
+            const selected = button.dataset.themeSelect === theme;
+            button.setAttribute('aria-pressed', String(selected));
+            button.classList.toggle('active', selected);
+        });
+        document.querySelectorAll('.tray.removable-tray[data-tray-id]').forEach(element => {
+            const tray = this.engine.conveyor.getAllActiveTrays().find(t => String(t.id) === element.dataset.trayId);
+            if (!tray) return;
+            element.setAttribute('aria-label', `Xóa khay ${getThemedItemLabel(tray.targetItemId)} và 3 vật tương ứng`);
+        });
     }
 
     bindEvents() {
@@ -7522,6 +8840,68 @@ class UIManager {
             });
         }
 
+        const closeMechanicLab = (opts = {}) => {
+            if (!this.overlayMechanicLab) return;
+            this.overlayMechanicLab.classList.add('hidden');
+            this.overlayMechanicLab.setAttribute('aria-hidden', 'true');
+            this._mechanicLabOpen = false;
+            this._mechanicLabPausedGameState = null;
+            if (this._mechanicLabReturnHelpOpen) {
+                this._mechanicLabReturnHelpOpen = false;
+                document.getElementById('overlay-help')?.classList.remove('hidden');
+            }
+            if (!opts.forNewLevel) {
+                // Lab only blocked new dispatch work. engine.gameState is never mutated,
+                // so PLAYING/WON/LOST and in-flight callbacks stay intact.
+                this._drainQueueFlights();
+                this.updateRender();
+            }
+            const returnFocus = this._mechanicLabReturnFocus;
+            this._mechanicLabReturnFocus = null;
+            if (returnFocus?.isConnected && typeof returnFocus.focus === 'function') {
+                returnFocus.focus({ preventScroll: true });
+            }
+        };
+        this._closeMechanicLab = closeMechanicLab;
+        const openMechanicLab = () => {
+            if (!this.overlayMechanicLab) return;
+            if (this._isMechanicLabOpen()) return;
+            // Never interrupt an in-progress pointer drag or mutate its transaction.
+            if (this.dragState?.isDragging || this.itemDragState?.isDragging) return;
+            this.audio.tap();
+            this._mechanicLabReturnFocus = document.activeElement;
+            this._mechanicLabOpen = true;
+            const helpOverlay = document.getElementById('overlay-help');
+            this._mechanicLabReturnHelpOpen = !!(helpOverlay &&
+                !helpOverlay.classList.contains('hidden'));
+            helpOverlay?.classList.add('hidden');
+            this._syncMechanicLabSelection();
+            this.overlayMechanicLab.classList.remove('hidden');
+            this.overlayMechanicLab.setAttribute('aria-hidden', 'false');
+            this.btnCloseMechanicLab?.focus({ preventScroll: true });
+        };
+        this.btnMechanicLab?.addEventListener('click', openMechanicLab);
+        this.btnHelpMechanicLab?.addEventListener('click', openMechanicLab);
+        this.btnCloseMechanicLab?.addEventListener('click', () => {
+            this.audio.tap();
+            closeMechanicLab();
+        });
+        this.overlayMechanicLab?.addEventListener('click', event => {
+            if (event.target === this.overlayMechanicLab) closeMechanicLab();
+        });
+        document.addEventListener('keydown', event => {
+            if (!this.overlayMechanicLab ||
+                this.overlayMechanicLab.classList.contains('hidden')) return;
+            if (event.key === 'Tab') {
+                this._trapMechanicLabTab(event);
+                return;
+            }
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            closeMechanicLab();
+        });
+
         // Global unlock on first user gesture for Web Audio API
         const unlockAudio = () => {
             this.audio.ensure();
@@ -7544,6 +8924,146 @@ class UIManager {
         });
     }
     
+    _isMechanicLabOpen() {
+        return !!this._mechanicLabOpen && !!this.overlayMechanicLab &&
+            !this.overlayMechanicLab.classList.contains('hidden');
+    }
+
+    _trapMechanicLabTab(event) {
+        if (event.key !== 'Tab' || !this._isMechanicLabOpen()) return;
+        const dialog = this.overlayMechanicLab.querySelector('[role="dialog"], .mechanic-lab-dialog, .modal-dialog') ||
+            this.overlayMechanicLab;
+        const focusables = Array.from(dialog.querySelectorAll(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(el => el.offsetParent !== null || el === document.activeElement);
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        if (!dialog.contains(active)) {
+            event.preventDefault();
+            (event.shiftKey ? last : first).focus({ preventScroll: true });
+            return;
+        }
+        if (event.shiftKey && active === first) {
+            event.preventDefault();
+            last.focus({ preventScroll: true });
+        } else if (!event.shiftKey && active === last) {
+            event.preventDefault();
+            first.focus({ preventScroll: true });
+        }
+    }
+
+    _concealedUrgencyBadge(coreBadges, view) {
+        const candidates = [];
+        if (view && typeof view.urgentBadge === 'string') candidates.push(view.urgentBadge);
+        if (view && typeof view.urgency === 'string') candidates.push(view.urgency);
+        if (Array.isArray(coreBadges)) {
+            coreBadges.forEach(text => {
+                if (typeof text === 'string') candidates.push(text);
+            });
+        }
+        const allowed = [
+            /^khẩn ẩn \d+s$/i,
+            /^⏱️?\s*gấp:\s*vào hàng chờ trong\s*\d+s$/i
+        ];
+        for (const candidate of candidates) {
+            const text = String(candidate).trim();
+            if (!text) continue;
+            if (allowed.some(pattern => pattern.test(text))) return text;
+        }
+        return '';
+    }
+
+    _mechanicComboEntries() {
+        if (Array.isArray(COMBO_SCENARIOS)) {
+            return COMBO_SCENARIOS.map(scenario => typeof scenario === 'string'
+                ? { id: scenario, label: scenario }
+                : scenario).filter(scenario => scenario && typeof scenario.id === 'string');
+        }
+        return Object.entries(COMBO_SCENARIOS || {}).map(([id, scenario]) => {
+            if (typeof scenario === 'string') return { id, label: scenario };
+            return { id, ...(scenario || {}) };
+        }).filter(scenario => typeof scenario.id === 'string');
+    }
+
+    _mechanicScenarioLabel(id) {
+        const combo = this._mechanicComboEntries().find(scenario => scenario.id === id);
+        return combo?.label || this._blockerScenarioLabel(id);
+    }
+
+    _createMechanicScenarioCard(entry, kind) {
+        const id = String(entry.id);
+        const labelText = String(entry.hudLabel || entry.label || entry.name || entry.title || id);
+        const tierText = String(entry.tier || (kind === 'combo' ? 'TỔ HỢP' : 'CƠ CHẾ'));
+        const neutralizeDescription = (text) => {
+            const replaceTerm = (value, pattern, target) => value.replace(pattern, (match, prefix, term) => {
+                const first = term.charAt(0);
+                const capitalized = first === first.toUpperCase() && first !== first.toLowerCase();
+                const replacement = capitalized ? target.charAt(0).toUpperCase() + target.slice(1) : target;
+                return `${prefix}${replacement}`;
+            });
+            let result = String(text);
+            result = replaceTerm(result, /(^|[^\p{L}\p{N}])(gấu)(?=$|[^\p{L}\p{N}])/giu, 'loại A');
+            result = replaceTerm(result, /(^|[^\p{L}\p{N}])(vịt)(?=$|[^\p{L}\p{N}])/giu, 'loại B');
+            return result;
+        };
+        const descriptionText = neutralizeDescription(entry.description ||
+            'Màn luyện tập riêng, không thay đổi tiến trình chiến dịch.');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'mechanic-scenario-card';
+        button.dataset.scenarioId = id;
+        button.dataset.scenarioKind = kind;
+        button.setAttribute('aria-pressed', String(this.activeBlockerScenario === id));
+        button.setAttribute('aria-label', `${labelText}. ${tierText}. ${descriptionText}`);
+        button.title = descriptionText;
+
+        const label = document.createElement('span');
+        label.className = 'mechanic-scenario-label';
+        label.textContent = labelText;
+        const tier = document.createElement('span');
+        tier.className = 'mechanic-scenario-tier';
+        tier.textContent = tierText;
+        const description = document.createElement('span');
+        description.className = 'mechanic-scenario-description';
+        description.textContent = descriptionText;
+        button.append(label, tier, description);
+
+        button.addEventListener('click', () => {
+            this.audio.tap();
+            this.activeBlockerScenario = id;
+            this._syncMechanicLabSelection();
+            this._closeMechanicLab?.({ forNewLevel: true });
+            document.getElementById('overlay-help')?.classList.add('hidden');
+            this.startNewLevel(true);
+        });
+        return button;
+    }
+
+    populateMechanicLab() {
+        if (!this.mechanicSingleGrid || !this.mechanicComboGrid) return;
+        this.mechanicSingleGrid.textContent = '';
+        this.mechanicComboGrid.textContent = '';
+        this._blockerScenarioEntries().forEach(entry => {
+            if (!entry?.id) return;
+            this.mechanicSingleGrid.appendChild(this._createMechanicScenarioCard(entry, 'single'));
+        });
+        this._mechanicComboEntries().forEach(entry => {
+            this.mechanicComboGrid.appendChild(this._createMechanicScenarioCard(entry, 'combo'));
+        });
+        this._syncMechanicLabSelection();
+    }
+
+    _syncMechanicLabSelection() {
+        if (!this.overlayMechanicLab) return;
+        this.overlayMechanicLab.querySelectorAll('.mechanic-scenario-card').forEach(button => {
+            const selected = button.dataset.scenarioId === this.activeBlockerScenario;
+            button.classList.toggle('is-active', selected);
+            button.setAttribute('aria-pressed', String(selected));
+        });
+    }
+
     _blockerScenarioEntries() {
         if (Array.isArray(BLOCKER_SCENARIOS)) {
             return BLOCKER_SCENARIOS.map(scenario => typeof scenario === 'string'
@@ -7685,6 +9205,7 @@ class UIManager {
         state.blockerHidden = !!state.initialBlockerMask || mask.hidden;
         applyItemArt(state.ghostEl, state.blockerHidden ? null : state.itemId);
         state.ghostEl.textContent = state.blockerHidden ? '?' : getItemEmoji(state.itemId);
+        state.ghostEl.setAttribute('aria-label', state.blockerHidden ? '?' : getThemedItemLabel(state.itemId));
     }
 
     _cleanupPendingQueueBox(box) {
@@ -7700,7 +9221,7 @@ class UIManager {
     }
 
     isClockPaused() {
-        return document.hidden || ['overlay-loading', 'overlay-help', 'overlay-level-select']
+        return document.hidden || ['overlay-loading', 'overlay-help', 'overlay-level-select', 'overlay-mechanic-lab']
             .some(id => {
                 const el = document.getElementById(id);
                 return el && !el.classList.contains('hidden');
@@ -7815,7 +9336,7 @@ class UIManager {
             if (selectable) {
                 element.setAttribute('role', 'button');
                 element.setAttribute('tabindex', '0');
-                element.setAttribute('aria-label', `Xóa khay ${getItemEmoji(tray.targetItemId)} và 3 vật tương ứng`);
+                element.setAttribute('aria-label', `Xóa khay ${getThemedItemLabel(tray.targetItemId)} và 3 vật tương ứng`);
             } else {
                 element.removeAttribute('role');
                 element.removeAttribute('tabindex');
@@ -7902,7 +9423,7 @@ class UIManager {
             this.updateRender();
         };
 
-        this.engine.onBlockerUpdated = () => {
+        const scheduleBlockerRefresh = () => {
             this.updateRender();
             if (this._blockerDrainQueued) return;
             this._blockerDrainQueued = true;
@@ -7916,6 +9437,8 @@ class UIManager {
             if (typeof queueMicrotask === 'function') queueMicrotask(drain);
             else Promise.resolve().then(drain);
         };
+        this.engine.onBlockerUpdated = scheduleBlockerRefresh;
+        this.engine.onComboUpdated = scheduleBlockerRefresh;
         
         this.engine.onTrayDelivered = (trayId, box) => {
             const epoch = this._animationEpoch;
@@ -8010,6 +9533,9 @@ class UIManager {
     async startNewLevel(isRetry = false) {
         if (!isRetry) this.clearBlockerScenario();
         const scenarioId = this.activeBlockerScenario;
+        const isComboScenario = !!scenarioId && this._mechanicComboEntries()
+            .some(scenario => scenario.id === scenarioId);
+        const scenarioLabel = scenarioId ? this._mechanicScenarioLabel(scenarioId) : '';
         this._resetAnimationState();
         // Freeze the previous level before yielding to paint the loading overlay.
         // Its conveyor ticks must not create deliveries using the new epoch.
@@ -8032,7 +9558,9 @@ class UIManager {
         if (levelEpoch !== this._animationEpoch) return;
         // Duong cong do kho nam TRON VEN trong configForLevelNumber() cua bo sinh man.
         const levelData = scenarioId
-            ? createBlockerLevel(scenarioId)
+            ? (isComboScenario
+                ? createMechanicComboLevel(scenarioId)
+                : createBlockerLevel(scenarioId))
             : LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
         
         this.queueRenderer.render([]);
@@ -8045,8 +9573,8 @@ class UIManager {
                 normal: 'NORMAL', hard: 'HARD', superhard: 'SUPER HARD' })[tier] || 'NORMAL');
             this.tierDisplay.dataset.tier = tier;
         }
-        this.levelDisplay.textContent = scenarioId ? `THỬ: ${this._blockerScenarioLabel(scenarioId)}` : this.currentLevel;
-        this.levelDisplay.title = scenarioId ? `Kịch bản: ${this._blockerScenarioLabel(scenarioId)}` : `Màn ${this.currentLevel}`;
+        this.levelDisplay.textContent = scenarioId ? `THỬ: ${scenarioLabel}` : this.currentLevel;
+        this.levelDisplay.title = scenarioId ? `Kịch bản: ${scenarioLabel}` : `Màn ${this.currentLevel}`;
         if (this.btnNextLevel) {
             this.btnNextLevel.textContent = scenarioId ? 'VỀ MÀN THƯỜNG ➔' : 'TIẾP TỤC MÀN KẾ ➔';
         }
@@ -8222,6 +9750,7 @@ class UIManager {
 
     // --- Layer 1 Input (Tap) ---
     handleSlotTap(boxId, itemIndex, event = null) {
+        if (this._isMechanicLabOpen()) return;
         // Canonicalize numeric Box.id (DOM ids are strings; engine ids are numbers).
         boxId = this.engine.getBox(boxId)?.id ?? boxId;
         // F4 UI bugfix: a deliberate pointer tap already ran this method on pointerup;
@@ -8310,6 +9839,7 @@ class UIManager {
 
     // --- Layer 1 Input: Item Drag & Drop ---
     handleItemDragStart(boxId, slotIndex, slotEl, e) {
+        if (this._isMechanicLabOpen()) return;
         boxId = this.engine.getBox(boxId)?.id ?? boxId;
         if (this.removeTrayMode) return;
         if (this.engine.gameState !== 'PLAYING') return;
@@ -8707,6 +10237,9 @@ class UIManager {
     }
 
     _drainQueueFlights() {
+        // Lab overlay defers NEW flights only. Pending wrapped requests stay queued and
+        // already-running flights keep their callbacks (gameState is never changed).
+        if (this._isMechanicLabOpen()) return;
         if (this._queueFlightActive || this._deliveryAnimating || !this._pendingQueueBoxes.length || this.engine.gameState !== 'PLAYING') return;
         const queue = this.engine.getQueue();
         let box = null;
@@ -8821,6 +10354,7 @@ class UIManager {
 
     // --- Layer 2 Input (Drag) ---
     handleDragStart(boxId, e) {
+        if (this._isMechanicLabOpen()) return;
         if (this.removeTrayMode) return;
         if (this._isBoxBusy(boxId)) return;
         if (!this.engine.startDragWrappedBox(boxId)) return;
@@ -8995,6 +10529,7 @@ class UIManager {
      */
     checkQueuePickup(now = performance.now()) {
         if (this.removeTrayMode) return;
+        if (this._isMechanicLabOpen()) return;
         if (this.engine.gameState !== 'PLAYING') return;
         this._drainQueueFlights();
         if (this._deliveryAnimating || this._queueFlightActive) return;

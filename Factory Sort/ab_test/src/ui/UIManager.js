@@ -1,6 +1,7 @@
 import { GameEngine } from '../core/GameEngine.js';
 import { LevelGenerator } from '../generator/LevelGenerator.js';
 import { BLOCKER_SCENARIOS, createBlockerLevel } from '../generator/BlockerLevels.js';
+import { COMBO_SCENARIOS, createMechanicComboLevel } from '../generator/MechanicComboLevels.js';
 import { configForLevelNumber } from '../generator/SolvableLevelGenerator.js';
 import { BoxRenderer } from './BoxRenderer.js';
 import { TrayRenderer } from './TrayRenderer.js';
@@ -11,6 +12,7 @@ import { AudioManager } from './AudioManager.js';
 import { VFXManager } from './VFXManager.js';
 import { getCategoryConfig, getItemEmoji } from '../data/ItemCatalog.js';
 import { applyItemArt } from './ItemArt.js';
+import { getTheme, setTheme, getThemedItemLabel } from './ThemeManager.js';
 
 class UIManager {
     constructor() {
@@ -59,6 +61,15 @@ class UIManager {
         this.btnLoseLevels = document.getElementById('btn-lose-levels');
         this.blockerScenarioSelect = document.getElementById('blocker-scenario');
         this.btnBlockerCampaign = document.getElementById('blocker-campaign');
+        this.btnMechanicLab = document.getElementById('btn-mechanic-lab');
+        this.btnHelpMechanicLab = document.getElementById('btn-help-mechanic-lab');
+        this.overlayMechanicLab = document.getElementById('overlay-mechanic-lab');
+        this.btnCloseMechanicLab = document.getElementById('btn-close-mechanic-lab');
+        this.mechanicSingleGrid = document.getElementById('mechanic-single-grid');
+        this.mechanicComboGrid = document.getElementById('mechanic-combo-grid');
+        this._mechanicLabReturnFocus = null;
+        this._mechanicLabPausedGameState = null;
+        this._closeMechanicLab = null;
         
         this.overlayWin = document.getElementById('overlay-win');
         this.overlayLose = document.getElementById('overlay-lose');
@@ -115,7 +126,16 @@ class UIManager {
         this._lastAffectedColIndex = null;
         
         this.populateBlockerScenarios();
+        this.populateMechanicLab();
+        // Extend the existing modal booster guard without changing the live level.
+        const boostersBlockedWithoutLab = this.boostersBlocked.bind(this);
+        this.boostersBlocked = () => {
+            const labOpen = this.overlayMechanicLab &&
+                !this.overlayMechanicLab.classList.contains('hidden');
+            return !!labOpen || boostersBlockedWithoutLab();
+        };
         this.bindEvents();
+        this._bindThemeControls();
         this.bindEngineCallbacks();
         this.renderLevelMenu();
         this.updateSoundUI();
@@ -133,6 +153,33 @@ class UIManager {
             this.soundIconOn.classList.add('hidden');
             this.soundIconOff.classList.remove('hidden');
         }
+    }
+
+    _bindThemeControls() {
+        this._themeButtons = Array.from(document.querySelectorAll('[data-theme-select]'));
+        this._themeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const id = button.dataset.themeSelect;
+                if (id) setTheme(id);
+            });
+        });
+        document.addEventListener('themechange', () => this._syncThemeControls());
+        this._syncThemeControls();
+    }
+
+    _syncThemeControls() {
+        if (!this._themeButtons) return;
+        const theme = getTheme();
+        this._themeButtons.forEach(button => {
+            const selected = button.dataset.themeSelect === theme;
+            button.setAttribute('aria-pressed', String(selected));
+            button.classList.toggle('active', selected);
+        });
+        document.querySelectorAll('.tray.removable-tray[data-tray-id]').forEach(element => {
+            const tray = this.engine.conveyor.getAllActiveTrays().find(t => String(t.id) === element.dataset.trayId);
+            if (!tray) return;
+            element.setAttribute('aria-label', `Xóa khay ${getThemedItemLabel(tray.targetItemId)} và 3 vật tương ứng`);
+        });
     }
 
     bindEvents() {
@@ -253,6 +300,68 @@ class UIManager {
             });
         }
 
+        const closeMechanicLab = (opts = {}) => {
+            if (!this.overlayMechanicLab) return;
+            this.overlayMechanicLab.classList.add('hidden');
+            this.overlayMechanicLab.setAttribute('aria-hidden', 'true');
+            this._mechanicLabOpen = false;
+            this._mechanicLabPausedGameState = null;
+            if (this._mechanicLabReturnHelpOpen) {
+                this._mechanicLabReturnHelpOpen = false;
+                document.getElementById('overlay-help')?.classList.remove('hidden');
+            }
+            if (!opts.forNewLevel) {
+                // Lab only blocked new dispatch work. engine.gameState is never mutated,
+                // so PLAYING/WON/LOST and in-flight callbacks stay intact.
+                this._drainQueueFlights();
+                this.updateRender();
+            }
+            const returnFocus = this._mechanicLabReturnFocus;
+            this._mechanicLabReturnFocus = null;
+            if (returnFocus?.isConnected && typeof returnFocus.focus === 'function') {
+                returnFocus.focus({ preventScroll: true });
+            }
+        };
+        this._closeMechanicLab = closeMechanicLab;
+        const openMechanicLab = () => {
+            if (!this.overlayMechanicLab) return;
+            if (this._isMechanicLabOpen()) return;
+            // Never interrupt an in-progress pointer drag or mutate its transaction.
+            if (this.dragState?.isDragging || this.itemDragState?.isDragging) return;
+            this.audio.tap();
+            this._mechanicLabReturnFocus = document.activeElement;
+            this._mechanicLabOpen = true;
+            const helpOverlay = document.getElementById('overlay-help');
+            this._mechanicLabReturnHelpOpen = !!(helpOverlay &&
+                !helpOverlay.classList.contains('hidden'));
+            helpOverlay?.classList.add('hidden');
+            this._syncMechanicLabSelection();
+            this.overlayMechanicLab.classList.remove('hidden');
+            this.overlayMechanicLab.setAttribute('aria-hidden', 'false');
+            this.btnCloseMechanicLab?.focus({ preventScroll: true });
+        };
+        this.btnMechanicLab?.addEventListener('click', openMechanicLab);
+        this.btnHelpMechanicLab?.addEventListener('click', openMechanicLab);
+        this.btnCloseMechanicLab?.addEventListener('click', () => {
+            this.audio.tap();
+            closeMechanicLab();
+        });
+        this.overlayMechanicLab?.addEventListener('click', event => {
+            if (event.target === this.overlayMechanicLab) closeMechanicLab();
+        });
+        document.addEventListener('keydown', event => {
+            if (!this.overlayMechanicLab ||
+                this.overlayMechanicLab.classList.contains('hidden')) return;
+            if (event.key === 'Tab') {
+                this._trapMechanicLabTab(event);
+                return;
+            }
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            closeMechanicLab();
+        });
+
         // Global unlock on first user gesture for Web Audio API
         const unlockAudio = () => {
             this.audio.ensure();
@@ -275,6 +384,146 @@ class UIManager {
         });
     }
     
+    _isMechanicLabOpen() {
+        return !!this._mechanicLabOpen && !!this.overlayMechanicLab &&
+            !this.overlayMechanicLab.classList.contains('hidden');
+    }
+
+    _trapMechanicLabTab(event) {
+        if (event.key !== 'Tab' || !this._isMechanicLabOpen()) return;
+        const dialog = this.overlayMechanicLab.querySelector('[role="dialog"], .mechanic-lab-dialog, .modal-dialog') ||
+            this.overlayMechanicLab;
+        const focusables = Array.from(dialog.querySelectorAll(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(el => el.offsetParent !== null || el === document.activeElement);
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        if (!dialog.contains(active)) {
+            event.preventDefault();
+            (event.shiftKey ? last : first).focus({ preventScroll: true });
+            return;
+        }
+        if (event.shiftKey && active === first) {
+            event.preventDefault();
+            last.focus({ preventScroll: true });
+        } else if (!event.shiftKey && active === last) {
+            event.preventDefault();
+            first.focus({ preventScroll: true });
+        }
+    }
+
+    _concealedUrgencyBadge(coreBadges, view) {
+        const candidates = [];
+        if (view && typeof view.urgentBadge === 'string') candidates.push(view.urgentBadge);
+        if (view && typeof view.urgency === 'string') candidates.push(view.urgency);
+        if (Array.isArray(coreBadges)) {
+            coreBadges.forEach(text => {
+                if (typeof text === 'string') candidates.push(text);
+            });
+        }
+        const allowed = [
+            /^khẩn ẩn \d+s$/i,
+            /^⏱️?\s*gấp:\s*vào hàng chờ trong\s*\d+s$/i
+        ];
+        for (const candidate of candidates) {
+            const text = String(candidate).trim();
+            if (!text) continue;
+            if (allowed.some(pattern => pattern.test(text))) return text;
+        }
+        return '';
+    }
+
+    _mechanicComboEntries() {
+        if (Array.isArray(COMBO_SCENARIOS)) {
+            return COMBO_SCENARIOS.map(scenario => typeof scenario === 'string'
+                ? { id: scenario, label: scenario }
+                : scenario).filter(scenario => scenario && typeof scenario.id === 'string');
+        }
+        return Object.entries(COMBO_SCENARIOS || {}).map(([id, scenario]) => {
+            if (typeof scenario === 'string') return { id, label: scenario };
+            return { id, ...(scenario || {}) };
+        }).filter(scenario => typeof scenario.id === 'string');
+    }
+
+    _mechanicScenarioLabel(id) {
+        const combo = this._mechanicComboEntries().find(scenario => scenario.id === id);
+        return combo?.label || this._blockerScenarioLabel(id);
+    }
+
+    _createMechanicScenarioCard(entry, kind) {
+        const id = String(entry.id);
+        const labelText = String(entry.hudLabel || entry.label || entry.name || entry.title || id);
+        const tierText = String(entry.tier || (kind === 'combo' ? 'TỔ HỢP' : 'CƠ CHẾ'));
+        const neutralizeDescription = (text) => {
+            const replaceTerm = (value, pattern, target) => value.replace(pattern, (match, prefix, term) => {
+                const first = term.charAt(0);
+                const capitalized = first === first.toUpperCase() && first !== first.toLowerCase();
+                const replacement = capitalized ? target.charAt(0).toUpperCase() + target.slice(1) : target;
+                return `${prefix}${replacement}`;
+            });
+            let result = String(text);
+            result = replaceTerm(result, /(^|[^\p{L}\p{N}])(gấu)(?=$|[^\p{L}\p{N}])/giu, 'loại A');
+            result = replaceTerm(result, /(^|[^\p{L}\p{N}])(vịt)(?=$|[^\p{L}\p{N}])/giu, 'loại B');
+            return result;
+        };
+        const descriptionText = neutralizeDescription(entry.description ||
+            'Màn luyện tập riêng, không thay đổi tiến trình chiến dịch.');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'mechanic-scenario-card';
+        button.dataset.scenarioId = id;
+        button.dataset.scenarioKind = kind;
+        button.setAttribute('aria-pressed', String(this.activeBlockerScenario === id));
+        button.setAttribute('aria-label', `${labelText}. ${tierText}. ${descriptionText}`);
+        button.title = descriptionText;
+
+        const label = document.createElement('span');
+        label.className = 'mechanic-scenario-label';
+        label.textContent = labelText;
+        const tier = document.createElement('span');
+        tier.className = 'mechanic-scenario-tier';
+        tier.textContent = tierText;
+        const description = document.createElement('span');
+        description.className = 'mechanic-scenario-description';
+        description.textContent = descriptionText;
+        button.append(label, tier, description);
+
+        button.addEventListener('click', () => {
+            this.audio.tap();
+            this.activeBlockerScenario = id;
+            this._syncMechanicLabSelection();
+            this._closeMechanicLab?.({ forNewLevel: true });
+            document.getElementById('overlay-help')?.classList.add('hidden');
+            this.startNewLevel(true);
+        });
+        return button;
+    }
+
+    populateMechanicLab() {
+        if (!this.mechanicSingleGrid || !this.mechanicComboGrid) return;
+        this.mechanicSingleGrid.textContent = '';
+        this.mechanicComboGrid.textContent = '';
+        this._blockerScenarioEntries().forEach(entry => {
+            if (!entry?.id) return;
+            this.mechanicSingleGrid.appendChild(this._createMechanicScenarioCard(entry, 'single'));
+        });
+        this._mechanicComboEntries().forEach(entry => {
+            this.mechanicComboGrid.appendChild(this._createMechanicScenarioCard(entry, 'combo'));
+        });
+        this._syncMechanicLabSelection();
+    }
+
+    _syncMechanicLabSelection() {
+        if (!this.overlayMechanicLab) return;
+        this.overlayMechanicLab.querySelectorAll('.mechanic-scenario-card').forEach(button => {
+            const selected = button.dataset.scenarioId === this.activeBlockerScenario;
+            button.classList.toggle('is-active', selected);
+            button.setAttribute('aria-pressed', String(selected));
+        });
+    }
+
     _blockerScenarioEntries() {
         if (Array.isArray(BLOCKER_SCENARIOS)) {
             return BLOCKER_SCENARIOS.map(scenario => typeof scenario === 'string'
@@ -416,6 +665,7 @@ class UIManager {
         state.blockerHidden = !!state.initialBlockerMask || mask.hidden;
         applyItemArt(state.ghostEl, state.blockerHidden ? null : state.itemId);
         state.ghostEl.textContent = state.blockerHidden ? '?' : getItemEmoji(state.itemId);
+        state.ghostEl.setAttribute('aria-label', state.blockerHidden ? '?' : getThemedItemLabel(state.itemId));
     }
 
     _cleanupPendingQueueBox(box) {
@@ -431,7 +681,7 @@ class UIManager {
     }
 
     isClockPaused() {
-        return document.hidden || ['overlay-loading', 'overlay-help', 'overlay-level-select']
+        return document.hidden || ['overlay-loading', 'overlay-help', 'overlay-level-select', 'overlay-mechanic-lab']
             .some(id => {
                 const el = document.getElementById(id);
                 return el && !el.classList.contains('hidden');
@@ -546,7 +796,7 @@ class UIManager {
             if (selectable) {
                 element.setAttribute('role', 'button');
                 element.setAttribute('tabindex', '0');
-                element.setAttribute('aria-label', `Xóa khay ${getItemEmoji(tray.targetItemId)} và 3 vật tương ứng`);
+                element.setAttribute('aria-label', `Xóa khay ${getThemedItemLabel(tray.targetItemId)} và 3 vật tương ứng`);
             } else {
                 element.removeAttribute('role');
                 element.removeAttribute('tabindex');
@@ -633,7 +883,7 @@ class UIManager {
             this.updateRender();
         };
 
-        this.engine.onBlockerUpdated = () => {
+        const scheduleBlockerRefresh = () => {
             this.updateRender();
             if (this._blockerDrainQueued) return;
             this._blockerDrainQueued = true;
@@ -647,6 +897,8 @@ class UIManager {
             if (typeof queueMicrotask === 'function') queueMicrotask(drain);
             else Promise.resolve().then(drain);
         };
+        this.engine.onBlockerUpdated = scheduleBlockerRefresh;
+        this.engine.onComboUpdated = scheduleBlockerRefresh;
         
         this.engine.onTrayDelivered = (trayId, box) => {
             const epoch = this._animationEpoch;
@@ -741,6 +993,9 @@ class UIManager {
     async startNewLevel(isRetry = false) {
         if (!isRetry) this.clearBlockerScenario();
         const scenarioId = this.activeBlockerScenario;
+        const isComboScenario = !!scenarioId && this._mechanicComboEntries()
+            .some(scenario => scenario.id === scenarioId);
+        const scenarioLabel = scenarioId ? this._mechanicScenarioLabel(scenarioId) : '';
         this._resetAnimationState();
         // Freeze the previous level before yielding to paint the loading overlay.
         // Its conveyor ticks must not create deliveries using the new epoch.
@@ -763,7 +1018,9 @@ class UIManager {
         if (levelEpoch !== this._animationEpoch) return;
         // Duong cong do kho nam TRON VEN trong configForLevelNumber() cua bo sinh man.
         const levelData = scenarioId
-            ? createBlockerLevel(scenarioId)
+            ? (isComboScenario
+                ? createMechanicComboLevel(scenarioId)
+                : createBlockerLevel(scenarioId))
             : LevelGenerator.generateLevel({ levelNumber: this.currentLevel });
         
         this.queueRenderer.render([]);
@@ -776,8 +1033,8 @@ class UIManager {
                 normal: 'NORMAL', hard: 'HARD', superhard: 'SUPER HARD' })[tier] || 'NORMAL');
             this.tierDisplay.dataset.tier = tier;
         }
-        this.levelDisplay.textContent = scenarioId ? `THỬ: ${this._blockerScenarioLabel(scenarioId)}` : this.currentLevel;
-        this.levelDisplay.title = scenarioId ? `Kịch bản: ${this._blockerScenarioLabel(scenarioId)}` : `Màn ${this.currentLevel}`;
+        this.levelDisplay.textContent = scenarioId ? `THỬ: ${scenarioLabel}` : this.currentLevel;
+        this.levelDisplay.title = scenarioId ? `Kịch bản: ${scenarioLabel}` : `Màn ${this.currentLevel}`;
         if (this.btnNextLevel) {
             this.btnNextLevel.textContent = scenarioId ? 'VỀ MÀN THƯỜNG ➔' : 'TIẾP TỤC MÀN KẾ ➔';
         }
@@ -953,6 +1210,7 @@ class UIManager {
 
     // --- Layer 1 Input (Tap) ---
     handleSlotTap(boxId, itemIndex, event = null) {
+        if (this._isMechanicLabOpen()) return;
         // Canonicalize numeric Box.id (DOM ids are strings; engine ids are numbers).
         boxId = this.engine.getBox(boxId)?.id ?? boxId;
         // F4 UI bugfix: a deliberate pointer tap already ran this method on pointerup;
@@ -1041,6 +1299,7 @@ class UIManager {
 
     // --- Layer 1 Input: Item Drag & Drop ---
     handleItemDragStart(boxId, slotIndex, slotEl, e) {
+        if (this._isMechanicLabOpen()) return;
         boxId = this.engine.getBox(boxId)?.id ?? boxId;
         if (this.removeTrayMode) return;
         if (this.engine.gameState !== 'PLAYING') return;
@@ -1438,6 +1697,9 @@ class UIManager {
     }
 
     _drainQueueFlights() {
+        // Lab overlay defers NEW flights only. Pending wrapped requests stay queued and
+        // already-running flights keep their callbacks (gameState is never changed).
+        if (this._isMechanicLabOpen()) return;
         if (this._queueFlightActive || this._deliveryAnimating || !this._pendingQueueBoxes.length || this.engine.gameState !== 'PLAYING') return;
         const queue = this.engine.getQueue();
         let box = null;
@@ -1552,6 +1814,7 @@ class UIManager {
 
     // --- Layer 2 Input (Drag) ---
     handleDragStart(boxId, e) {
+        if (this._isMechanicLabOpen()) return;
         if (this.removeTrayMode) return;
         if (this._isBoxBusy(boxId)) return;
         if (!this.engine.startDragWrappedBox(boxId)) return;
@@ -1726,6 +1989,7 @@ class UIManager {
      */
     checkQueuePickup(now = performance.now()) {
         if (this.removeTrayMode) return;
+        if (this._isMechanicLabOpen()) return;
         if (this.engine.gameState !== 'PLAYING') return;
         this._drainQueueFlights();
         if (this._deliveryAnimating || this._queueFlightActive) return;
