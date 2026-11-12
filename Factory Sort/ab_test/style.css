@@ -3510,3 +3510,872 @@ body[data-theme='food'][data-layout='inverted'] :is(#game-header,#booster-bar){
   body[data-theme='candy'][data-layout='inverted'] #game-container .box,
   body[data-theme='food'][data-layout='inverted'] #game-container .box{transition:none!important;}
 }
+
+/* ============================================================
+   TOY FACTORY ROOM — final high-specificity skin (overrides both themes)
+   Upright composition only: no skew/iso transforms on gameplay.
+   Touches visuals only; engine DOM, handlers and overlays are untouched.
+   `.tray` inline translate (TrayRenderer) and the .gripper-overlay are preserved.
+
+   Every rule below is scoped to body#toy-factory[data-theme][data-layout='inverted']
+   so it outranks the older per-theme skins above (2 ids + 2 attributes beats the
+   old `body[data-theme='candy'][data-layout='inverted'] #game-container` etc.).
+   ============================================================ */
+body#toy-factory[data-theme][data-layout='inverted']{
+  --tf-ink:#1f4f86;
+  --tf-ink-deep:#173f6f;
+  --tf-ink-soft:#3f76b0;
+  --tf-cream:#fff8e8;
+  --tf-cream-2:#fdf1d6;
+  --tf-cream-3:#f4e2bd;
+  --tf-yellow:#ffd45c;
+  --tf-yellow-deep:#f0ae2a;
+  --tf-blue:#2f7fd6;
+  --tf-blue-deep:#1b559b;
+  --tf-cyan:#46d4f5;
+  --tf-cyan-soft:#9be8fb;
+  --tf-shadow:rgba(23,63,111,.18);
+  --lane-h:clamp(170px,24vh,220px)!important;
+  --queue-h:80px;
+}
+
+body#toy-factory[data-theme][data-layout='inverted'] #game-container{
+  max-width:512px!important;
+  background-color:#dceefe!important;
+  background-image:linear-gradient(180deg,rgba(255,255,255,.30),rgba(200,226,250,.55)),url('assets/toy-room.svg')!important;
+  background-repeat:no-repeat,no-repeat!important;
+  background-position:center top,center top!important;
+  background-size:cover,cover!important;
+  border-radius:0!important;
+  color:var(--tf-ink)!important;
+}
+@media (min-width:520px){
+  body#toy-factory[data-theme][data-layout='inverted'] #game-container{
+    border-radius:28px!important;
+    box-shadow:0 18px 44px rgba(23,63,111,.28),inset 0 0 0 2px rgba(255,255,255,.6)!important;
+  }
+}
+body#toy-factory[data-theme][data-layout='inverted'] #play-area,
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-area,
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar{background:transparent!important;}
+
+/* ---- Awning: blue / ivory stripes ---- */
+body#toy-factory[data-theme][data-layout='inverted'] #game-header::before{
+  content:''!important;
+  display:block!important;
+  position:absolute;
+  left:0;
+  right:0;
+  top:0;
+  height:27px;
+  z-index:0;
+  pointer-events:none;
+  background:repeating-linear-gradient(90deg,var(--tf-ink) 0 22px,#fff8e8 22px 44px);
+  border-radius:0 0 4px 4px;
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.10),inset 0 2px 0 rgba(255,255,255,.22),0 4px 8px rgba(23,63,111,.18);
+}
+/* scalloped valance under the awning */
+body#toy-factory[data-theme][data-layout='inverted'] #game-header::after{
+  content:''!important;
+  display:block!important;
+  position:absolute;
+  left:0;
+  right:0;
+  top:27px;
+  height:8px;
+  z-index:0;
+  pointer-events:none;
+  background:repeating-linear-gradient(90deg,var(--tf-ink) 0 22px,#fff8e8 22px 44px);
+  -webkit-mask-image:radial-gradient(circle at 11px 0,#000 6.5px,transparent 7px);
+  mask-image:radial-gradient(circle at 11px 0,#000 6.5px,transparent 7px);
+  -webkit-mask-size:22px 8px;
+  mask-size:22px 8px;
+  -webkit-mask-repeat:repeat-x;
+  mask-repeat:repeat-x;
+}
+
+/* ---- Compact HUD ---- */
+body#toy-factory[data-theme][data-layout='inverted'] #game-header{
+  position:relative!important;
+  z-index:30!important;
+  flex:0 0 auto;
+  height:auto!important;
+  min-height:0!important;
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr) auto!important;
+  grid-template-areas:'left title right' 'mini mini mini'!important;
+  align-items:center!important;
+  column-gap:6px!important;
+  row-gap:4px!important;
+  padding:34px 10px 5px!important;
+  margin:0!important;
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  overflow:visible!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .hud-left{
+  grid-area:left!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:3px!important;
+  min-width:0!important;
+  overflow:hidden!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .hud-right{
+  grid-area:right!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:5px!important;
+  margin:0!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .header-title{
+  grid-area:title!important;
+  justify-self:center;
+  margin:0!important;
+  padding:0;
+  text-align:center;
+  line-height:1.02;
+  font-family:'Baloo 2',Nunito,sans-serif;
+  font-weight:900;
+  pointer-events:none;
+  white-space:nowrap;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .header-title-en,
+body#toy-factory[data-theme][data-layout='inverted'] .header-title-vi{
+  display:block;
+  color:var(--tf-yellow)!important;
+  -webkit-text-fill-color:var(--tf-yellow);
+  -webkit-text-stroke:2.6px var(--tf-ink);
+  paint-order:stroke fill;
+  text-shadow:0 2px 0 var(--tf-ink-deep),0 5px 8px rgba(23,63,111,.28);
+  letter-spacing:.01em;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .header-title-en{font-size:clamp(17px,4.6vw,23px);}
+body#toy-factory[data-theme][data-layout='inverted'] .header-title-vi{font-size:clamp(9px,2.5vw,12px);-webkit-text-stroke-width:2.2px;margin-top:1px;}
+
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .hud-pill{
+  background:var(--tf-cream)!important;
+  border:0!important;
+  border-radius:999px!important;
+  padding:3px 8px!important;
+  gap:4px!important;
+  color:var(--tf-ink)!important;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.9),0 2px 5px var(--tf-shadow)!important;
+  font-size:12px!important;
+  max-width:none!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .hud-icon{font-size:12px!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .hud-label{
+  display:none!important;
+  font-size:8.5px!important;
+  color:var(--tf-ink-soft)!important;
+  letter-spacing:.06em;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .hud-value{
+  color:var(--tf-ink-deep)!important;
+  font-size:13px!important;
+  font-weight:900!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .level-pill-arrow{color:var(--tf-blue)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .tier-badge{
+  position:static!important;
+  margin:0 0 0 2px!important;
+  font-size:8px!important;
+  line-height:1!important;
+  color:#fff!important;
+  background:var(--tf-blue)!important;
+  border-radius:999px;
+  padding:3px 6px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.4),0 2px 4px var(--tf-shadow);
+  letter-spacing:.03em;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .tier-badge[data-tier='hard']{background:var(--tf-yellow-deep)!important;color:var(--tf-ink-deep)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .tier-badge[data-tier='superhard']{background:#ef6a5a!important;color:#fff!important;}
+
+/* Round cream help / settings buttons */
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .round-btn{
+  width:34px!important;
+  height:34px!important;
+  padding:0!important;
+  border-radius:50%!important;
+  border:0!important;
+  background:linear-gradient(180deg,#fffdf6 0%,var(--tf-cream-2) 62%,var(--tf-cream-3) 100%)!important;
+  color:var(--tf-ink)!important;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.95),
+    inset 0 -2px 0 rgba(210,178,120,.35),
+    0 3px 7px var(--tf-shadow),
+    0 0 0 2px rgba(255,255,255,.55)!important;
+  filter:none!important;
+  transform:none;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .round-btn:hover{filter:brightness(1.05)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .round-btn:active{transform:scale(.94)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .round-btn svg{
+  width:18px!important;
+  height:18px!important;
+  stroke-width:2.4;
+}
+
+/* Slim secondary mini row: theme toggle, level picker, replay, mechanic lab */
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .hud-mini{
+  grid-area:mini!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  flex-wrap:nowrap!important;
+  gap:5px!important;
+  min-width:0!important;
+  overflow:hidden!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .theme-selector{
+  display:flex!important;
+  align-items:center!important;
+  gap:3px!important;
+  padding:2px!important;
+  border-radius:999px!important;
+  background:rgba(255,255,255,.62)!important;
+  box-shadow:inset 0 1px 3px var(--tf-shadow)!important;
+  white-space:nowrap!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .theme-select-button{
+  min-width:0!important;
+  min-height:0!important;
+  height:22px!important;
+  padding:0 8px!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:transparent!important;
+  color:var(--tf-ink-soft)!important;
+  font-family:inherit!important;
+  font-size:10.5px!important;
+  font-weight:800!important;
+  line-height:1!important;
+  box-shadow:none!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .theme-select-button[aria-pressed='true']{
+  background:var(--tf-blue)!important;
+  color:#fff!important;
+  box-shadow:0 2px 4px var(--tf-shadow),inset 0 1px 0 rgba(255,255,255,.35)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .mini-chip{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:24px!important;
+  height:22px!important;
+  min-width:24px!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:rgba(255,255,255,.72)!important;
+  color:var(--tf-ink)!important;
+  box-shadow:0 2px 4px var(--tf-shadow)!important;
+  cursor:pointer;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .mini-chip svg{width:13px!important;height:13px!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .mini-chip:active{transform:scale(.93);}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .mechanic-lab-launcher{
+  width:auto!important;
+  min-width:0!important;
+  min-height:22px!important;
+  height:22px!important;
+  padding:0 8px!important;
+  gap:3px!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:rgba(255,255,255,.72)!important;
+  color:var(--tf-ink)!important;
+  box-shadow:0 2px 4px var(--tf-shadow)!important;
+  font-size:10px!important;
+  font-weight:800!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .mechanic-lab-launcher:hover{background:var(--tf-yellow)!important;color:var(--tf-ink-deep)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .mechanic-lab-launcher-icon{font-size:11px!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header .mechanic-lab-launcher-text{display:inline!important;}
+
+/* ---- Ring belt: glossy toy loop, bright blue/cyan bevel, cream center ---- */
+body#toy-factory[data-theme][data-layout='inverted'] #tray-area{
+  padding:4px 8px 0!important;
+  gap:4px!important;
+  --belt-inset:6px!important;
+  --lane-h:clamp(150px,23%,172px)!important;
+  --belt-radius:26px!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #conveyor-belt{
+  background:
+    radial-gradient(90% 70% at 50% 50%,var(--tf-cream) 0 58%,rgba(255,248,232,0) 72%),
+    linear-gradient(180deg,#63c3f6 0%,#2f8fe0 46%,#1f6fbd 100%)!important;
+  border:3px solid #1b559b!important;
+  border-top-color:#6fe0ff!important;
+  border-left-color:#4aa8ea!important;
+  border-right-color:#4aa8ea!important;
+  border-bottom-color:#ffd45c!important;
+  border-radius:var(--belt-radius)!important;
+  box-shadow:
+    inset 0 3px 0 rgba(255,255,255,.75),
+    inset 0 -4px 0 rgba(23,63,111,.22),
+    0 4px 0 #f0ae2a,
+    0 7px 12px rgba(23,63,111,.26)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #conveyor-belt::after{
+  display:block!important;
+  content:''!important;
+  inset:11px 9px 13px!important;
+  border-radius:18px!important;
+  border:0!important;
+  background:linear-gradient(180deg,#7fd8fb,#38a3e4)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 3px 6px rgba(23,63,111,.28)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #conveyor-belt .belt-track{
+  filter:drop-shadow(0 2px 0 rgba(255,255,255,.5));
+  z-index:3!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #belt-band{
+  stroke:#4fd6f8!important;
+  filter:none!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #belt-cleat{
+  stroke:rgba(255,255,255,.5)!important;
+  fill:none!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #belt-rail-o,
+body#toy-factory[data-theme][data-layout='inverted'] #belt-rail-i{
+  stroke:#ffd45c!important;
+  filter:drop-shadow(0 1px 0 rgba(255,255,255,.5));
+}
+body#toy-factory[data-theme][data-layout='inverted'] .port-label{
+  top:16px!important;
+  font-size:8px!important;
+  color:var(--tf-blue-deep)!important;
+  text-shadow:0 1px 0 rgba(255,255,255,.8)!important;
+  opacity:.9!important;
+  letter-spacing:.1em;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .port-label-out{left:14px!important;}
+body#toy-factory[data-theme][data-layout='inverted'] .port-label-in{right:14px!important;}
+
+/* Trays: cream tile on the floor — TrayRenderer inline translate() is kept */
+body#toy-factory[data-theme][data-layout='inverted'] #trays-container .tray{
+  background:linear-gradient(180deg,#fffdf7,var(--tf-cream-2))!important;
+  border:2px solid var(--tf-ink)!important;
+  border-radius:10px!important;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.95),
+    inset 0 -2px 0 rgba(210,178,120,.4),
+    0 4px 0 rgba(23,63,111,.18),
+    0 6px 10px var(--tf-shadow)!important;
+  filter:none!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #trays-container .tray::before,
+body#toy-factory[data-theme][data-layout='inverted'] #trays-container .tray::after{display:none!important;content:none!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #trays-container .tray .tray-cap{
+  background:var(--tf-yellow)!important;
+  border:0!important;
+  border-radius:6px 6px 0 0!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 1px 2px var(--tf-shadow)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #trays-container .tray .tray-illustration{
+  background:#fff!important;
+  border:1.5px solid rgba(23,63,111,.18)!important;
+  border-radius:6px!important;
+  box-shadow:none!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #trays-container .tray.highlight-match{border-color:#2fae7a!important;box-shadow:0 0 0 3px rgba(47,174,122,.35),0 4px 10px var(--tf-shadow)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #trays-container .tray.highlight-reject{border-color:#e0604f!important;box-shadow:0 0 0 3px rgba(224,96,79,.3),0 4px 10px var(--tf-shadow)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #tray-remaining{
+  background:var(--tf-cream)!important;
+  color:var(--tf-ink-deep)!important;
+  border:0!important;
+  outline:0!important;
+  border-radius:999px!important;
+  box-shadow:0 2px 5px var(--tf-shadow),inset 0 1px 0 rgba(255,255,255,.9)!important;
+  font-weight:800!important;
+}
+
+/* ---- Queue: cream fat rounded bar — 5 outlined dashed empty cells ---- */
+body#toy-factory[data-theme][data-layout='inverted'] #queue-area{
+  flex:0 0 auto!important;
+  padding:5px 8px!important;
+  background:linear-gradient(180deg,#fffdf7,var(--tf-cream-2))!important;
+  border:0!important;
+  border-radius:99px!important;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.95),
+    inset 0 -3px 0 rgba(210,178,120,.38),
+    0 4px 10px var(--tf-shadow)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #queue-area::before,
+body#toy-factory[data-theme][data-layout='inverted'] #queue-area::after{display:none!important;}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-hazard-strip{
+  border-radius:99px!important;
+  height:3px!important;
+  opacity:.55;
+  background:repeating-linear-gradient(90deg,var(--tf-yellow) 0 8px,var(--tf-cream-3) 8px 16px)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-counter{
+  background:var(--tf-blue)!important;
+  color:#fff!important;
+  border:0!important;
+  border-radius:999px!important;
+  font-size:10px!important;
+  font-weight:900!important;
+  padding:1px 8px!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 2px 4px var(--tf-shadow)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-counter.warning{background:var(--tf-yellow)!important;color:var(--tf-ink-deep)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-counter.danger{background:#e0604f!important;color:#fff!important;}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-slot{
+  height:clamp(30px,4.4%,38px)!important;
+  background:var(--tf-cream)!important;
+  border:2px dashed rgba(63,118,176,.5)!important;
+  border-radius:12px!important;
+  box-shadow:inset 0 2px 4px rgba(23,63,111,.10)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-slot.occupied{
+  border-style:solid!important;
+  border-color:var(--tf-ink-soft)!important;
+  box-shadow:inset 0 2px 4px rgba(23,63,111,.12),0 0 0 3px rgba(255,212,92,.35)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-slot::before,
+body#toy-factory[data-theme][data-layout='inverted'] .queue-slot::after{display:none!important;content:none!important;}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-box{
+  background:linear-gradient(180deg,#fffdf7,var(--tf-cream-2))!important;
+  border:2px solid var(--tf-ink)!important;
+  border-radius:8px!important;
+  box-shadow:0 2px 3px var(--tf-shadow)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #queue-area.warning{box-shadow:0 0 0 3px rgba(255,212,92,.55),0 4px 10px var(--tf-shadow)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #queue-area.danger{box-shadow:0 0 0 3px rgba(224,96,79,.5),0 4px 10px var(--tf-shadow)!important;}
+
+/* ---- Boxes: 2 columns x 3 rows, upright open cartons ---- */
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-area{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  padding:4px 10px 6px!important;
+  overflow:hidden!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  grid-auto-flow:row;
+  align-items:start!important;
+  align-content:start!important;
+  gap:8px!important;
+  width:100%!important;
+  max-width:min(490px,100%)!important;
+  height:100%!important;
+  max-height:none!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  padding:2px 2px 6px!important;
+  -webkit-overflow-scrolling:touch;
+}
+/* Flatten the visible box DOM: column / track / stack only pass their boxes through */
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .box-column,
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .conveyor-track,
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .box-stack{
+  display:contents!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .box-column,
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .conveyor-track{
+  filter:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  background:none!important;
+  padding:0!important;
+}
+/* Hide track decorations and the peeking carton */
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .conveyor-cleat-belt,
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .conveyor-side-beam,
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .conveyor-top-terminal,
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .conveyor-bottom-terminal,
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .conveyor-bottom-peek,
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .peek-box{display:none!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid .box-stack > .box{
+  grid-column:auto!important;
+  width:100%!important;
+  height:var(--box-h,86px)!important;
+  margin:0!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box{
+  border-radius:14px!important;
+  background:none!important;
+  filter:drop-shadow(0 3px 4px rgba(23,63,111,.20))!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .top-face{
+  height:100%!important;
+  padding:5px 6px!important;
+  gap:5px!important;
+  border:3px solid var(--tf-blue)!important;
+  border-radius:13px!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.95) 0 45%,rgba(255,255,255,0) 74%),
+    linear-gradient(180deg,#fffdf7 0%,var(--tf-cream) 62%,var(--tf-cream-2) 100%)!important;
+  box-shadow:
+    inset 0 3px 0 rgba(255,255,255,.95),
+    inset 0 -4px 0 rgba(63,118,176,.16),
+    0 3px 0 var(--tf-blue-deep),
+    0 6px 10px rgba(23,63,111,.20)!important;
+  overflow:hidden!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .front-face,
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box::after{display:none!important;content:none!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box > .flap,
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box > .tape{display:none!important;}
+
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .slot{
+  height:100%!important;
+  max-height:none!important;
+  min-height:0!important;
+  border-radius:9px!important;
+  border:1.5px dashed rgba(63,118,176,.45)!important;
+  background:linear-gradient(180deg,#fffdf7,#f7ebd4)!important;
+  box-shadow:inset 0 2px 3px rgba(23,63,111,.12),0 1px 0 rgba(255,255,255,.9)!important;
+  color:var(--tf-ink)!important;
+  font-size:min(calc(var(--slot-size,34px) * .92),38px)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .slot.placeholder{
+  color:transparent!important;
+  border-color:rgba(63,118,176,.38)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .slot.item-art{background-size:82% 82%!important;}
+
+/* Sealed / wrapped carton: upright yellow lid with a blue tape band */
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.wrapped .top-face,
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.blocker-sealed .top-face{
+  border-color:var(--tf-yellow-deep)!important;
+  background:linear-gradient(180deg,#fff8e0,#ffe6a6)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.wrapped::before,
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.blocker-sealed::before{
+  content:''!important;
+  position:absolute;
+  left:10%;
+  right:10%;
+  top:44%;
+  height:11%;
+  border-radius:99px;
+  background:var(--tf-blue)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5);
+  pointer-events:none;
+  z-index:6;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.wrapped .box-logo{
+  background:#fff!important;
+  border:2.5px solid var(--tf-blue)!important;
+  box-shadow:0 3px 6px var(--tf-shadow)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.wrapped .box-logo-icon{width:26px!important;height:26px!important;font-size:19px!important;}
+
+/* Selected / valid / reject cues preserved, restyled to the toy palette */
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.selected{
+  transform:translateY(-4px)!important;
+  filter:drop-shadow(0 0 8px rgba(255,212,92,.9)) drop-shadow(0 4px 6px rgba(23,63,111,.22))!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.selected .top-face{border-color:var(--tf-yellow-deep)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.valid-target .top-face{border-color:#2fae7a!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.valid-target .slot.placeholder{
+  background:rgba(255,212,92,.22)!important;
+  border:1.5px dashed var(--tf-yellow-deep)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box.reject .top-face{border-color:#e0604f!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .slot.selected{
+  background:rgba(255,212,92,.4)!important;
+  border:2px solid var(--tf-yellow-deep)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .slot.drop-target-active{
+  background:rgba(70,212,245,.35)!important;
+  border:2px solid var(--tf-blue)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .column-hidden-count{
+  background:var(--tf-blue)!important;
+  color:#fff!important;
+  border:0!important;
+  outline:0!important;
+  border-radius:999px!important;
+  box-shadow:0 2px 5px var(--tf-shadow)!important;
+}
+
+/* ---- Boosters: four big colourful icons; text stays for screen readers ---- */
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar{
+  flex:0 0 auto!important;
+  padding:4px 10px calc(8px + env(safe-area-inset-bottom,0px))!important;
+  background:transparent!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-buttons{gap:8px!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button{
+  position:relative;
+  min-height:0!important;
+  aspect-ratio:1/1;
+  padding:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border:0!important;
+  border-radius:18px!important;
+  background:linear-gradient(180deg,#dff6ff,#a9e4fb)!important;
+  box-shadow:
+    inset 0 3px 0 rgba(255,255,255,.95),
+    inset 0 -4px 0 rgba(47,143,224,.35),
+    0 4px 0 rgba(23,63,111,.16),
+    0 7px 12px var(--tf-shadow)!important;
+  color:var(--tf-ink)!important;
+  overflow:hidden;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button:nth-child(2){background:linear-gradient(180deg,#eafff4,#b8f2d6)!important;box-shadow:inset 0 3px 0 rgba(255,255,255,.95),inset 0 -4px 0 rgba(47,174,122,.32),0 4px 0 rgba(23,63,111,.16),0 7px 12px var(--tf-shadow)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button:nth-child(3){background:linear-gradient(180deg,#fffbe6,#ffe49a)!important;box-shadow:inset 0 3px 0 rgba(255,255,255,.95),inset 0 -4px 0 rgba(240,174,42,.4),0 4px 0 rgba(23,63,111,.16),0 7px 12px var(--tf-shadow)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button:nth-child(4){background:linear-gradient(180deg,#fff0f3,#ffc9d2)!important;box-shadow:inset 0 3px 0 rgba(255,255,255,.95),inset 0 -4px 0 rgba(224,96,79,.32),0 4px 0 rgba(23,63,111,.16),0 7px 12px var(--tf-shadow)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button img,
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button svg{
+  width:auto!important;
+  height:auto!important;
+  max-width:66%!important;
+  max-height:66%!important;
+  min-width:26px;
+  min-height:26px;
+  object-fit:contain!important;
+  filter:drop-shadow(0 2px 3px rgba(23,63,111,.25));
+}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button span,
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button .booster-detail{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  margin:-1px!important;
+  padding:0!important;
+  overflow:hidden!important;
+  clip:rect(0 0 0 0)!important;
+  clip-path:inset(50%)!important;
+  white-space:nowrap!important;
+  border:0!important;
+  font-size:0!important;
+  color:transparent!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button:hover{filter:brightness(1.05);}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button:active{transform:translateY(3px)!important;box-shadow:0 1px 0 rgba(23,63,111,.16),0 3px 6px var(--tf-shadow)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button.active{box-shadow:0 0 0 3px var(--tf-yellow),0 4px 0 rgba(23,63,111,.16),0 7px 12px var(--tf-shadow)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button:disabled{opacity:.55!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-status{
+  margin-top:3px;
+  text-align:center;
+  font-size:10px!important;
+  color:var(--tf-ink-soft)!important;
+  background:none!important;
+  border:0!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #booster-status:not(:empty){
+  background:rgba(23,63,111,.88)!important;
+  color:#fff!important;
+  border-radius:999px!important;
+  padding:2px 10px!important;
+}
+
+/* ---- Overlays keep their content, only softened to cream / blue ---- */
+body#toy-factory[data-theme][data-layout='inverted'] .overlay{background:rgba(23,63,111,.42)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] .overlay-card,
+body#toy-factory[data-theme][data-layout='inverted'] .overlay-content{
+  background:linear-gradient(180deg,#fffdf7,var(--tf-cream-2))!important;
+  border:0!important;
+  border-radius:22px!important;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.95),0 10px 26px rgba(23,63,111,.34)!important;
+  color:var(--tf-ink)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .overlay-card h2,
+body#toy-factory[data-theme][data-layout='inverted'] .overlay-content h2{color:var(--tf-ink-deep)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] .overlay .btn,
+body#toy-factory[data-theme][data-layout='inverted'] .overlay .btn-primary-industrial,
+body#toy-factory[data-theme][data-layout='inverted'] .overlay .btn-danger-industrial{
+  background:linear-gradient(180deg,#4aa3e6,var(--tf-blue-deep))!important;
+  color:#fff!important;
+  border:0!important;
+  border-radius:16px!important;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.35),0 4px 0 rgba(23,63,111,.35),0 7px 12px var(--tf-shadow)!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .overlay .btn-ghost{
+  background:rgba(255,255,255,.7)!important;
+  color:var(--tf-ink)!important;
+  box-shadow:0 3px 6px var(--tf-shadow)!important;
+}
+
+/* ---- Tight screens: no large empty vertical gaps ---- */
+@media (max-height:720px){
+  body#toy-factory[data-theme][data-layout='inverted'] #tray-area{--lane-h:clamp(132px,22vh,156px)!important;}
+  body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button{min-height:46px!important;border-radius:15px!important;}
+}
+@media (max-width:400px){
+  body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .slot{font-size:min(calc(var(--slot-size,32px) * .95),34px)!important;}
+  body#toy-factory[data-theme][data-layout='inverted'] #game-header{column-gap:4px!important;padding:32px 8px 4px!important;}
+  body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid{gap:7px!important;}
+  body#toy-factory[data-theme][data-layout='inverted'] #game-header .header-title-en{font-size:16px;}
+}
+@media (prefers-reduced-motion:reduce){
+  body#toy-factory[data-theme][data-layout='inverted'] #game-header .round-btn,
+  body#toy-factory[data-theme][data-layout='inverted'] #game-header .mini-chip,
+  body#toy-factory[data-theme][data-layout='inverted'] #booster-bar .booster-button{transition:none!important;}
+}
+
+/* ============================================================
+   TOY FACTORY — upright play/tray layout + flat 2-column box grid
+   Scoped to body#toy-factory[data-theme][data-layout='inverted'].
+   `.tray` inline transforms (TrayRenderer) and GripperRenderer untouched.
+   ============================================================ */
+body#toy-factory[data-theme][data-layout='inverted'] #play-area{
+  display:flex!important;
+  flex-direction:column!important;
+  flex:1!important;
+  min-height:0!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #tray-area{
+  position:relative!important;
+  flex:0 0 300px!important;
+  height:300px!important;
+  min-height:300px!important;
+  --lane-h:190px!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #trays-container,
+body#toy-factory[data-theme][data-layout='inverted'] #conveyor-belt{
+  top:0!important;
+  height:190px!important;
+  bottom:auto!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #queue-area{
+  position:absolute!important;
+  top:204px!important;
+  height:82px!important;
+  min-height:82px!important;
+  left:8px!important;
+  right:8px!important;
+  width:auto!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-area{
+  position:relative!important;
+  flex:1!important;
+  min-height:0!important;
+  overflow:auto!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #boxes-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  grid-auto-flow:row!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .box-column,
+body#toy-factory[data-theme][data-layout='inverted'] .conveyor-track,
+body#toy-factory[data-theme][data-layout='inverted'] .box-stack{
+  display:contents!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .box{
+  grid-column:auto!important;
+  grid-row:auto!important;
+  width:100%!important;
+  max-width:100%!important;
+  transform:none!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .box .top-face{
+  transform:none!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .box .slot{
+  border:1px solid #efcfab!important;
+  border-radius:14px!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .header-title{
+  background:linear-gradient(#087ae8,#0052bb)!important;
+  border:2px solid #ffe05a!important;
+  border-radius:30px!important;
+  padding:4px 12px!important;
+  color:white!important;
+  text-shadow:0 2px 1px #034b9a!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .header-title-en,
+body#toy-factory[data-theme][data-layout='inverted'] .header-title-vi{
+  color:white!important;
+}
+
+/* ============================================================
+   FINAL PASS — slots / queue / belt / header
+   Same 2-id + 2-attribute prefix everywhere so it beats the skins above.
+   ============================================================ */
+
+/* Real item art replaces the flat cream slot; the shorthand above used to
+   wipe `background-image:var(--item-art)` out, so fallback toys showed. */
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .slot{
+  border:1px solid #efd0ac!important;
+  background-color:#fff0dd!important;
+  background-image:none!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .slot.item-art,
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .tray-illustration.item-art,
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box-logo-icon.item-art,
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .queue-box-icon.item-art{
+  background-image:var(--item-art)!important;
+  background-repeat:no-repeat!important;
+  background-position:center!important;
+  background-size:86% 86%!important;
+  color:transparent!important;
+  font-size:0!important;
+}
+
+/* Queue: 5 stretched cells, header floats on the top-right edge */
+body#toy-factory[data-theme][data-layout='inverted'] #queue-area{
+  border-radius:22px!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-header{
+  position:absolute!important;
+  right:10px!important;
+  top:-8px!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #queue-slots{
+  display:flex!important;
+  height:100%!important;
+  align-items:stretch!important;
+  gap:5px!important;
+  padding:14px 4px 5px!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-slot{
+  flex:1!important;
+  height:100%!important;
+  min-height:45px!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] .queue-counter{
+  background:var(--tf-cream)!important;
+  color:var(--tf-ink-deep)!important;
+  border:0!important;
+  border-radius:999px!important;
+  font-size:16px!important;
+  font-weight:900!important;
+  padding:2px 10px!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 2px 5px var(--tf-shadow)!important;
+}
+
+/* Belt chassis: soft warm cream, no filled cyan center */
+body#toy-factory[data-theme][data-layout='inverted'] #conveyor-belt{
+  background:linear-gradient(#fff2d9,#ffe3b2)!important;
+}
+
+/* Header title sits on the awning: white lettering, bright awning stripes */
+body#toy-factory[data-theme][data-layout='inverted'] .header-title-en{
+  color:white!important;
+  text-shadow:0 1px 2px #003e80!important;
+}
+body#toy-factory[data-theme][data-layout='inverted'] #game-header::before,
+body#toy-factory[data-theme][data-layout='inverted'] #game-header::after{
+  background:repeating-linear-gradient(90deg,var(--tf-blue) 0 22px,#fff8e8 22px 44px)!important;
+}
+
+/* Inverted-only polish: belt, placeholder marks, queue tray */
+body#toy-factory[data-theme][data-layout='inverted'] #conveyor-belt::after{background:linear-gradient(#fff3dc,#ffe0aa)!important;border-radius:999px!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #conveyor-belt{border-radius:95px!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #belt-band{stroke:#168cf4!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #belt-cleat{stroke:rgba(128,225,255,.65)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .slot.placeholder::after{content:'−';font-size:26px;color:#804932;}
+body#toy-factory[data-theme][data-layout='inverted'] #game-container .box .slot.placeholder{color:transparent!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #queue-area{background:linear-gradient(#fff8eb,#ffe3bd)!important;}
+body#toy-factory[data-theme][data-layout='inverted'] #queue-area .queue-slot{background:#fff5e7!important;border:1.5px dashed #664638!important;}

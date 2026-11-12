@@ -4,6 +4,7 @@ import { applyItemArt } from './ItemArt.js';
 export class BoxRenderer {
     constructor(containerId, onSlotTap, onDragStart, onItemDragStart) {
         this.container = document.getElementById(containerId);
+        if (this.container) this.container.dataset.referenceLayout = 'toy-factory';
         this.onSlotTap = onSlotTap;
         this.onDragStart = onDragStart;
         this.onItemDragStart = onItemDragStart;
@@ -78,6 +79,8 @@ export class BoxRenderer {
         this._peekSlots = [];
 
         this.container.style.setProperty('--rows', visibleRows);
+        // Fixed 2-column visual reference layout, independent of logical column count.
+        this.container.dataset.referenceLayout = 'toy-factory';
 
         for (let c = 0; c < colCount; c++) {
             const colEl = document.createElement('div');
@@ -460,20 +463,36 @@ export class BoxRenderer {
         const cs = getComputedStyle(this.container);
         const gap = parseFloat(cs.columnGap || cs.gap) || 8;
 
-        const colW = this.container.firstElementChild
-            ? this.container.firstElementChild.getBoundingClientRect().width
-            : this.container.clientWidth / (this._builtCols || 3);
-        const slotW = Math.max(18, (colW - 4 /*border*/ - 8 /*padding*/ - 8 /*2x gap*/) / 3);
+        // The card/tray reference art flattens .box-column/.conveyor-track/.box-stack
+        // (display:contents) into a fixed 2-column grid, so the old firstElementChild
+        // (.box-column) rect now measures 0. Measure a real carton instead, and fall
+        // back to splitting the grid width across the 2 reference columns.
+        const REFERENCE_COLS = 2;
+        const REFERENCE_ROWS = 3;
+        let colW = 0;
+        const sampleBox = this.container.querySelector('.box:not(.peek-box)');
+        if (sampleBox) colW = sampleBox.getBoundingClientRect().width;
+        if (!(colW > 0)) {
+            const gridW = this.container.clientWidth;
+            if (!(gridW > 0)) return;
+            colW = (gridW - gap * (REFERENCE_COLS - 1)) / REFERENCE_COLS;
+        }
+
+        // New tray art has 3 large slots: size them from the measured carton width.
+        const slotW = Math.min(64, Math.max(28, (colW - 4 /*border*/ - 8 /*padding*/ - gap * 2) / 3));
         this.container.style.setProperty('--slot-size', `${slotW.toFixed(1)}px`);
 
+        // The reference layout shows 3 carton rows including the gaps between them.
+        // Peek/track decorations are hidden in this layout, so no peek band is reserved.
         const peekH = 34;
-        const room = avail - 16 - peekH - (rows - 1) * gap;
-        const h = Math.max(50, Math.floor(room / rows));
+        const room = avail - 16 - (REFERENCE_ROWS - 1) * gap;
+        const fitted = Math.floor(room / REFERENCE_ROWS);
 
         // Tỉ lệ hộp 3D cân đối, chiều cao thoải mái không bị ép dẹp
-        // Reference-UI-only cap: keep cartons within a short wood-shelf band (~50-64px).
-        const capped = Math.min(h, Math.round(slotW * 1.45), 64);
-        this.container.style.setProperty('--box-h', `${Math.max(50, capped)}px`);
+        // Keep cartons inside the 64-88px reference band; on short viewports the
+        // boxes area scrolls rather than shrinking cartons below 64px.
+        const capped = Math.min(fitted, Math.round(slotW * 1.45), 88);
+        this.container.style.setProperty('--box-h', `${Math.min(88, Math.max(64, capped))}px`);
         this.container.style.setProperty('--stack-gap', `${gap}px`);
         this.container.style.setProperty('--peek-h', `${peekH}px`);
         this.container.style.setProperty('--rows', `${rows}`);

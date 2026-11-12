@@ -182,7 +182,7 @@ export class TrayRenderer {
 
         // Be rong dai bang tai: phu tron Khay, nhung khong duoc de hai dai cham nhau
         // (2*hy la khoang cach giua tim hai nhanh).
-        const bandW = Math.max(20, Math.min(trayH + BAND_PAD * 2, 2 * hy - CORE_MIN));
+        const bandW = Math.max(20, Math.min(34, 2 * hy - CORE_MIN));
 
         return {
             cx, cy, beltW, beltH, hx, hy, r: radius, trayW, trayH, bandW,
