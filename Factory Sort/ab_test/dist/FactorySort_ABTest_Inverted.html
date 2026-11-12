@@ -3256,11 +3256,267 @@ body[data-theme='food'][data-layout='inverted'] #game-container{background-color
 body[data-theme='candy'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .top-face,body[data-theme='candy'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .front-face,body[data-theme='candy'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .flap,body[data-theme='food'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .top-face,body[data-theme='food'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .front-face,body[data-theme='food'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .flap{background:linear-gradient(145deg,var(--theme-carton),var(--theme-panel))!important;border-color:var(--theme-carton-border)!important;}
 body[data-theme='candy'][data-layout='inverted'] #queue-box,body[data-theme='candy'][data-layout='inverted'] .queue-box,body[data-theme='food'][data-layout='inverted'] #queue-box,body[data-theme='food'][data-layout='inverted'] .queue-box{background:var(--theme-panel)!important;border-color:var(--theme-carton-border)!important;}
 #belt-cleat{fill:none!important;}
-body[data-theme='candy'][data-layout='inverted'] #game-container{background-color:#fff7fb!important;background:repeating-radial-gradient(circle at 18% 22%,rgba(255,143,196,.10) 0 2px,transparent 2px 18px),repeating-linear-gradient(135deg,rgba(255,143,196,.06) 0 10px,rgba(126,214,184,.06) 10px 20px),linear-gradient(180deg,#fff7fb,#fdeaf4)!important;}
-body[data-theme='food'][data-layout='inverted'] #game-container{background-color:#fffaf2!important;background:repeating-radial-gradient(circle at 22% 18%,rgba(246,166,90,.10) 0 2px,transparent 2px 18px),repeating-linear-gradient(135deg,rgba(246,166,90,.07) 0 10px,rgba(148,176,124,.06) 10px 20px),linear-gradient(180deg,#fffaf2,#fdf1e2)!important;}
-body[data-theme='candy'][data-layout='inverted'] #game-container .top-face:not(.blocker-sealed),body[data-theme='candy'][data-layout='inverted'] #game-container .front-face:not(.blocker-sealed),body[data-theme='candy'][data-layout='inverted'] #game-container .flap:not(.blocker-sealed),body[data-theme='food'][data-layout='inverted'] #game-container .top-face:not(.blocker-sealed),body[data-theme='food'][data-layout='inverted'] #game-container .front-face:not(.blocker-sealed),body[data-theme='food'][data-layout='inverted'] #game-container .flap:not(.blocker-sealed){background:linear-gradient(145deg,var(--theme-carton),var(--theme-panel))!important;border-color:var(--theme-carton-border)!important;}
-body[data-theme='candy'][data-layout='inverted'] #queue-box,body[data-theme='candy'][data-layout='inverted'] .queue-box,body[data-theme='food'][data-layout='inverted'] #queue-box,body[data-theme='food'][data-layout='inverted'] .queue-box{background:var(--theme-panel)!important;border-color:var(--theme-carton-border)!important;}
-#belt-cleat{fill:none!important;}
+
+/* ============================================================
+   ISO SKIN — shallow 2.5D for candy / food themes (inverted layout)
+   Visual only: no DOM positions, transforms on .box/.tray that the
+   engine animates, hit areas, signals, item art or HUD are touched.
+   ============================================================ */
+body[data-theme='candy'][data-layout='inverted'],
+body[data-theme='food'][data-layout='inverted']{
+  --iso-skew:-7deg;
+  --iso-fold:.92;
+  --iso-depth:12px;
+  --iso-lift:-4px;
+  --iso-mid:color-mix(in srgb,var(--theme-carton) 96%,var(--theme-carton-border));
+  --iso-deep:color-mix(in srgb,var(--theme-carton) 76%,var(--theme-carton-border));
+  --iso-lip:color-mix(in srgb,var(--theme-panel) 62%,var(--theme-carton-border));
+  --iso-shadow:color-mix(in srgb,var(--theme-shadow) 92%,transparent);
+}
+body[data-theme='candy'][data-layout='inverted']{
+  --iso-floor-a:rgba(255,143,196,.16);
+  --iso-floor-b:rgba(126,214,184,.14);
+  --iso-floor-c:rgba(214,150,255,.10);
+  --iso-belt-face:color-mix(in srgb,#ff9ac1 55%,#a33f68);
+  --iso-belt-side:color-mix(in srgb,#d94f8a 70%,#4a2b3a);
+  --iso-tray-face:linear-gradient(180deg,#ffd3e6,var(--theme-tray));
+  --iso-tray-side:#d94f8a;
+  --iso-tray-rim:color-mix(in srgb,var(--theme-tray-border) 45%,#fff);
+}
+body[data-theme='food'][data-layout='inverted']{
+  --iso-floor-a:rgba(246,166,90,.16);
+  --iso-floor-b:rgba(148,176,124,.14);
+  --iso-floor-c:rgba(231,111,46,.09);
+  --iso-belt-face:color-mix(in srgb,#e8a45a 55%,#9a4a17);
+  --iso-belt-side:color-mix(in srgb,#b9511e 70%,#3b2a20);
+  --iso-tray-face:linear-gradient(180deg,#ffe0b8,var(--theme-tray));
+  --iso-tray-side:#b9511e;
+  --iso-tray-rim:color-mix(in srgb,var(--theme-tray-border) 40%,#fff6e6);
+}
+
+/* ---- Floor: subtle diamond plate with light from the top-left ---- */
+body[data-theme='candy'][data-layout='inverted'] #game-container,
+body[data-theme='food'][data-layout='inverted'] #game-container{
+  background-color:var(--theme-panel)!important;
+  background-image:
+    linear-gradient(var(--iso-floor-b) 1px,transparent 1px),
+    linear-gradient(90deg,var(--iso-floor-a) 1px,transparent 1px),
+    radial-gradient(120% 70% at 0% 0%,rgba(255,255,255,.85),transparent 62%),
+    radial-gradient(90% 55% at 100% 100%,var(--iso-floor-c),transparent 70%),
+    linear-gradient(180deg,var(--theme-panel),color-mix(in srgb,var(--theme-panel) 82%,var(--theme-carton-border)))!important;
+  background-size:26px 26px,26px 26px,100% 100%,100% 100%,100% 100%!important;
+  background-position:0 0,0 0,0 0,0 0,0 0!important;
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container::after,
+body[data-theme='food'][data-layout='inverted'] #game-container::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  background-image:
+    repeating-linear-gradient(45deg,var(--iso-floor-a) 0 1.5px,transparent 1.5px 34px),
+    repeating-linear-gradient(-45deg,var(--iso-floor-b) 0 1.5px,transparent 1.5px 34px);
+  mask-image:radial-gradient(120% 90% at 50% 40%,#000 45%,transparent 100%);
+  -webkit-mask-image:radial-gradient(120% 90% at 50% 40%,#000 45%,transparent 100%);
+  opacity:.55;
+}
+body[data-theme='candy'][data-layout='inverted'] #play-area,
+body[data-theme='food'][data-layout='inverted'] #play-area,
+body[data-theme='candy'][data-layout='inverted'] #boxes-area,
+body[data-theme='food'][data-layout='inverted'] #boxes-area{background:transparent!important;}
+
+/* ---- Boxes: top plane tilted, thin contact-matched front, right side face ---- */
+body[data-theme='candy'][data-layout='inverted'] #game-container .box,
+body[data-theme='food'][data-layout='inverted'] #game-container .box{
+  filter:drop-shadow(2px 6px 4px var(--iso-shadow)) drop-shadow(-1px -2px 2px rgba(255,255,255,.35));
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box .top-face,
+body[data-theme='food'][data-layout='inverted'] #game-container .box .top-face{
+  transform:skewY(var(--iso-skew)) scaleY(var(--iso-fold)) translateY(var(--iso-lift));
+  transform-origin:50% 100%;
+  background-color:var(--theme-carton);
+  background-image:
+    linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 46%),
+    linear-gradient(250deg,transparent 62%,rgba(0,0,0,.055) 100%);
+  border-color:var(--iso-lip)!important;
+  box-shadow:inset 0 3px 6px rgba(255,255,255,.55),inset 0 -4px 8px var(--iso-shadow),0 1px 0 rgba(255,255,255,.4);
+  backface-visibility:visible;
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box .top-face .slot,
+body[data-theme='food'][data-layout='inverted'] #game-container .box .top-face .slot{
+  background:rgba(255,255,255,.34);
+  box-shadow:inset 0 -2px 3px rgba(0,0,0,.14),inset 0 2px 2px rgba(255,255,255,.5),0 1px 0 rgba(255,255,255,.55);
+  border-color:rgba(255,255,255,.45);
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box .front-face,
+body[data-theme='food'][data-layout='inverted'] #game-container .box .front-face{
+  height:var(--iso-depth)!important;
+  transform:skewY(var(--iso-skew));
+  transform-origin:50% 0;
+  background-color:var(--iso-mid)!important;
+  background-image:linear-gradient(180deg,rgba(255,255,255,.42),rgba(0,0,0,.10) 40%,rgba(0,0,0,.16))!important;
+  border-color:var(--iso-lip)!important;
+  border-top:none!important;
+  border-radius:0 0 7px 7px!important;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.3),0 2px 4px var(--iso-shadow);
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box::after,
+body[data-theme='food'][data-layout='inverted'] #game-container .box::after{
+  content:'';
+  position:absolute;
+  top:6%;
+  right:-2px;
+  width:10px;
+  height:calc(94% - var(--iso-depth) + 6px);
+  pointer-events:none;
+  z-index:0;
+  transform:skewY(calc(var(--iso-skew) * -2)) scaleY(.96);
+  transform-origin:0 0;
+  background:linear-gradient(180deg,var(--iso-deep),color-mix(in srgb,var(--iso-deep) 70%,#000 6%));
+  clip-path:polygon(0 0,100% 100%,100% calc(100% - var(--iso-depth)),0 calc(100% - var(--iso-depth)));
+  border-radius:0 4px 4px 0;
+  opacity:.9;
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box > .flap,
+body[data-theme='food'][data-layout='inverted'] #game-container .box > .flap{
+  background-color:var(--iso-mid)!important;
+  background-image:linear-gradient(180deg,rgba(255,255,255,.42),rgba(0,0,0,.12))!important;
+  border-color:var(--iso-lip)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 2px 3px var(--iso-shadow);
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box > .tape,
+body[data-theme='food'][data-layout='inverted'] #game-container .box > .tape{
+  filter:drop-shadow(1px 2px 1px var(--iso-shadow));
+}
+
+/* ---- Ring belt: front thickness + beveled running surface, no whole-ring transform ---- */
+body[data-theme='candy'][data-layout='inverted'] #conveyor-belt,
+body[data-theme='food'][data-layout='inverted'] #conveyor-belt{
+  background:linear-gradient(180deg,var(--iso-belt-face),color-mix(in srgb,var(--iso-belt-face) 84%,#000 4%))!important;
+  border-color:var(--iso-belt-side)!important;
+  box-shadow:
+    0 4px 0 0 var(--iso-belt-side),
+    0 8px 0 0 color-mix(in srgb,var(--iso-belt-side) 86%,#000 8%),
+    0 12px 0 0 color-mix(in srgb,var(--iso-belt-side) 70%,#000 14%),
+    0 16px 22px var(--iso-shadow),
+    inset 0 4px 8px rgba(255,255,255,.42),
+    inset 0 -6px 10px rgba(0,0,0,.16)!important;
+}
+body[data-theme='candy'][data-layout='inverted'] #conveyor-belt .belt-track,
+body[data-theme='food'][data-layout='inverted'] #conveyor-belt .belt-track{
+  filter:drop-shadow(0 2px 0 rgba(255,255,255,.38)) drop-shadow(0 4px 3px var(--iso-shadow));
+}
+body[data-theme='candy'][data-layout='inverted'] #belt-band,
+body[data-theme='food'][data-layout='inverted'] #belt-band{filter:brightness(1.06) saturate(.95);}
+body[data-theme='candy'][data-layout='inverted'] #belt-rail-o,
+body[data-theme='candy'][data-layout='inverted'] #belt-rail-i,
+body[data-theme='food'][data-layout='inverted'] #belt-rail-o,
+body[data-theme='food'][data-layout='inverted'] #belt-rail-i{filter:drop-shadow(0 1px 0 rgba(255,255,255,.5));}
+
+/* ---- Ports + remaining tag: keep upright, just give a soft ground shadow ---- */
+body[data-theme='candy'][data-layout='inverted'] .port-out,
+body[data-theme='candy'][data-layout='inverted'] .port-in,
+body[data-theme='candy'][data-layout='inverted'] #tray-remaining,
+body[data-theme='food'][data-layout='inverted'] .port-out,
+body[data-theme='food'][data-layout='inverted'] .port-in,
+body[data-theme='food'][data-layout='inverted'] #tray-remaining{
+  filter:drop-shadow(1px 3px 2px var(--iso-shadow));
+}
+
+/* ---- Trays: shallow top plane via pseudo faces only (never .tray transform) ---- */
+body[data-theme='candy'][data-layout='inverted'] #trays-container .tray,
+body[data-theme='food'][data-layout='inverted'] #trays-container .tray{
+  background:var(--iso-tray-face)!important;
+  border-color:var(--iso-tray-rim)!important;
+  box-shadow:
+    3px 4px 0 -1px var(--iso-tray-side),
+    6px 8px 0 -2px color-mix(in srgb,var(--iso-tray-side) 78%,#000 6%),
+    0 10px 12px var(--iso-shadow),
+    inset 0 3px 6px rgba(255,255,255,.6),
+    inset 0 -3px 6px rgba(0,0,0,.14);
+}
+body[data-theme='candy'][data-layout='inverted'] #trays-container .tray::after,
+body[data-theme='food'][data-layout='inverted'] #trays-container .tray::after{
+  content:'';
+  position:absolute;
+  left:2px;
+  right:-4px;
+  top:14%;
+  bottom:8%;
+  pointer-events:none;
+  z-index:0;
+  border-radius:10px;
+  transform:skewY(var(--iso-skew)) scaleY(.94);
+  transform-origin:50% 50%;
+  background:linear-gradient(90deg,rgba(255,255,255,.34),rgba(255,255,255,0) 55%),
+             linear-gradient(200deg,transparent 58%,rgba(0,0,0,.10));
+  box-shadow:inset 0 2px 3px rgba(255,255,255,.5);
+  opacity:.9;
+}
+body[data-theme='candy'][data-layout='inverted'] #trays-container .tray .tray-cap,
+body[data-theme='food'][data-layout='inverted'] #trays-container .tray .tray-cap{
+  transform:skewY(var(--iso-skew)) scaleY(.86);
+  transform-origin:50% 100%;
+  box-shadow:0 1px 0 rgba(255,255,255,.55),0 2px 3px var(--iso-shadow);
+}
+body[data-theme='candy'][data-layout='inverted'] #trays-container .tray .tray-illustration,
+body[data-theme='food'][data-layout='inverted'] #trays-container .tray .tray-illustration{
+  position:relative;
+  z-index:2;
+  filter:drop-shadow(1px 3px 2px var(--iso-shadow));
+}
+
+/* ---- Queue slots: plane depth and bevel on pseudo-elements only ---- */
+body[data-theme='candy'][data-layout='inverted'] #queue-area .queue-slot,
+body[data-theme='food'][data-layout='inverted'] #queue-area .queue-slot{
+  background-color:var(--theme-queue)!important;
+  border-color:var(--theme-queue-border)!important;
+  box-shadow:
+    3px 4px 0 -1px color-mix(in srgb,var(--theme-queue-border) 55%,#fff),
+    0 5px 8px var(--iso-shadow),
+    inset 0 2px 4px rgba(255,255,255,.65),
+    inset 0 -2px 4px rgba(0,0,0,.10)!important;
+}
+body[data-theme='candy'][data-layout='inverted'] #queue-area .queue-slot::before,
+body[data-theme='food'][data-layout='inverted'] #queue-area .queue-slot::before{
+  content:'';
+  display:block!important;
+  position:absolute;
+  inset:3px 3px auto 3px;
+  height:calc(100% - 8px);
+  pointer-events:none;
+  z-index:0;
+  border-radius:7px;
+  transform:skewY(var(--iso-skew)) scaleY(.93);
+  transform-origin:50% 100%;
+  background:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,.06) 55%,rgba(0,0,0,.07));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+}
+body[data-theme='candy'][data-layout='inverted'] #queue-area .queue-slot > *,
+body[data-theme='food'][data-layout='inverted'] #queue-area .queue-slot > *{position:relative;z-index:1;}
+body[data-theme='candy'][data-layout='inverted'] #queue-area .queue-box,
+body[data-theme='food'][data-layout='inverted'] #queue-area .queue-box{
+  border-color:var(--iso-lip)!important;
+  box-shadow:2px 3px 0 -1px var(--iso-mid),0 4px 6px var(--iso-shadow),inset 0 2px 3px rgba(255,255,255,.6);
+}
+
+/* ---- Grid columns / cleats: ground the stacks lightly ---- */
+body[data-theme='candy'][data-layout='inverted'] #boxes-grid .box-column,
+body[data-theme='food'][data-layout='inverted'] #boxes-grid .box-column{
+  filter:drop-shadow(3px 8px 6px var(--iso-shadow));
+}
+
+/* ---- HUD and boosters stay flat and upright (no iso transform reaches them) ---- */
+body[data-theme='candy'][data-layout='inverted'] :is(#game-header,#booster-bar),
+body[data-theme='food'][data-layout='inverted'] :is(#game-header,#booster-bar){
+  filter:none;
+}
+
+@media(prefers-reduced-motion:reduce){
+  body[data-theme='candy'][data-layout='inverted'] #game-container .box,
+  body[data-theme='food'][data-layout='inverted'] #game-container .box{transition:none!important;}
+}
 
 </style>
 

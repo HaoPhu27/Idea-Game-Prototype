@@ -1461,28 +1461,26 @@ body.is-item-dragging * {
     pointer-events: none;
 }
 
-.port-in, .port-out {
+/* Nhan cong IN/OUT: chi la CHU TRAN, khong con la tam chan cua may.
+   Hinh co cau gap that su do GripperRenderer ve tren lop .gripper-overlay, nen
+   o day khong duoc co nen/vien/bong de khong de len Khay va khong tao cam giac
+   "cua may" thu hai. */
+.port-label {
     position: absolute;
     top: -12px;
-    background: rgba(15, 23, 42, 0.85);
     color: var(--text-500);
-    padding: 3px 10px;
-    border-radius: 6px;
     font-weight: 800;
     font-size: 10px;
+    line-height: 1;
     letter-spacing: 0.08em;
-    border: 1px solid var(--chrome-line);
     z-index: 10;
-    box-shadow: none;
-    display: flex;
-    align-items: center;
-    gap: 4px;
     pointer-events: none;
     white-space: nowrap;
+    text-transform: uppercase;
 }
 
-.port-out { left: 16px; }
-.port-in { right: 16px; }
+.port-label-out { left: 16px; }
+.port-label-in { right: 16px; }
 
 #trays-container {
     position: absolute;
@@ -2600,8 +2598,8 @@ body.is-item-dragging * {
     display: none;   /* vach sang o day khung — da thay bang ray SVG that */
 }
 
-/* Lop Khay phu KHIT len lan chay va CAT o hai dau: Khay truot ra tu duoi tam chan
-   cong IN, qua lan, roi khuat sau tam chan cong OUT. */
+/* Lop Khay phu KHIT len lan chay: Khay truot vao tu cong IN, qua lan, roi duoc
+   may gap nhac len o cong OUT. */
 [data-layout="inverted"] #trays-container {
     position: absolute;
     left: var(--belt-inset);
@@ -2609,36 +2607,53 @@ body.is-item-dragging * {
     top: 6px;
     width: auto;
     height: var(--lane-h);
-    overflow: hidden;
+    /* May gap ve thanh canh tay + dau kep NAM NGOAI khung Khay (cao hon mat lan),
+       nen lop phu phai duoc tran ra ngoai. Cat bang overflow:hidden se chặt cụt
+       canh tay va dau may. */
+    overflow: visible;
     border-radius: var(--belt-radius);
     z-index: 6;
 }
 
-/* Cong IN/OUT thanh TAM CHAN dung o hai dau lan, khong con la nhan noi lo lung. */
-[data-layout="inverted"] .port-out,
-[data-layout="inverted"] .port-in {
-    top: 8px;
-    height: calc(var(--lane-h) - 4px);
+/* Lop phu cua co cau gap (GripperRenderer chen vao #trays-container).
+   - pointer-events:none  -> Khay phia duoi van bam/keo duoc;
+   - overflow:visible     -> canh tay + dau may khong bi cat boi khung lan;
+   - position:absolute    -> toa do trung he CSS cua #trays-container, dung nhu
+                             gia dinh cua renderer (goc trai-tren, y huong xuong). */
+.gripper-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 9;
+    /* Khong tao stacking context rieng cho tung phan tu con. */
+    isolation: auto;
+}
+
+.gripper-overlay [data-gripper] {
+    pointer-events: none;
+}
+
+/* Cong IN/OUT: chi con nhan chu nho o hai dau lan. Tam chan kim loai cu da bo —
+   may gap that do GripperRenderer ve de len, nen chu chi can chi huong. */
+[data-layout="inverted"] .port-label {
+    top: 5px;
     transform: none;
     z-index: 8;
-    padding: 0 4px;
+    padding: 0;
     font-size: 8.5px;
-    line-height: 1.05;
-    width: 24px;
-    max-width: 24px;
-    text-align: center;
-    white-space: normal;
-    align-items: center;
-    justify-content: center;
-    /* Tam chan cua may: mo dan vao giua de Khay "chim vao trong" chu khong bi cat cut */
-    background: linear-gradient(90deg, #1a2434 0%, #1a2434 55%, rgba(26, 36, 52, 0) 100%);
+    line-height: 1;
+    background: none;
     border: none;
     box-shadow: none;
     color: var(--text-500, #7c8ba2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+    opacity: 0.85;
 }
-[data-layout="inverted"] .port-out { left: 12px;  border-radius: 14px 0 0 14px; }
-[data-layout="inverted"] .port-in  { right: 12px; border-radius: 0 14px 14px 0;
-    background: linear-gradient(270deg, #1a2434 0%, #1a2434 55%, rgba(26, 36, 52, 0) 100%); }
+[data-layout="inverted"] .port-label-out { left: 12px; }
+[data-layout="inverted"] .port-label-in  { right: 12px; }
 
 /* Hang 2 — HANG CHO: gon gang, ty le hai hoa */
 [data-layout="inverted"] #queue-area {
@@ -2906,8 +2921,7 @@ body[data-layout="inverted"] #conveyor-belt{background:#4b4b55;border:2.5px soli
 body[data-layout="inverted"] #belt-band{background:#33333b;border-color:#3b2a20}
 body[data-layout="inverted"] #belt-cleat{background:rgba(255,253,247,.45);box-shadow:none}
 body[data-layout="inverted"] #belt-rail-o,body[data-layout="inverted"] #belt-rail-i{background:#a86a34;border-color:#3b2a20;box-shadow:none}
-body[data-layout="inverted"] .port-in{background:#fffdf7;border:2px solid #3b2a20;color:#3b2a20;border-radius:8px}
-body[data-layout="inverted"] .port-out{background:#7d4b22;border:2px solid #3b2a20;color:#f7ecd9;border-radius:8px}
+body[data-layout="inverted"] .port-label{background:transparent;border:none;box-shadow:none;color:#6b4f3f;text-shadow:none}
 body[data-layout="inverted"] .tray{background:#fffdf7;border:2px solid #3b2a20;border-radius:8px;box-shadow:0 4px 0 rgba(59,42,32,.18);filter:none;text-shadow:none}
 body[data-layout="inverted"] .tray-illustration{background:#fffdf7;border:1.5px solid #3b2a20;background-image:none;border-radius:6px}
 body[data-layout="inverted"] .tray-strict{border-left:3px solid var(--sig-select);color:#6b4f3f;font-size:9px}
@@ -2990,7 +3004,7 @@ body[data-layout="inverted"] .win-star-badge{background:#ffd15c;color:#3b2a20;bo
 body[data-layout="inverted"] .hazard-strip-banner{background:#f7ecd9;color:#3b2a20;border:2.5px solid #3b2a20;border-radius:14px}
 body[data-layout="inverted"] .hud-pill,body[data-layout="inverted"] .round-btn,body[data-layout="inverted"] .tutorial-badge{background:#fffdf7;color:#3b2a20;border:2.5px solid #3b2a20;border-radius:18px}
 body[data-layout="inverted"] .round-btn{box-shadow:0 4px 0 rgba(59,42,32,.25)}
-body[data-layout="inverted"] .port-out,body[data-layout="inverted"] .port-in{color:#3b2a20;background:#fffdf7;border:2.5px solid #3b2a20;border-radius:14px;text-shadow:none}
+body[data-layout="inverted"] .port-label{color:#3b2a20;background:transparent;border:none;border-radius:0;text-shadow:none}
 body[data-layout="inverted"] .factory-praise{color:#ff8a3d;font-weight:800;text-shadow:0 2px 0 rgba(59,42,32,.35);-webkit-text-stroke:1px #3b2a20;animation:ref-float .9s ease-out forwards}
 body[data-layout="inverted"] .vfx-ring{border:2px solid #ffd15c;box-shadow:none;border-radius:50%}
 body[data-layout="inverted"] .vfx-spark{border-radius:50%;border:1px solid #3b2a20;animation:ref-spark .65s ease-out forwards}
@@ -3054,8 +3068,9 @@ body[data-layout="inverted"] .item-animating.item-art { filter: none; }
 body[data-layout="inverted"] .tray-cap, body[data-layout="inverted"] .tray, body[data-layout="inverted"] .tray-illustration, body[data-layout="inverted"] .box, body[data-layout="inverted"] .queue-slot { filter: none; }
 
 /* Final UI parity polish — River */
-body[data-layout="inverted"] .port-in,
-body[data-layout="inverted"] .port-out{height:22px;width:22px;max-width:22px;top:calc(var(--lane-h) - 22px);font-size:7px;padding:0;border-radius:6px;}
+/* Nhan cong chi la chu: khong con hop 22x22 o day lan, de khong cat mat chu
+   va khong de len may gap that. */
+body[data-layout="inverted"] .port-label{height:auto;width:auto;max-width:none;top:5px;font-size:8.5px;padding:0;border-radius:0;}
 #game-container{border-radius:26px;}
 .tray-cap{background:#d9a066!important;box-shadow:none;border-bottom:1.5px solid brown;}
 .tray.highlight-match .tray-illustration,.tray.reject .tray-illustration{box-shadow:none;}
@@ -3241,11 +3256,267 @@ body[data-theme='food'][data-layout='inverted'] #game-container{background-color
 body[data-theme='candy'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .top-face,body[data-theme='candy'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .front-face,body[data-theme='candy'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .flap,body[data-theme='food'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .top-face,body[data-theme='food'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .front-face,body[data-theme='food'][data-layout='inverted'] #game-container .box:not(.blocker-sealed) .flap{background:linear-gradient(145deg,var(--theme-carton),var(--theme-panel))!important;border-color:var(--theme-carton-border)!important;}
 body[data-theme='candy'][data-layout='inverted'] #queue-box,body[data-theme='candy'][data-layout='inverted'] .queue-box,body[data-theme='food'][data-layout='inverted'] #queue-box,body[data-theme='food'][data-layout='inverted'] .queue-box{background:var(--theme-panel)!important;border-color:var(--theme-carton-border)!important;}
 #belt-cleat{fill:none!important;}
-body[data-theme='candy'][data-layout='inverted'] #game-container{background-color:#fff7fb!important;background:repeating-radial-gradient(circle at 18% 22%,rgba(255,143,196,.10) 0 2px,transparent 2px 18px),repeating-linear-gradient(135deg,rgba(255,143,196,.06) 0 10px,rgba(126,214,184,.06) 10px 20px),linear-gradient(180deg,#fff7fb,#fdeaf4)!important;}
-body[data-theme='food'][data-layout='inverted'] #game-container{background-color:#fffaf2!important;background:repeating-radial-gradient(circle at 22% 18%,rgba(246,166,90,.10) 0 2px,transparent 2px 18px),repeating-linear-gradient(135deg,rgba(246,166,90,.07) 0 10px,rgba(148,176,124,.06) 10px 20px),linear-gradient(180deg,#fffaf2,#fdf1e2)!important;}
-body[data-theme='candy'][data-layout='inverted'] #game-container .top-face:not(.blocker-sealed),body[data-theme='candy'][data-layout='inverted'] #game-container .front-face:not(.blocker-sealed),body[data-theme='candy'][data-layout='inverted'] #game-container .flap:not(.blocker-sealed),body[data-theme='food'][data-layout='inverted'] #game-container .top-face:not(.blocker-sealed),body[data-theme='food'][data-layout='inverted'] #game-container .front-face:not(.blocker-sealed),body[data-theme='food'][data-layout='inverted'] #game-container .flap:not(.blocker-sealed){background:linear-gradient(145deg,var(--theme-carton),var(--theme-panel))!important;border-color:var(--theme-carton-border)!important;}
-body[data-theme='candy'][data-layout='inverted'] #queue-box,body[data-theme='candy'][data-layout='inverted'] .queue-box,body[data-theme='food'][data-layout='inverted'] #queue-box,body[data-theme='food'][data-layout='inverted'] .queue-box{background:var(--theme-panel)!important;border-color:var(--theme-carton-border)!important;}
-#belt-cleat{fill:none!important;}
+
+/* ============================================================
+   ISO SKIN — shallow 2.5D for candy / food themes (inverted layout)
+   Visual only: no DOM positions, transforms on .box/.tray that the
+   engine animates, hit areas, signals, item art or HUD are touched.
+   ============================================================ */
+body[data-theme='candy'][data-layout='inverted'],
+body[data-theme='food'][data-layout='inverted']{
+  --iso-skew:-7deg;
+  --iso-fold:.92;
+  --iso-depth:12px;
+  --iso-lift:-4px;
+  --iso-mid:color-mix(in srgb,var(--theme-carton) 96%,var(--theme-carton-border));
+  --iso-deep:color-mix(in srgb,var(--theme-carton) 76%,var(--theme-carton-border));
+  --iso-lip:color-mix(in srgb,var(--theme-panel) 62%,var(--theme-carton-border));
+  --iso-shadow:color-mix(in srgb,var(--theme-shadow) 92%,transparent);
+}
+body[data-theme='candy'][data-layout='inverted']{
+  --iso-floor-a:rgba(255,143,196,.16);
+  --iso-floor-b:rgba(126,214,184,.14);
+  --iso-floor-c:rgba(214,150,255,.10);
+  --iso-belt-face:color-mix(in srgb,#ff9ac1 55%,#a33f68);
+  --iso-belt-side:color-mix(in srgb,#d94f8a 70%,#4a2b3a);
+  --iso-tray-face:linear-gradient(180deg,#ffd3e6,var(--theme-tray));
+  --iso-tray-side:#d94f8a;
+  --iso-tray-rim:color-mix(in srgb,var(--theme-tray-border) 45%,#fff);
+}
+body[data-theme='food'][data-layout='inverted']{
+  --iso-floor-a:rgba(246,166,90,.16);
+  --iso-floor-b:rgba(148,176,124,.14);
+  --iso-floor-c:rgba(231,111,46,.09);
+  --iso-belt-face:color-mix(in srgb,#e8a45a 55%,#9a4a17);
+  --iso-belt-side:color-mix(in srgb,#b9511e 70%,#3b2a20);
+  --iso-tray-face:linear-gradient(180deg,#ffe0b8,var(--theme-tray));
+  --iso-tray-side:#b9511e;
+  --iso-tray-rim:color-mix(in srgb,var(--theme-tray-border) 40%,#fff6e6);
+}
+
+/* ---- Floor: subtle diamond plate with light from the top-left ---- */
+body[data-theme='candy'][data-layout='inverted'] #game-container,
+body[data-theme='food'][data-layout='inverted'] #game-container{
+  background-color:var(--theme-panel)!important;
+  background-image:
+    linear-gradient(var(--iso-floor-b) 1px,transparent 1px),
+    linear-gradient(90deg,var(--iso-floor-a) 1px,transparent 1px),
+    radial-gradient(120% 70% at 0% 0%,rgba(255,255,255,.85),transparent 62%),
+    radial-gradient(90% 55% at 100% 100%,var(--iso-floor-c),transparent 70%),
+    linear-gradient(180deg,var(--theme-panel),color-mix(in srgb,var(--theme-panel) 82%,var(--theme-carton-border)))!important;
+  background-size:26px 26px,26px 26px,100% 100%,100% 100%,100% 100%!important;
+  background-position:0 0,0 0,0 0,0 0,0 0!important;
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container::after,
+body[data-theme='food'][data-layout='inverted'] #game-container::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  background-image:
+    repeating-linear-gradient(45deg,var(--iso-floor-a) 0 1.5px,transparent 1.5px 34px),
+    repeating-linear-gradient(-45deg,var(--iso-floor-b) 0 1.5px,transparent 1.5px 34px);
+  mask-image:radial-gradient(120% 90% at 50% 40%,#000 45%,transparent 100%);
+  -webkit-mask-image:radial-gradient(120% 90% at 50% 40%,#000 45%,transparent 100%);
+  opacity:.55;
+}
+body[data-theme='candy'][data-layout='inverted'] #play-area,
+body[data-theme='food'][data-layout='inverted'] #play-area,
+body[data-theme='candy'][data-layout='inverted'] #boxes-area,
+body[data-theme='food'][data-layout='inverted'] #boxes-area{background:transparent!important;}
+
+/* ---- Boxes: top plane tilted, thin contact-matched front, right side face ---- */
+body[data-theme='candy'][data-layout='inverted'] #game-container .box,
+body[data-theme='food'][data-layout='inverted'] #game-container .box{
+  filter:drop-shadow(2px 6px 4px var(--iso-shadow)) drop-shadow(-1px -2px 2px rgba(255,255,255,.35));
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box .top-face,
+body[data-theme='food'][data-layout='inverted'] #game-container .box .top-face{
+  transform:skewY(var(--iso-skew)) scaleY(var(--iso-fold)) translateY(var(--iso-lift));
+  transform-origin:50% 100%;
+  background-color:var(--theme-carton);
+  background-image:
+    linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 46%),
+    linear-gradient(250deg,transparent 62%,rgba(0,0,0,.055) 100%);
+  border-color:var(--iso-lip)!important;
+  box-shadow:inset 0 3px 6px rgba(255,255,255,.55),inset 0 -4px 8px var(--iso-shadow),0 1px 0 rgba(255,255,255,.4);
+  backface-visibility:visible;
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box .top-face .slot,
+body[data-theme='food'][data-layout='inverted'] #game-container .box .top-face .slot{
+  background:rgba(255,255,255,.34);
+  box-shadow:inset 0 -2px 3px rgba(0,0,0,.14),inset 0 2px 2px rgba(255,255,255,.5),0 1px 0 rgba(255,255,255,.55);
+  border-color:rgba(255,255,255,.45);
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box .front-face,
+body[data-theme='food'][data-layout='inverted'] #game-container .box .front-face{
+  height:var(--iso-depth)!important;
+  transform:skewY(var(--iso-skew));
+  transform-origin:50% 0;
+  background-color:var(--iso-mid)!important;
+  background-image:linear-gradient(180deg,rgba(255,255,255,.42),rgba(0,0,0,.10) 40%,rgba(0,0,0,.16))!important;
+  border-color:var(--iso-lip)!important;
+  border-top:none!important;
+  border-radius:0 0 7px 7px!important;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.3),0 2px 4px var(--iso-shadow);
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box::after,
+body[data-theme='food'][data-layout='inverted'] #game-container .box::after{
+  content:'';
+  position:absolute;
+  top:6%;
+  right:-2px;
+  width:10px;
+  height:calc(94% - var(--iso-depth) + 6px);
+  pointer-events:none;
+  z-index:0;
+  transform:skewY(calc(var(--iso-skew) * -2)) scaleY(.96);
+  transform-origin:0 0;
+  background:linear-gradient(180deg,var(--iso-deep),color-mix(in srgb,var(--iso-deep) 70%,#000 6%));
+  clip-path:polygon(0 0,100% 100%,100% calc(100% - var(--iso-depth)),0 calc(100% - var(--iso-depth)));
+  border-radius:0 4px 4px 0;
+  opacity:.9;
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box > .flap,
+body[data-theme='food'][data-layout='inverted'] #game-container .box > .flap{
+  background-color:var(--iso-mid)!important;
+  background-image:linear-gradient(180deg,rgba(255,255,255,.42),rgba(0,0,0,.12))!important;
+  border-color:var(--iso-lip)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 2px 3px var(--iso-shadow);
+}
+body[data-theme='candy'][data-layout='inverted'] #game-container .box > .tape,
+body[data-theme='food'][data-layout='inverted'] #game-container .box > .tape{
+  filter:drop-shadow(1px 2px 1px var(--iso-shadow));
+}
+
+/* ---- Ring belt: front thickness + beveled running surface, no whole-ring transform ---- */
+body[data-theme='candy'][data-layout='inverted'] #conveyor-belt,
+body[data-theme='food'][data-layout='inverted'] #conveyor-belt{
+  background:linear-gradient(180deg,var(--iso-belt-face),color-mix(in srgb,var(--iso-belt-face) 84%,#000 4%))!important;
+  border-color:var(--iso-belt-side)!important;
+  box-shadow:
+    0 4px 0 0 var(--iso-belt-side),
+    0 8px 0 0 color-mix(in srgb,var(--iso-belt-side) 86%,#000 8%),
+    0 12px 0 0 color-mix(in srgb,var(--iso-belt-side) 70%,#000 14%),
+    0 16px 22px var(--iso-shadow),
+    inset 0 4px 8px rgba(255,255,255,.42),
+    inset 0 -6px 10px rgba(0,0,0,.16)!important;
+}
+body[data-theme='candy'][data-layout='inverted'] #conveyor-belt .belt-track,
+body[data-theme='food'][data-layout='inverted'] #conveyor-belt .belt-track{
+  filter:drop-shadow(0 2px 0 rgba(255,255,255,.38)) drop-shadow(0 4px 3px var(--iso-shadow));
+}
+body[data-theme='candy'][data-layout='inverted'] #belt-band,
+body[data-theme='food'][data-layout='inverted'] #belt-band{filter:brightness(1.06) saturate(.95);}
+body[data-theme='candy'][data-layout='inverted'] #belt-rail-o,
+body[data-theme='candy'][data-layout='inverted'] #belt-rail-i,
+body[data-theme='food'][data-layout='inverted'] #belt-rail-o,
+body[data-theme='food'][data-layout='inverted'] #belt-rail-i{filter:drop-shadow(0 1px 0 rgba(255,255,255,.5));}
+
+/* ---- Ports + remaining tag: keep upright, just give a soft ground shadow ---- */
+body[data-theme='candy'][data-layout='inverted'] .port-out,
+body[data-theme='candy'][data-layout='inverted'] .port-in,
+body[data-theme='candy'][data-layout='inverted'] #tray-remaining,
+body[data-theme='food'][data-layout='inverted'] .port-out,
+body[data-theme='food'][data-layout='inverted'] .port-in,
+body[data-theme='food'][data-layout='inverted'] #tray-remaining{
+  filter:drop-shadow(1px 3px 2px var(--iso-shadow));
+}
+
+/* ---- Trays: shallow top plane via pseudo faces only (never .tray transform) ---- */
+body[data-theme='candy'][data-layout='inverted'] #trays-container .tray,
+body[data-theme='food'][data-layout='inverted'] #trays-container .tray{
+  background:var(--iso-tray-face)!important;
+  border-color:var(--iso-tray-rim)!important;
+  box-shadow:
+    3px 4px 0 -1px var(--iso-tray-side),
+    6px 8px 0 -2px color-mix(in srgb,var(--iso-tray-side) 78%,#000 6%),
+    0 10px 12px var(--iso-shadow),
+    inset 0 3px 6px rgba(255,255,255,.6),
+    inset 0 -3px 6px rgba(0,0,0,.14);
+}
+body[data-theme='candy'][data-layout='inverted'] #trays-container .tray::after,
+body[data-theme='food'][data-layout='inverted'] #trays-container .tray::after{
+  content:'';
+  position:absolute;
+  left:2px;
+  right:-4px;
+  top:14%;
+  bottom:8%;
+  pointer-events:none;
+  z-index:0;
+  border-radius:10px;
+  transform:skewY(var(--iso-skew)) scaleY(.94);
+  transform-origin:50% 50%;
+  background:linear-gradient(90deg,rgba(255,255,255,.34),rgba(255,255,255,0) 55%),
+             linear-gradient(200deg,transparent 58%,rgba(0,0,0,.10));
+  box-shadow:inset 0 2px 3px rgba(255,255,255,.5);
+  opacity:.9;
+}
+body[data-theme='candy'][data-layout='inverted'] #trays-container .tray .tray-cap,
+body[data-theme='food'][data-layout='inverted'] #trays-container .tray .tray-cap{
+  transform:skewY(var(--iso-skew)) scaleY(.86);
+  transform-origin:50% 100%;
+  box-shadow:0 1px 0 rgba(255,255,255,.55),0 2px 3px var(--iso-shadow);
+}
+body[data-theme='candy'][data-layout='inverted'] #trays-container .tray .tray-illustration,
+body[data-theme='food'][data-layout='inverted'] #trays-container .tray .tray-illustration{
+  position:relative;
+  z-index:2;
+  filter:drop-shadow(1px 3px 2px var(--iso-shadow));
+}
+
+/* ---- Queue slots: plane depth and bevel on pseudo-elements only ---- */
+body[data-theme='candy'][data-layout='inverted'] #queue-area .queue-slot,
+body[data-theme='food'][data-layout='inverted'] #queue-area .queue-slot{
+  background-color:var(--theme-queue)!important;
+  border-color:var(--theme-queue-border)!important;
+  box-shadow:
+    3px 4px 0 -1px color-mix(in srgb,var(--theme-queue-border) 55%,#fff),
+    0 5px 8px var(--iso-shadow),
+    inset 0 2px 4px rgba(255,255,255,.65),
+    inset 0 -2px 4px rgba(0,0,0,.10)!important;
+}
+body[data-theme='candy'][data-layout='inverted'] #queue-area .queue-slot::before,
+body[data-theme='food'][data-layout='inverted'] #queue-area .queue-slot::before{
+  content:'';
+  display:block!important;
+  position:absolute;
+  inset:3px 3px auto 3px;
+  height:calc(100% - 8px);
+  pointer-events:none;
+  z-index:0;
+  border-radius:7px;
+  transform:skewY(var(--iso-skew)) scaleY(.93);
+  transform-origin:50% 100%;
+  background:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,.06) 55%,rgba(0,0,0,.07));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+}
+body[data-theme='candy'][data-layout='inverted'] #queue-area .queue-slot > *,
+body[data-theme='food'][data-layout='inverted'] #queue-area .queue-slot > *{position:relative;z-index:1;}
+body[data-theme='candy'][data-layout='inverted'] #queue-area .queue-box,
+body[data-theme='food'][data-layout='inverted'] #queue-area .queue-box{
+  border-color:var(--iso-lip)!important;
+  box-shadow:2px 3px 0 -1px var(--iso-mid),0 4px 6px var(--iso-shadow),inset 0 2px 3px rgba(255,255,255,.6);
+}
+
+/* ---- Grid columns / cleats: ground the stacks lightly ---- */
+body[data-theme='candy'][data-layout='inverted'] #boxes-grid .box-column,
+body[data-theme='food'][data-layout='inverted'] #boxes-grid .box-column{
+  filter:drop-shadow(3px 8px 6px var(--iso-shadow));
+}
+
+/* ---- HUD and boosters stay flat and upright (no iso transform reaches them) ---- */
+body[data-theme='candy'][data-layout='inverted'] :is(#game-header,#booster-bar),
+body[data-theme='food'][data-layout='inverted'] :is(#game-header,#booster-bar){
+  filter:none;
+}
+
+@media(prefers-reduced-motion:reduce){
+  body[data-theme='candy'][data-layout='inverted'] #game-container .box,
+  body[data-theme='food'][data-layout='inverted'] #game-container .box{transition:none!important;}
+}
 
 </style>
 
@@ -3360,15 +3631,12 @@ window.addEventListener('unhandledrejection', function(e) {
 
                 <div id="trays-container"></div>
 
-                <!-- Hai cong nam NGOAI #conveyor-belt (khong phai ben trong).
-                     Ly do: #conveyor-belt co z-index:1 nen tao mot ngu canh xep lop
-                     rieng; moi z-index cua con no deu bi kep ben trong lop 1, tuc luon
-                     nam DUOI #trays-container (z-index:6). De o trong thi Khay troi qua
-                     se che mat chu IN/OUT. Dat ra ngoai, ngang hang voi lop Khay, thi
-                     tam chan moi thuc su dung tren — va Khay "chui vao sau tam chan"
-                     dung nhu mot cua may. -->
-                <div class="port-out">⬅ OUT</div>
-                <div class="port-in">IN ⬇</div>
+                <!-- Hai nhan cong chi de DOC HUONG, khong con la tam chan cua may.
+                     Hinh co cau gap that su do GripperRenderer ve trong
+                     #trays-container (.gripper-overlay), nen o day chi con chu tran,
+                     khong nen, khong vien, khong z-index de len Khay. -->
+                <span class="port-label port-label-out" aria-hidden="true">OUT</span>
+                <span class="port-label port-label-in" aria-hidden="true">IN</span>
 
                 <div id="tray-remaining" class="tray-remaining">còn 46</div>
             </section>
@@ -10751,6 +11019,345 @@ class BoxRenderer {
 }
 
 
+// --- src/ui/GripperRenderer.js ---
+// GripperRenderer.js — vẽ cặp máy gắp hai ngón treo trên băng tải IN (bên phải)
+// và OUT (bên trái). Module CHỈ vẽ theo tâm khay do game truyền vào; mọi chuyển
+// động thật của khay do control chính lo. Không timer, không API ảnh, chỉ SVG.
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+const STEEL_TOP = '#dfe5ee';
+const STEEL_MID = '#a9b2c0';
+const STEEL_LOW = '#7c8593';
+const STEEL_EDGE = '#5a6270';
+const HONEY = '#f0b429';
+// Màu theme đi qua class CSS (var() không đáng tin trong presentation attribute);
+// attribute cùng tên giữ vai trò fallback khi thiếu biến.
+const INK = '#2f3440';
+const ACCENT = '#ff6fa5';
+const ACCENT_SOFT = '#68e0c0';
+const CLS_ACCENT = 'g-accent';
+const CLS_ACCENT_SOFT = 'g-accent2';
+
+const DEFAULT_W = 74;
+const DEFAULT_H = 62;
+
+function el(name, attrs) {
+    const node = document.createElementNS(SVGNS, name);
+    if (attrs) {
+        for (const key in attrs) {
+            const value = attrs[key];
+            if (value !== undefined && value !== null) node.setAttribute(key, value);
+        }
+    }
+    return node;
+}
+
+function num(value, fallback) {
+    return typeof value === 'number' && isFinite(value) ? value : fallback;
+}
+
+function clamp01(value) {
+    return Math.min(1, Math.max(0, value));
+}
+
+function smooth(value) {
+    const t = clamp01(value);
+    return t * t * (3 - 2 * t);
+}
+
+// Trả về trạng thái ngón theo tiến trình gắp của từng phía.
+// IN : giữ hàng 0 → .65, mở .65 → .85, rút lên .85 → 1.
+// OUT: mở sẵn 0 → .15, kẹp .15 → .3, giữ tới .85, nhả cuối .85 → 1.
+function jawState(side, progress) {
+    const p = clamp01(progress);
+    if (side === 'in') {
+        if (p < 0.65) return { open: 0, lift: 0, contact: 1, ring: 0 };
+        // Vòng đáp chỉ nhấp nháy trong khoảng .65 → .9 (biên độ theo hàm sin).
+        const ringPhase = clamp01((p - 0.65) / 0.25);
+        const ring = Math.abs(Math.sin(ringPhase * Math.PI * 2));
+        if (p < 0.85) return { open: smooth((p - 0.65) / 0.2), lift: 0, contact: 0, ring };
+        return { open: 1, lift: smooth((p - 0.85) / 0.15) * 15, contact: 0, ring };
+    }
+    if (p < 0.15) return { open: 1, lift: 0, contact: 0, ring: 0 };
+    if (p < 0.3) return { open: 1 - smooth((p - 0.15) / 0.15), lift: 0, contact: 1, ring: 0 };
+    if (p < 0.85) return { open: 0, lift: 0, contact: 1, ring: 0 };
+    return { open: smooth((p - 0.85) / 0.15), lift: 0, contact: 0, ring: 0 };
+}
+
+class GripperRenderer {
+    constructor(container) {
+        this.container = container || null;
+        this.root = null;
+        this._uid = 'grp' + Math.random().toString(36).slice(2, 8);
+        this._seq = 0;
+    }
+
+    // Vẽ lại toàn bộ; root SVG được tái sử dụng (tránh mất root khi container
+    // bị reset innerHTML).
+    render(jobs) {
+        const root = this._ensureRoot();
+        if (!root) return;
+
+        const view = this._measure();
+        const list = Array.isArray(jobs) ? jobs : [];
+        const bySide = { in: null, out: null };
+        for (let i = 0; i < list.length; i++) {
+            const job = list[i];
+            if (!job) continue;
+            const side = job.side === 'out' ? 'out' : 'in';
+            if (!bySide[side]) bySide[side] = job;
+        }
+
+        this._seq += 1;
+        const suffix = this._uid + '-' + this._seq;
+        const nodes = [this._defs(suffix)];
+
+        // OUT vẽ trước để máy IN (bên phải) luôn nằm trên khi chồng nhau.
+        nodes.push(this._machine('out', bySide.out, view, suffix));
+        nodes.push(this._machine('in', bySide.in, view, suffix));
+
+        while (root.firstChild) root.removeChild(root.firstChild);
+        for (let i = 0; i < nodes.length; i++) root.appendChild(nodes[i]);
+    }
+
+    // Gỡ root an toàn, không đụng tới phần còn lại của container.
+    reset() {
+        const owned = (node) => node && node.getAttribute && node.getAttribute('data-gripper-root') === this._uid;
+        const root = this.root;
+        if (root && owned(root) && root.parentNode) root.parentNode.removeChild(root);
+        this.root = null;
+        const host = this.container;
+        if (host && host.querySelectorAll) {
+            const stale = host.querySelectorAll('.gripper-overlay');
+            for (let i = 0; i < stale.length; i++) {
+                const node = stale[i];
+                if (owned(node) && node.parentNode) node.parentNode.removeChild(node);
+            }
+        }
+    }
+
+    _measure() {
+        const host = this.container;
+        let width = 0;
+        let height = 0;
+        if (host) {
+            width = host.clientWidth || 0;
+            height = host.clientHeight || 0;
+            if ((!width || !height) && host.getBoundingClientRect) {
+                const rect = host.getBoundingClientRect();
+                width = width || rect.width || 0;
+                height = height || rect.height || 0;
+            }
+        }
+        return {
+            width: width || 360,
+            height: height || 640,
+        };
+    }
+
+    _ensureRoot() {
+        const host = this.container;
+        if (!host) return null;
+
+        let root = this.root;
+        if (root && root.parentNode === host) return root;
+
+        // Root absolute cần host làm gốc toạ độ; chỉ đụng tới position khi host
+        // còn static để không phá layout sẵn có.
+        this._ensurePositioned(host);
+
+        // Container có thể đã bị reset innerHTML → root cũ mất cha, thử nhặt lại
+        // một overlay còn sót rồi mới tạo mới; root thật sự mồ côi bị bỏ đi.
+        const found = host.querySelector ? host.querySelector('.gripper-overlay') : null;
+        root = found || document.createElementNS(SVGNS, 'svg');
+        root.setAttribute('class', 'gripper-overlay');
+        root.setAttribute('data-gripper-root', this._uid);
+        root.setAttribute('aria-hidden', 'true');
+        root.setAttribute('focusable', 'false');
+        root.removeAttribute('viewBox');
+        const style = root.style;
+        style.position = 'absolute';
+        style.inset = '0';
+        style.left = '0';
+        style.top = '0';
+        style.width = '100%';
+        style.height = '100%';
+        style.overflow = 'visible';
+        style.pointerEvents = 'none';
+        style.zIndex = '9';
+
+        host.appendChild(root);
+        this.root = root;
+        return root;
+    }
+
+    _ensurePositioned(host) {
+        try {
+            if (typeof window === 'undefined' || !window.getComputedStyle) return;
+            const computed = window.getComputedStyle(host);
+            if (computed && computed.position === 'static') host.style.position = 'relative';
+        } catch (e) {
+            // Không đo được thì thôi, overlay vẫn vẽ theo host.
+        }
+    }
+
+    _defs(suffix) {
+        const defs = el('defs');
+
+        // Đèn nhỏ lấy màu accent của theme; attribute fill giữ fallback.
+        const style = el('style');
+        style.textContent =
+            '.gripper-overlay .g-accent{fill:var(--theme-accent,' + ACCENT + ')}' +
+            '.gripper-overlay .g-accent2{fill:var(--theme-accent-2,' + ACCENT_SOFT + ')}' +
+            '.gripper-overlay .g-accent-ring{stroke:var(--theme-accent,' + ACCENT + ')}';
+        defs.appendChild(style);
+
+        const steel = el('linearGradient', {
+            id: 'steel-' + suffix,
+            x1: '0', y1: '0', x2: '0', y2: '1',
+        });
+        steel.appendChild(el('stop', { offset: '0', 'stop-color': STEEL_TOP }));
+        steel.appendChild(el('stop', { offset: '0.55', 'stop-color': STEEL_MID }));
+        steel.appendChild(el('stop', { offset: '1', 'stop-color': STEEL_LOW }));
+        defs.appendChild(steel);
+
+        const dark = el('linearGradient', {
+            id: 'dark-' + suffix,
+            x1: '0', y1: '0', x2: '1', y2: '0',
+        });
+        dark.appendChild(el('stop', { offset: '0', 'stop-color': STEEL_EDGE }));
+        dark.appendChild(el('stop', { offset: '0.5', 'stop-color': STEEL_MID }));
+        dark.appendChild(el('stop', { offset: '1', 'stop-color': STEEL_EDGE }));
+        defs.appendChild(dark);
+
+        return defs;
+    }
+
+    _machine(side, job, view, suffix) {
+        const isOut = side === 'out';
+        const active = !!job;
+
+        const bw = Math.max(28, num(job && job.w, DEFAULT_W));
+        const bh = Math.max(28, num(job && job.h, DEFAULT_H));
+        const headW = Math.min(132, Math.max(56, bw + 28));
+        const half = headW / 2;
+        const jaws = active
+            ? jawState(side, num(job && job.progress, 0))
+            : { open: 0, lift: 0, contact: 0, ring: 0 };
+
+        // IN đứng sát mép phải, OUT sát mép trái; đều thấp gần đáy container.
+        // Nắn vào trong vừa đủ để đầu máy không tràn khỏi khung.
+        const edgeX = isOut ? 24 : view.width - 24;
+        const idleX = Math.max(half + 6, Math.min(view.width - half - 6, edgeX));
+        const idleY = Math.max(66 + bh / 2, view.height - 64);
+
+        const cx = num(job && job.x, idleX);
+        const cy = num(job && job.y, idleY);
+
+        const group = el('g', {
+            'data-gripper': side,
+            opacity: active ? 1 : 0.94,
+        });
+
+        // Vòng đáp nhẹ khi máy IN nhả hàng (opacity theo sin, không dùng timer).
+        if (jaws.ring > 0.001) {
+            group.appendChild(el('ellipse', {
+                cx: cx, cy: cy,
+                rx: bw / 2 + 15,
+                ry: bh * 0.62,
+                fill: 'none',
+                stroke: ACCENT,
+                class: 'g-accent-ring',
+                'stroke-width': 2,
+                'stroke-dasharray': '6 7',
+                'stroke-linecap': 'round',
+                opacity: (0.12 + 0.55 * jaws.ring).toFixed(3),
+            }));
+        }
+
+        const headH = 15;
+        // Đầu máy luôn nằm trên đỉnh carton, không bao giờ trùm lên hàng.
+        const headBottom = Math.max(headH + 24, cy - bh / 2 - 16 - jaws.lift);
+        const headTop = headBottom - headH;
+        const stemTop = Math.max(2, headTop - 26);
+
+        // Cột trượt lồng nhau (ống lồng trên ống mảnh) + vai treo có bu lông.
+        const stemH = Math.max(4, headTop - stemTop);
+        group.appendChild(el('rect', {
+            x: cx - 2.5, y: stemTop + 10, width: 5, height: stemH,
+            rx: 2.5, fill: STEEL_MID, stroke: INK, 'stroke-width': 1.4,
+        }));
+        group.appendChild(el('rect', {
+            x: cx - 7, y: stemTop + 8, width: 14, height: Math.max(6, stemH * 0.55),
+            rx: 4, fill: 'url(#steel-' + suffix + ')', stroke: INK, 'stroke-width': 1.6,
+        }));
+        group.appendChild(el('rect', {
+            x: cx - 19, y: stemTop, width: 38, height: 10,
+            rx: 5, fill: 'url(#steel-' + suffix + ')', stroke: INK, 'stroke-width': 1.6,
+        }));
+        group.appendChild(el('circle', { cx: cx - 13, cy: stemTop + 5, r: 1.8, fill: INK, opacity: 0.45 }));
+        group.appendChild(el('circle', { cx: cx + 13, cy: stemTop + 5, r: 1.8, fill: INK, opacity: 0.45 }));
+
+        // Đầu máy: thanh gắp ngang, có đèn accent nhỏ và highlight mềm.
+        group.appendChild(el('rect', {
+            x: cx - half, y: headTop, width: headW, height: headH,
+            rx: 6, fill: 'url(#steel-' + suffix + ')', stroke: INK, 'stroke-width': 1.8,
+        }));
+        group.appendChild(el('rect', {
+            x: cx - half + 5, y: headTop + 3, width: Math.max(4, headW - 10), height: 3.6,
+            rx: 1.8, fill: '#ffffff', opacity: 0.55,
+        }));
+        group.appendChild(el('circle', { cx: cx, cy: headTop + headH / 2, r: 5, fill: ACCENT, class: CLS_ACCENT, opacity: 0.28 }));
+        group.appendChild(el('circle', { cx: cx, cy: headTop + headH / 2, r: 2.6, fill: ACCENT, class: CLS_ACCENT, stroke: INK, 'stroke-width': 0.9 }));
+        group.appendChild(el('circle', { cx: cx - half + 8, cy: headTop + headH / 2, r: 2, fill: ACCENT_SOFT, class: CLS_ACCENT_SOFT, stroke: INK, 'stroke-width': 0.8 }));
+        group.appendChild(el('circle', { cx: cx + half - 8, cy: headTop + headH / 2, r: 2, fill: ACCENT_SOFT, class: CLS_ACCENT_SOFT, stroke: INK, 'stroke-width': 0.8 }));
+
+        // Ray trượt dưới đầu máy.
+        const railHalf = Math.max(half - 6, bw / 2 + 12);
+        group.appendChild(el('rect', {
+            x: cx - railHalf, y: headBottom - 2.5, width: railHalf * 2, height: 5,
+            rx: 2.5, fill: 'url(#dark-' + suffix + ')', stroke: INK, 'stroke-width': 1.2,
+        }));
+
+        // Hai ngón kẹp hai bên khay (đệm sát hông, không trùm nội dung khay).
+        const fingerLen = Math.max(18, (cy + bh * 0.18) - headBottom);
+        const fingerBottom = headBottom + fingerLen;
+        for (let i = 0; i < 2; i++) {
+            const dir = i === 0 ? -1 : 1;
+            const fx = cx + dir * (bw / 2 + 5 + jaws.open * 8);
+
+            group.appendChild(el('rect', {
+                x: fx - 7, y: headBottom - 4, width: 14, height: 8,
+                rx: 3, fill: STEEL_EDGE, stroke: INK, 'stroke-width': 1.3,
+            }));
+            group.appendChild(el('rect', {
+                x: fx - 3.5, y: headBottom - 3, width: 7, height: fingerLen,
+                rx: 3.5, fill: 'url(#dark-' + suffix + ')', stroke: INK, 'stroke-width': 1.5,
+            }));
+            group.appendChild(el('rect', {
+                x: fx - 1.8, y: headBottom + 3, width: 2, height: Math.max(4, fingerLen - 12),
+                rx: 1, fill: '#ffffff', opacity: 0.4,
+            }));
+            // Đệm kẹp sát hông khay + chấm tiếp xúc màu mật ong.
+            group.appendChild(el('rect', {
+                x: fx - 4.5, y: fingerBottom - 12, width: 9, height: 12,
+                rx: 3, fill: STEEL_TOP, stroke: INK, 'stroke-width': 1.4,
+            }));
+            group.appendChild(el('circle', {
+                cx: fx - dir * 3.2, cy: fingerBottom - 6, r: 2.2,
+                fill: HONEY, stroke: INK, 'stroke-width': 0.8,
+                opacity: jaws.contact ? 1 : 0.2,
+            }));
+        }
+
+        return group;
+    }
+}
+
+
+
+
 // --- src/ui/TrayRenderer.js ---
 
 class TrayRenderer {
@@ -10769,7 +11376,15 @@ class TrayRenderer {
         this.rejectTrayId = null;
         this.animate = this.animate.bind(this);
         this.onTick = null;
-        
+
+        // Lop phu co cau kep. Khong giu trang thai thoi gian: TrayRenderer day job
+        // moi trong updatePositions() tu dung tam Khay that su.
+        this.gripperRenderer = new GripperRenderer(this.container);
+
+        // Thoi luong vat ly cua mot luot kep: ha xuong -> mang di -> dat -> nha.
+        // Dung chung cho ca cong IN (nang Khay moi) va cong OUT (nhac Khay di).
+        this.HANDLE_DURATION = 700; // ms
+
         this.geom = this.readBeltGeometry();
         this._ro = new ResizeObserver(() => { this.geom = this.readBeltGeometry(); this._paintTrack(); });
         this._ro.observe(this.container);
@@ -10784,6 +11399,18 @@ class TrayRenderer {
         this.slotCount = 4;
         this.offset = 0;
         this.shiftDecayTime = 0;
+        this._skipRespaceOnce = false;
+
+        // container.innerHTML = '' cung xoa luon lop phu kep. GripperRenderer._ensureRoot()
+        // tu gan lai root vao container o lan render() ke tiep, nen chi can xoa job o day.
+        // destroy() la tuy chon: khong phai ban GripperRenderer nao cung co.
+        if (this.gripperRenderer) {
+            this.gripperRenderer.reset();
+            if (typeof this.gripperRenderer.destroy === 'function') {
+                this.gripperRenderer.destroy();
+                this.gripperRenderer = new GripperRenderer(this.container);
+            }
+        }
     }
 
     start() {
@@ -11077,6 +11704,10 @@ class TrayRenderer {
             this.offset = 0;
             this.trayElements.forEach(t => t.el.remove());
             this.trayElements = [];
+            // Dau man: Khay xep san san -> khong co luot kep nao. Xoa lop phu cu de
+            // khong con canh tay "treo" tu man truoc.
+            if (this.gripperRenderer) this.gripperRenderer.reset();
+            this._skipRespaceOnce = false;
         } else if (slotCountChanged) {
             // Cuoi man, so Khay con lai tut xuong duoi maxActive nen delta doi. Quy doi
             // slotPos sang he moi de GOC hien tai cua tung Khay khong doi; viec dan ra
@@ -11103,6 +11734,13 @@ class TrayRenderer {
                 let spawnTargetTheta = 0;
                 let hasSpawned = false;
                 let spawnStartTime = 0;
+                // Thu tu cua Khay moi trong lan render nay (0 = khay vao truoc tien).
+                let newcomerSlot = 0;
+
+                // Khay moi trong man (khong phai dau man): KHONG hien ngay tai cong IN.
+                // No duoc co cau kep nang tu TREN XUONG (xem updatePositions), nen phai
+                // giu theta = 0 co dinh trong luc dang ha — chua duoc tham gia vong chay.
+                const entering = !isStartOfLevel;
 
                 if (isStartOfLevel) {
                     // Vao man: maxActive Khay xep san deu vong, lo ra ngay lap tuc.
@@ -11121,10 +11759,11 @@ class TrayRenderer {
                     // thi hien ngay" con lam Khay bup ra giua bang chuyen.
                     const gateTheta = Math.round(this.offset / (2 * Math.PI)) * 2 * Math.PI;
                     // newcomerIndex: neu hai Khay cung vao trong mot lan render thi Khay
-                    // thu hai dung lui mot slot phia sau cong, khong chong len Khay dau.
+                    // thu hai vao SAU mot nhip kep, khong chong len Khay dau tai cong IN
+                    // (ca hai deu bi ghim theta = 0 trong suot luot ha).
                     slotPos = (gateTheta - this.offset) / delta + newcomerIndex;
                     hasSpawned = true;
-                    spawnStartTime = performance.now();
+                    newcomerSlot = newcomerIndex;
                     newcomerIndex++;
                 }
 
@@ -11133,7 +11772,10 @@ class TrayRenderer {
                 trayEl.dataset.trayId = tray.id;
                 trayEl.style.position = 'absolute';
                 trayEl.style.left = '0px';
-                trayEl.style.bottom = '0px';
+                // Goc toa do la TRAI-TREN (giong GripperRenderer): transform translate3d
+                // o updatePositions dung y tu dinh xuong, nen bottom:0 se lech nguoc chieu.
+                trayEl.style.top = '0px';
+                trayEl.style.bottom = 'auto';
                 trayEl.style.display = hasSpawned ? '' : 'none'; // an cho toi khi qua cong IN
                 
                 // Base structure: sleek colored cap, no explicit text label
@@ -11160,7 +11802,14 @@ class TrayRenderer {
                     fadingOut: false,
                     spawnTargetTheta: spawnTargetTheta,
                     hasSpawned: hasSpawned,
-                    spawnStartTime: spawnStartTime
+                    spawnStartTime: spawnStartTime,
+                    // Trang thai luot kep o cong IN. `isEntering` chan checkQueuePickup
+                    // (UIManager) — Khay dang duoc ha xuong thi chua phai khay tren bang
+                    // chuyen nen khong duoc nhan hang tu hang cho.
+                    isEntering: entering,
+                    // Khay thu hai trong cung mot lan render vao sau mot nhip kep de
+                    // khong chong len Khay thu nhat tai cong IN.
+                    enterStartTime: entering ? performance.now() + newcomerSlot * 760 : 0
                 };
                 this.trayElements.push(newTrayObj);
                 existing = newTrayObj;
@@ -11219,6 +11868,8 @@ class TrayRenderer {
             const t = this.trayElements[i];
             if (!t.isExiting) {
                 const stillActive = activeTrays.some(a => a.id === t.id);
+                // Khay dang duoc co cau nang vao van hien trong activeTrays, nen o day
+                // chi con lai truong hop engine da bo Khay (booster xoa / reset man).
                 if (!stillActive) {
                     t.el.remove();
                     this.trayElements.splice(i, 1);
@@ -11226,7 +11877,11 @@ class TrayRenderer {
             }
         }
         
-        this._respace();
+        // _skipRespaceOnce: Khay vua duoc NHA khoi co cau vua duoc gan slotPos dung
+        // theo offset hien tai. Dan lai ngay frame do se keo no khoi diem IN ngay
+        // (mot cu giat); de khung HINH KE TIEP moi dan ra deu.
+        if (this._skipRespaceOnce) this._skipRespaceOnce = false;
+        else this._respace();
         this.updatePositions(performance.now());
 
         // Phase 3 §3.6: Chỉ báo "còn lại N đơn"
@@ -11268,19 +11923,21 @@ class TrayRenderer {
                 item.currentTheta += deltaTheta;
                 
                 // Out port is at left edge (cos approaches -1). Front track (sin <= 0).
-                if (!item.fadingOut && Math.cos(item.currentTheta) < -0.88 && Math.sin(item.currentTheta) <= 0.08) {
-                    item.fadingOut = true;
-                    item.el.classList.add('exiting'); // Trigger CSS fade out
-                    item.el.style.transition = 'transform 0.35s ease-in, opacity 0.35s ease-in';
-                    const curTransform = item.el.style.transform;
-                    item.el.style.transform = `${curTransform} translateX(-60px) scale(0.6)`;
-                    item.el.style.opacity = '0';
-                    setTimeout(() => {
-                        const idx = this.trayElements.indexOf(item);
-                        if (idx > -1) this.trayElements.splice(idx, 1);
-                        if (item.el.parentNode) item.el.remove();
-                        if (item.onComplete) item.onComplete();
-                    }, 350);
+                if (!item.fadingOut && !item.pickupStartTime &&
+                    Math.cos(item.currentTheta) < -0.88 && Math.sin(item.currentTheta) <= 0.08) {
+                    // DONG BANG tai DUNG diem quy dao hien tai (khong nhay ve mot moc
+                    // "gan dung"), roi bat dau luot nhac vat ly 700ms. Khong con
+                    // fade/scale: Khay duoc co cau nang len that su.
+                    const pt = this.getTrackPoint(item.currentTheta);
+                    item.pickupStartTime = now;
+                    // Lat truc y sang he CSS (goc trai-tren) NGAY tai day va giu lai toa do
+                    // tuyet doi: luot nhac khong con phu thuoc geom neu man hinh doi kich
+                    // thuoc giua chung.
+                    item.pickupAnchor = {
+                        x: pt.x,
+                        y: (this.geom ? this.geom.beltH : 0) - pt.y
+                    };
+                    item.el.classList.remove('exiting');
                 }
             }
         }
@@ -11315,66 +11972,172 @@ class TrayRenderer {
             cleat.setAttribute('stroke-dashoffset', (-d).toFixed(1));
         }
 
-        if (!this.container || this.trayElements.length === 0) return;
-        
+        if (!this.container || this.trayElements.length === 0) {
+            if (this.gripperRenderer) this.gripperRenderer.render([]);
+            return;
+        }
+
         const g = this.geom;
         const delta = (2 * Math.PI) / (this.slotCount || 4);
-        
+        const HANDLE = this.HANDLE_DURATION || 700;
+
+        // Moi job = mot canh tay kep dang ve. Gom trong CUNG vong lap dat transform
+        // ben duoi, nen tam kep truyen cho GripperRenderer luon la tam Khay THAT SU
+        // cua khung hinh nay (khong phai vi tri du kien).
+        const jobs = [];
+
         this.trayElements.forEach(item => {
+            // Khay da hoan tat luot nha (`fadingOut`) da duoc nha callback go khoi mang;
+            // neu con thi bo qua de khong ve de len luot kep ke tiep.
             if (item.fadingOut) return;
 
+            // Toa do theo HE CSS cua #trays-container: goc trai-tren, y huong xuong.
+            // getTrackPoint() tra y do tu DAY container len -> phai lat truc.
+            const containerH = g.beltH;
+            const toCssY = trackY => containerH - trackY;
+
+            let x;              // tam Khay theo x
+            let y;              // tam Khay theo y (he CSS)
             let theta;
-            if (!item.isExiting) {
+
+            if (item.isExiting) {
+                theta = item.currentTheta;
+
+                if (item.pickupStartTime) {
+                    // ---- Luot NHAC khay tai cong OUT (700ms, thuan vat ly) ----
+                    // Khong con fade/scale: co cau nhac Khay len roi moi ghi nhan
+                    // giao hang. Moc thoi gian lay tu `now`, khong dung setTimeout.
+                    const p = Math.max(0, Math.min(1, (now - item.pickupStartTime) / HANDLE));
+                    const pt = this.getTrackPoint(theta);
+                    const startX = item.pickupAnchor ? item.pickupAnchor.x : pt.x;
+                    const startY = item.pickupAnchor ? item.pickupAnchor.y : toCssY(pt.y);
+
+                    // "len 25 roi sang trai 20": y CSS giam = di len.
+                    x = startX - 20 * p;
+                    y = startY - 25 * p;
+                    item.el.style.opacity = '1';
+
+                    if (p >= 1) {
+                        this._finishExit(item);
+                        return;
+                    }
+                    jobs.push({ side: 'out', x, y, w: g.trayW, h: g.trayH, progress: p });
+                } else {
+                    // Dang cho Khay troi toi cong OUT. Chua co co cau: cong OUT chi nhac
+                    // Khay khi no da toi dung cua (dieu kien da co san trong animate()).
+                    const pt = this.getTrackPoint(theta);
+                    x = pt.x;
+                    y = toCssY(pt.y);
+                    item.el.style.opacity = '1';
+                }
+            } else {
                 const rawTheta = item.slotPos * delta + this.offset;
-                
+
                 // Check if ready to emerge at IN gate
                 if (!item.hasSpawned) {
                     if (rawTheta <= item.spawnTargetTheta) {
                         item.hasSpawned = true;
-                        item.spawnStartTime = now;
                         item.el.style.display = '';
                     } else {
                         item.el.style.display = 'none';
                         return;
                     }
                 }
-                
+
                 theta = rawTheta;
+
+                if (item.isEntering) {
+                    // ---- Luot NANG khay moi vao tai cong IN (700ms) ----
+                    // Theta bi GHIM o cong IN trong suot luot ha: Khay chua thuc su nam
+                    // tren bang chuyen, nen tra ve vong chay luc nay se lam no truot di
+                    // ngay duoi tay kep.
+                    const p = Math.max(0, Math.min(1, (now - item.enterStartTime) / HANDLE));
+                    if (p <= 0) {
+                        // Khay xep hang cho luot kep cua no: chua ve gi, chua co job.
+                        // (Truong hop hai Khay moi trong cung mot lan render.)
+                        item.el.style.display = 'none';
+                        return;
+                    }
+                    // Da toi luot: hien lai (co the vua bi an o tren) va bat dau luot kep.
+                    if (item.el.style.display === 'none') item.el.style.display = '';
+                    const gate = this.getTrackPoint(item.spawnTargetTheta || 0);
+                    const anchorX = gate.x;
+                    const anchorY = toCssY(gate.y);
+
+                    // 4 chang cua mot luot vat ly, cung nhip voi ngon kep:
+                    //   0.00..0.25  giu tai diem kep (GRIP_X, GRIP_Y) - ngon kep dong lai
+                    //   0.25..0.65  mang di   - tu diem kep ve dung ANCHOR (cong IN)
+                    //   0.65..0.80  dat xuong - da o anchor, khong doi vi tri
+                    //   0.80..1.00  nha      - giu nguyen, cho ngon kep mo ra
+                    const GRIP_X = anchorX + 20;
+                    const GRIP_Y = anchorY - 25;
+                    if (p < 0.25) {
+                        // Giu yen tai diem kep trong luc ngon kep dong lai. Khong di
+                        // chuyen o chang nay, de chang sau bat dau DUNG tai (GRIP_X,
+                        // GRIP_Y) — truoc day p=.25 nhay ve GRIP_Y.
+                        x = GRIP_X;
+                        y = GRIP_Y;
+                    } else if (p < 0.65) {
+                        // Mang di: tu diem kep ve dung ANCHOR (cong IN), ca x lan y.
+                        const t = (p - 0.25) / 0.40;
+                        const ease = t * t * (3 - 2 * t); // smoothstep: khong giat dau/cuoi
+                        x = GRIP_X + (anchorX - GRIP_X) * ease;
+                        y = GRIP_Y + (anchorY - GRIP_Y) * ease;
+                    } else {
+                        // Dat/nha: dung yen tai anchor de cu dat khong bi "truot".
+                        x = anchorX;
+                        y = anchorY;
+                    }
+                    item.el.style.opacity = '1';
+
+                    jobs.push({ side: 'in', x, y, w: g.trayW, h: g.trayH, progress: p });
+
+                    if (p >= 1) {
+                        // NHA khay: ban giao tu cong IN sang vong chay ma KHONG nhay.
+                        // slotPos duoc chon theo offset HIEN TAI sao cho
+                        // slotPos*delta + offset == spawnTargetTheta, tuc goc hien tai
+                        // dung bang goc cong IN; tu day Khay chi con troi theo offset.
+                        item.isEntering = false;
+                        item.enterStartTime = 0;
+                        item.slotPos = (item.spawnTargetTheta - this.offset) / delta;
+                        item.targetSlotPos = item.slotPos;
+                        // Chua dua vao _respace: no se dan ra deu ngay trong khung ke tiep.
+                        this._skipRespaceOnce = true;
+                    }
+                } else {
+                    const pt = this.getTrackPoint(theta);
+                    x = pt.x;
+                    y = toCssY(pt.y);
+                    item.el.style.opacity = '1';
+                }
+
                 item.currentTheta = theta;
-            } else {
-                theta = item.currentTheta;
             }
-            
-            // Emergence animation at IN gate ("hiện lên trên cổng rồi đi ra"):
-            // Opacity fades in, scale expands, rises up 16px onto the gate surface
-            let spawnOpacity = 1;
-            let spawnScale = 1;
-            let riseY = 0;
-            
-            const SPAWN_DURATION = 450; // ms
-            if (item.spawnStartTime && (now - item.spawnStartTime < SPAWN_DURATION)) {
-                const p = Math.max(0, Math.min(1, (now - item.spawnStartTime) / SPAWN_DURATION));
-                const ease = 1 - Math.pow(1 - p, 2); // ease-out quad
-                spawnOpacity = ease;
-                spawnScale = 0.70 + 0.30 * ease;
-                riseY = (1 - ease) * 16;
-            }
-            
-            const pt = this.getTrackPoint(theta);
-            const x = pt.x;
-            const y = pt.y;
-            
-            const finalScale = spawnScale;
-            const finalY = y - riseY;
-            
-            item.el.style.opacity = spawnOpacity.toFixed(3);
+
             item.el.style.transformOrigin = 'center center';
-            item.el.style.transform = 
-                `translate3d(${(x - g.trayW / 2).toFixed(1)}px, ${(-finalY + g.trayH / 2).toFixed(1)}px, 0) ` +
-                `scale(calc(${finalScale.toFixed(3)} * var(--hl)))`;
+            item.el.style.transform =
+                `translate3d(${(x - g.trayW / 2).toFixed(1)}px, ${(y - g.trayH / 2).toFixed(1)}px, 0) ` +
+                `scale(var(--hl))`;
             item.el.style.filter = '';
             item.el.style.zIndex = '6';
         });
+
+        // Ve co cau SAU KHI transform cua Khay da duoc dat -> tam kep khop tuyet doi.
+        if (this.gripperRenderer) this.gripperRenderer.render(jobs);
+    }
+
+    /**
+     * Ket thuc luot nhac o cong OUT: go Khay va bao engine DUNG MOT LAN.
+     * Co the bi goi lai tu nhieu khung hinh, nen `exitDone` bao dam callback chi chay mot lan.
+     */
+    _finishExit(item) {
+        if (item.exitDone) return;
+        item.exitDone = true;
+        item.fadingOut = true;
+        const idx = this.trayElements.indexOf(item);
+        if (idx > -1) this.trayElements.splice(idx, 1);
+        if (item.el && item.el.parentNode) item.el.remove();
+        if (item.onComplete) item.onComplete();
     }
 
     /**
@@ -11388,7 +12151,10 @@ class TrayRenderer {
      * deu trong khoang 0.3s.
      */
     _respace() {
-        const ring = this.trayElements.filter(t => !t.fadingOut);
+        // Khay dang duoc kep nang vao (`isEntering`) CHUA nam tren vong chay: dua no
+        // vao day se keo cac Khay khac danh cho mot o khong ton tai. No duoc nha ve
+        // dung slotPos cua no (xem updatePositions) o khung hinh ket thuc luot.
+        const ring = this.trayElements.filter(t => !t.fadingOut && !t.isEntering);
         const n = ring.length;
         if (n === 0) return;
 
@@ -11423,10 +12189,14 @@ class TrayRenderer {
         
         trayData.isExiting = true;
         trayData.onComplete = onComplete;
-        
+
         // Khay dang di ra khong con nam trong vong dan deu nua (xem _respace): no giu
         // currentTheta rieng va troi tiep toi cong OUT. Khay thay the khong doi no —
         // render() ke tiep dua Khay moi vao thang o cong IN.
+        //
+        // Khong bat dau luot nhac o day: Khay con phai TROI toi cong OUT truoc (xem
+        // animate()). .exiting (CSS fade + scale) bi loai bo hoan toan — luot di ra
+        // gio do co cau kep thuc hien, nen khay phai giu opacity 1.
 
         // Remove 'exiting' class just in case it was incorrectly added
         trayData.el.classList.remove('exiting');
@@ -14238,6 +15008,11 @@ class UIManager {
                 if (!tray.canAccept(box)) continue;
                 const trayObj = this.trayRenderer.trayElements.find(t => t.id === tray.id);
                 if (!trayObj || !trayObj.el || trayObj.isExiting || trayObj.isReceiving || trayObj.fadingOut) continue;
+                // Khay dang duoc co cau kep NANG vao tu cong IN chua phai la khay tren
+                // bang chuyen: no chua troi qua o hang cho nao, nen khong duoc nhan hang.
+                // Theta cua no bi ghim o cong IN trong ca luc ha, nen neu de lot qua day
+                // thi no se "nhan" o slot 0 ngay truoc mat nguoi choi.
+                if (trayObj.isEntering) continue;
                 if (!this.trayRenderer.isInDeliveryZone(trayObj, slotEl, queue.length)) continue;
 
                 this.triggerQueueDelivery(box, tray, slotEl, trayObj.el);
