@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Hai kẹp trục treo — IN / OUT</title>
+<!--
+  Cơ chế hai kẹp trục treo, một thùng duy nhất:
+    IN  (cột phải): gắp thùng TỪ bến nhập x850 → đặt XUỐNG băng tải tại x730.
+    Băng tải đưa thùng chạy phải → trái (730 → 230).
+    OUT (cột trái):  gắp thùng TỪ băng tải x230 → đặt XUỐNG bến xuất x100.
+  Mỗi kẹp chỉ chạy trong nửa ray của mình; không có cánh tay băng ngang.
+  Mọi chuyển động suy ra từ một clock 10s qua hàm phase(u) thuần.
+-->
+<style>
+  :root{
+    --navy:#1f2b4d; --navy-soft:#3a4870; --steel:#c6cbd6; --steel-mid:#9aa1b0;
+    --steel-dark:#7b8394; --panel:#f7f8fb; --panel-2:#eef1f6; --ok:#2f6fd6;
+    --warn:#e04a4a; --ink:#1f2b4d; --muted:#5c667a; --line:#d5dae3;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--panel);color:var(--ink);font-family:Verdana,Geneva,Arial,sans-serif;font-size:14px;line-height:1.5}
+  .page{width:min(1000px,calc(100% - 24px));margin-inline:auto;padding:18px 0 30px}
+  .eyebrow{margin:0;font-size:11px;font-weight:bold;letter-spacing:.14em;text-transform:uppercase;color:var(--steel-dark)}
+  h1{margin:6px 0;font-size:clamp(18px,2.6vw,24px);line-height:1.2;letter-spacing:-.015em}
+  .intro{margin:0 0 12px;max-width:82ch;color:var(--navy-soft);font-size:13px}
+  .intro strong{color:var(--navy)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px;box-shadow:0 10px 30px rgba(31,43,77,.07)}
+  .stage{margin:0}
+  .stage svg{display:block;width:100%;height:auto;border-radius:10px}
+  .controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:12px 0 0;padding:0;border:0;min-width:0}
+  .group-label{font-size:11px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;color:var(--steel-dark);margin-right:auto}
+  button{font:inherit;font-size:13px;font-weight:bold;color:var(--navy);background:var(--panel-2);border:1px solid var(--steel);border-radius:10px;min-height:40px;padding:8px 16px;cursor:pointer;transition:background .15s ease,color .15s ease}
+  button:hover{background:#dfe5ee}
+  button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#f7f8fb}
+  :focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  .captions{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:8px;grid-template-columns:1fr 1fr}
+  .captions li{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:baseline;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:0}
+  .caps-tag{align-self:center;font-size:11px;font-weight:bold;letter-spacing:.08em;color:#fff;background:var(--navy);border-radius:999px;padding:2px 9px}
+  .caps-in .caps-tag{background:var(--ok)}
+  .caps-out .caps-tag{background:var(--warn)}
+  .caps-phase{font-size:13px;font-weight:bold;color:var(--navy)}
+  .caps-detail{grid-column:1 / -1;font-size:12px;color:var(--muted)}
+  .status-row{margin:10px 0 0;font-size:12px;color:var(--muted)}
+  @media (max-width:700px){
+    .page{width:calc(100% - 16px);padding-top:12px}
+    .captions{grid-template-columns:1fr}
+    button{flex:1 1 auto;min-height:44px}
+    .group-label{flex-basis:100%;margin-right:0}
+  }
+  @media (prefers-reduced-motion:reduce){ button{transition:none} }
+</style>
+</head>
+<body>
+<main class="page">
+  <p class="eyebrow">Cơ chế · Hai kẹp trục treo</p>
+  <h1>Kẹp trục treo: IN nhập vào băng tải, OUT xuất ra bến</h1>
+  <p class="intro">
+    Một thùng đi trọn vòng: kẹp <strong>IN</strong> (cột phải) gắp thùng từ <strong>bến nhập</strong> rồi đặt lên
+    <strong>băng tải</strong>; băng tải đưa thùng sang trái; kẹp <strong>OUT</strong> (cột trái) gắp đúng thùng đó rồi đặt
+    xuống <strong>bến xuất</strong>. Cả hai kẹp đều kẹp trọn hai bên thùng, nâng lên 70px rồi mới di chuyển.
+  </p>
+
+  <section class="card" aria-labelledby="stage-caption">
+    <p id="stage-caption" class="sr-only">Hoạt cảnh minh họa cơ chế hai kẹp trục treo</p>
+    <figure class="stage">
+      <svg id="scene" viewBox="0 0 960 480" preserveAspectRatio="xMidYMid meet" role="img"
+           aria-labelledby="scene-title scene-desc"></svg>
+    </figure>
+  </section>
+
+  <fieldset class="controls" id="controls">
+    <legend class="sr-only">Điều khiển hoạt cảnh</legend>
+    <span class="group-label">Chu kỳ 10s · thùng duy nhất</span>
+    <button id="btn-pause" type="button" aria-pressed="false">Tạm dừng</button>
+    <button id="btn-restart" type="button">Chạy lại</button>
+  </fieldset>
+
+  <ul class="captions" aria-live="polite">
+    <li class="caps-in">
+      <span class="caps-tag">IN</span>
+      <span class="caps-phase" id="cap-in">gắp thùng từ bến nhập</span>
+      <span class="caps-detail" id="cap-in-sub">xi-lanh hạ xuống, ngón kẹp mở rộng</span>
+    </li>
+    <li class="caps-out">
+      <span class="caps-tag">OUT</span>
+      <span class="caps-phase" id="cap-out">chờ trên băng tải</span>
+      <span class="caps-detail" id="cap-out-sub">băng tải đang đưa thùng sang trái</span>
+    </li>
+  </ul>
+  <p class="status-row" id="clock-readout">Chu kỳ 0.0s / 10.0s</p>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var NS = 'http://www.w3.org/2000/svg';
+  var FONT = 'Verdana, Geneva, Arial, sans-serif';
+
+  var C = {
+    navy: '#1f2b4d', navyDeep: '#16203a', steel: '#9aa1b0', steelDark: '#7b8394',
+    rail: '#c6cbd6', railHi: '#e7eaf1', belt: '#8a8f9c', beltDark: '#5c6270',
+    honey: '#d99a3c', honeyDark: '#b87a24', honeyLight: '#f0c878',
+    outline: '#8a5a12', outlineDark: '#6e4a10', panel: '#f7f8fb', accent: '#eef1f6',
+    ok: '#2f6fd6', okSoft: '#b9d2f6', warn: '#e04a4a', pad: '#3a4258', padRib: '#8b95ae',
+    white: '#ffffff'
+  };
+
+  var W = 960, H = 480, CX = W / 2;
+
+  /* Hình học chính — mọi mặt sàn (bến nhập, băng tải, bến xuất) đều ở y = 350 */
+  var SURFACE_Y = 350;                      // mặt phẳng chung của ba bến
+  var FLOOR_Y = 430;                        // sàn nhà
+  var BELT_X0 = 200, BELT_X1 = 760, BELT_H = 26;
+  var BELT_Y = SURFACE_Y;                   // mặt trên băng tải trùng mặt bến
+  var DOCK_W = 92, DOCK_TOP = SURFACE_Y;
+  var DOCK_R = 850, DOCK_L = 100;           // tâm của hai bến
+  var RAIL_X0 = 60, RAIL_X1 = 900;          // ray phủ cả hai toa (IN ở 850, OUT ở 100)
+
+  var CAR_W = 74, CAR_H = 52;               // kích thước thùng
+  var PAD_GAP = 5;                          // hở mỗi bên giữa ngón và thùng khi mở
+  var PAD_W = 11;
+
+  var RAIL_Y = 74, RAIL_H = 12;
+  var CAR_HGT = 26, CAR_TOP = RAIL_Y + RAIL_H / 2;
+  var CAR_BOT = CAR_TOP + CAR_HGT;
+
+  var LIFT = 70;
+  var BOX_TOP_REST = SURFACE_Y - CAR_H;     // mép trên thùng khi đứng trên sàn = 298
+  var BOX_TOP_HIGH = BOX_TOP_REST - LIFT;   // mép trên thùng khi nâng hết = 228
+
+  var WRIST_H = 14;                         // khối cổ tay dưới đáy ống lồng
+  var HEAD_DY = 4;                          // thanh vai nằm dưới đáy cổ tay
+  var FINGER_LEN = CAR_H + 6;               // gốc ngón cao hơn đỉnh thùng, mũi ngón thấp hơn đáy thùng 6px
+  var PAD_H = CAR_H - 4;
+
+  // headY = bản lề ngón. Khi kẹp thùng: headY = mép trên thùng - 10.
+  // Kẹp hết cỡ (0) = ngón áp hai bên thùng; mở hết (1) = ngón lui ra PAD_GAP mỗi bên.
+  var CLOSED_X = CAR_W / 2;                 // tâm mặt bụng ngón khi kẹp = 37
+  var OPEN_X = CLOSED_X + PAD_GAP;          // tâm mặt bụng ngón khi mở = 42
+  var BITE = 1.5;                           // ép nhẹ vào thùng khi kẹp
+  var SHOULDER_HALF = OPEN_X + PAD_W / 2 + 3;
+
+  /* Một clock duy nhất: 10 giây cho trọn vòng thùng (mọi mốc là giây) */
+  var CYCLE = 10;
+  var T = {
+    inDown:  [0.0, 0.6],   // IN hạ từ 70 xuống mặt bến x850, ngón mở
+    inClose: [0.6, 0.9],   // IN kẹp
+    inLift:  [0.9, 1.5],   // IN nâng 70
+    inMove:  [1.5, 2.3],   // IN 850 → 730
+    inLow:   [2.3, 2.8],   // IN hạ xuống băng tải
+    inOpen:  [2.8, 3.2],   // IN nhả + rút ngón lên
+    belt:    [3.2, 6.0],   // băng tải 730 → 230
+    outDown: [6.0, 6.6],   // OUT hạ xuống băng tải x230
+    outClose:[6.6, 6.9],   // OUT kẹp
+    outLift: [6.9, 7.5],   // OUT nâng 70
+    outMove: [7.5, 8.3],   // OUT 230 → 100
+    outLow:  [8.3, 8.8],   // OUT hạ xuống bến xuất
+    outOpen: [8.8, 9.3],   // OUT nhả + rút ngón lên
+    rest:    [9.3, 10.0]   // thùng đứng yên tại x100, hai kẹp về vị trí chờ
+  };
+  var IN_HOME_X = DOCK_R, OUT_HOME_X = BELT_X0 + 30;  // OUT chờ trên băng tải tại x230
+
+  /* ---------------- tiện ích ---------------- */
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function seg(u, s) { return clamp((u - s[0]) / (s[1] - s[0]), 0, 1); }
+  function eio(t) { t = clamp(t, 0, 1); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+  function eo(t) { return 1 - Math.pow(1 - clamp(t, 0, 1), 3); }
+  function damp(t, k, f) { t = clamp(t, 0, 1); return Math.exp(-k * t) * Math.cos(t * f * Math.PI * 0.5); }
+  function n1(v) { return Math.round(v * 10) / 10; }
+
+  function el(tag, attrs, parent) {
+    var node = document.createElementNS(NS, tag);
+    if (attrs) { for (var k in attrs) { if (attrs.hasOwnProperty(k)) { node.setAttribute(k, attrs[k]); } } }
+    if (parent) { parent.appendChild(node); }
+    return node;
+  }
+  function rect(p, x, y, w, h, fill, extra) {
+    var a = { x: n1(x), y: n1(y), width: n1(w), height: n1(h), fill: fill };
+    if (extra) { for (var k in extra) { if (extra.hasOwnProperty(k)) { a[k] = extra[k]; } } }
+    return el('rect', a, p);
+  }
+  function circ(p, cx, cy, r, fill, extra) {
+    var a = { cx: n1(cx), cy: n1(cy), r: n1(r), fill: fill };
+    if (extra) { for (var k in extra) { if (extra.hasOwnProperty(k)) { a[k] = extra[k]; } } }
+    return el('circle', a, p);
+  }
+  function ell(p, cx, cy, rx, ry, fill, extra) {
+    var a = { cx: n1(cx), cy: n1(cy), rx: n1(rx), ry: n1(ry), fill: fill };
+    if (extra) { for (var k in extra) { if (extra.hasOwnProperty(k)) { a[k] = extra[k]; } } }
+    return el('ellipse', a, p);
+  }
+  function path(p, pts, fill, extra) {
+    var d = '';
+    for (var i = 0; i < pts.length; i++) { d += (i ? ' L' : 'M') + n1(pts[i][0]) + ' ' + n1(pts[i][1]); }
+    var a = { d: d, fill: fill || 'none' };
+    if (extra) { for (var k in extra) { if (extra.hasOwnProperty(k)) { a[k] = extra[k]; } } }
+    return el('path', a, p);
+  }
+  function txt(p, x, y, str, extra) {
+    var a = { x: n1(x), y: n1(y), 'font-family': FONT };
+    if (extra) { for (var k in extra) { if (extra.hasOwnProperty(k)) { a[k] = extra[k]; } } }
+    var node = el('text', a, p);
+    node.textContent = String(str);
+    return node;
+  }
+
+  /* ---------------- dựng cảnh ---------------- */
+  var svg = document.getElementById('scene');
+  var layers = {};
+
+  function build() {
+    var t = el('title', { id: 'scene-title' }, svg);
+    t.textContent = 'Hai kẹp trục treo: IN đặt thùng lên băng tải, OUT đặt thùng xuống bến xuất';
+    var d = el('desc', { id: 'scene-desc' }, svg);
+    d.textContent = 'Một thùng được kẹp IN gắp từ bến nhập tại x850 và đặt xuống băng tải tại x730. ' +
+      'Băng tải đưa thùng sang trái tới x230; kẹp OUT gắp đúng thùng đó và đặt xuống bến xuất tại x100.';
+
+    rect(svg, 0, 0, W, H, C.panel);
+    var bg = el('g', { 'pointer-events': 'none' }, svg);
+    for (var gx = 0; gx <= W; gx += 40) { path(bg, [[gx, 0], [gx, H]], 'none', { stroke: C.accent }); }
+    for (var gy = 40; gy <= H; gy += 40) { path(bg, [[0, gy], [W, gy]], 'none', { stroke: C.accent }); }
+
+    rect(svg, 0, FLOOR_Y, W, H - FLOOR_Y, C.accent, { stroke: C.rail, 'stroke-width': 1.2 });
+    path(svg, [[0, FLOOR_Y], [W, FLOOR_Y]], 'none', { stroke: C.steel, 'stroke-width': 1.6 });
+
+    buildDock(DOCK_R);
+    buildDock(DOCK_L);
+    buildBelt();
+    buildRail();
+
+    layers.shadows = el('g', { 'pointer-events': 'none' }, svg);
+    layers.box = el('g', { 'pointer-events': 'none' }, svg);
+    layers.grippers = el('g', {}, svg);
+    layers.fx = el('g', { 'pointer-events': 'none' }, svg);
+    buildLabels();
+
+    el('title', {}, el('g', {}, svg));
+  }
+
+  function buildDock(cx) {
+    var g = el('g', {}, svg);
+    rect(g, cx - DOCK_W / 2, DOCK_TOP, DOCK_W, FLOOR_Y - DOCK_TOP, C.steel, { stroke: C.steelDark, 'stroke-width': 1.4, rx: 3 });
+    rect(g, cx - DOCK_W / 2, DOCK_TOP, DOCK_W, 3.5, C.railHi, { opacity: 0.9 });
+    for (var sx = cx - DOCK_W / 2 + 4; sx < cx + DOCK_W / 2 - 4; sx += 14) {
+      path(g, [[sx, DOCK_TOP], [sx + 6, DOCK_TOP], [sx + 10, DOCK_TOP + 3], [sx + 4, DOCK_TOP + 3]], C.steelDark, { opacity: 0.5 });
+    }
+    rect(g, cx - 12, FLOOR_Y - 6, 24, 6, C.steelDark, { rx: 2 });
+  }
+
+  function buildBelt() {
+    var g = el('g', {}, svg);
+    [BELT_X0 + 30, CX, BELT_X1 - 30].forEach(function (x) {
+      rect(g, x - 5, BELT_Y + BELT_H + 2, 10, FLOOR_Y - BELT_Y - BELT_H - 2, C.steel, { stroke: C.steelDark, 'stroke-width': 1.1 });
+      rect(g, x - 15, FLOOR_Y - 5, 30, 5, C.steelDark, { rx: 2 });
+    });
+    rect(g, BELT_X0, BELT_Y, BELT_X1 - BELT_X0, BELT_H, C.belt, { stroke: C.beltDark, 'stroke-width': 1.8, rx: 4 });
+    rect(g, BELT_X0 + 3, BELT_Y + 2.5, BELT_X1 - BELT_X0 - 6, 2.5, C.railHi, { opacity: 0.5, rx: 1.2 });
+    rect(g, BELT_X0, BELT_Y + BELT_H + 1, BELT_X1 - BELT_X0, 4, C.steel, { stroke: C.steelDark, 'stroke-width': 1, rx: 2 });
+    [BELT_X0 + 10, BELT_X1 - 10].forEach(function (x) {
+      circ(g, x, BELT_Y + BELT_H / 2, BELT_H / 2, C.steelDark, { stroke: C.navy, 'stroke-width': 1.2 });
+      circ(g, x, BELT_Y + BELT_H / 2, BELT_H / 2 - 5, C.belt, { stroke: C.steelDark, 'stroke-width': 1 });
+      circ(g, x, BELT_Y + BELT_H / 2, 2, C.navy);
+    });
+  }
+
+  function buildRail() {
+    var g = el('g', {}, svg);
+    // ray chạy x60..900 để đỡ cả toa IN (x850) và toa OUT (x100)
+    [100, 480, 850].forEach(function (x) {
+      rect(g, x - 5, RAIL_Y - 14, 10, 20, C.steel, { stroke: C.steelDark, 'stroke-width': 1 });
+    });
+    var ry = RAIL_Y - RAIL_H / 2;
+    rect(g, RAIL_X0, ry, RAIL_X1 - RAIL_X0, RAIL_H, C.rail, { stroke: C.steelDark, 'stroke-width': 1.6, rx: 3 });
+    rect(g, RAIL_X0 + 2, ry + 2, RAIL_X1 - RAIL_X0 - 4, 3.5, C.railHi, { opacity: 0.95, rx: 1.5 });
+    for (var x = RAIL_X0 + 24; x < RAIL_X1 - 10; x += 46) { circ(g, x, RAIL_Y, 1.8, C.steel); }
+  }
+
+  function buildLabels() {
+    // nhãn bến (ngoài mặt bàn hàng, đặt trên sàn)
+    rect(svg, DOCK_R - 34, FLOOR_Y + 6, 68, 16, C.white, { stroke: C.rail, 'stroke-width': 1, rx: 4 });
+    txt(svg, DOCK_R, FLOOR_Y + 17.5, 'BẾN NHẬP', { fill: C.navy, 'font-size': 8, 'font-weight': 'bold', 'text-anchor': 'middle', 'letter-spacing': 0.5 });
+    rect(svg, DOCK_L - 34, FLOOR_Y + 6, 68, 16, C.white, { stroke: C.rail, 'stroke-width': 1, rx: 4 });
+    txt(svg, DOCK_L, FLOOR_Y + 17.5, 'BẾN XUẤT', { fill: C.navy, 'font-size': 8, 'font-weight': 'bold', 'text-anchor': 'middle', 'letter-spacing': 0.5 });
+
+    // mũi tên chiều băng tải: phải → trái (đầu mũi tên ở bên trái)
+    var ax0 = CX + 60, ax1 = CX - 60, ay = BELT_Y + BELT_H + 15;
+    path(svg, [[ax1, ay], [ax1 + 9, ay - 5], [ax1 + 9, ay + 5]], C.steel, { stroke: C.steelDark, 'stroke-width': 1, 'stroke-linejoin': 'round' });
+    path(svg, [[ax0 - 12, ay], [ax1 + 12, ay]], 'none', { stroke: C.steelDark, 'stroke-width': 1.4, 'stroke-linecap': 'round' });
+    txt(svg, CX + 74, ay + 3.5, 'chiều thùng ←', { fill: C.steelDark, 'font-size': 8, 'text-anchor': 'start' });
+  }
+
+  /* ---------------- trạng thái từ clock ----------------
+     Mỗi nhánh set ĐỦ boxX, boxY, inExt, outExt, inX, outX — không dựa vào mặc định. */
+  function state(u) {
+    u = clamp(u, 0, CYCLE - 1e-6);
+    var s = {
+      // vị trí chờ: thùng ở bến nhập, hai kẹp thu hết cỡ, ngón mở
+      boxX: DOCK_R, boxY: BOX_TOP_REST, boxSX: 1, boxSY: 1,
+      inX: IN_HOME_X, inExt: 0, inOpen: 1, inContact: 0, inLand: 0,
+      outX: OUT_HOME_X, outExt: 0, outOpen: 1, outContact: 0, outLand: 0,
+      holder: '', beltRun: false
+    };
+    var k;
+
+    if (u < T.inClose[0]) {                       // 0.0–0.6: IN hạ xuống bến nhập
+      k = eio(seg(u, T.inDown));
+      s.inX = IN_HOME_X; s.inExt = lerp(0, BOX_TOP_REST - 10 - CAR_BOT - WRIST_H - HEAD_DY, k); s.inOpen = 1;
+      s.boxX = DOCK_R; s.boxY = BOX_TOP_REST;
+    } else if (u < T.inLift[0]) {                 // 0.6–0.9: IN kẹp
+      k = seg(u, T.inClose);
+      s.inX = IN_HOME_X; s.inExt = BOX_TOP_REST - 10 - CAR_BOT - WRIST_H - HEAD_DY;
+      s.inOpen = lerp(1, 0, eo(k)); s.inContact = Math.sin(k * Math.PI);
+      s.boxX = DOCK_R; s.boxY = BOX_TOP_REST;
+      s.boxSX = 1 + 0.02 * Math.sin(k * Math.PI); s.boxSY = 1 - 0.02 * Math.sin(k * Math.PI);
+      s.holder = 'in';
+    } else if (u < T.inMove[0]) {                 // 0.9–1.5: IN nâng 70
+      k = eio(seg(u, T.inLift));
+      s.inX = IN_HOME_X; s.inExt = lerp(BOX_TOP_REST, BOX_TOP_HIGH, k) - 10 - CAR_BOT - WRIST_H - HEAD_DY; s.inOpen = 0;
+      s.boxX = DOCK_R; s.boxY = lerp(BOX_TOP_REST, BOX_TOP_HIGH, k);
+      s.holder = 'in';
+    } else if (u < T.inLow[0]) {                  // 1.5–2.3: IN 850 → 730
+      k = eio(seg(u, T.inMove));
+      s.inX = lerp(DOCK_R, BELT_X1 - 30, k); s.inExt = BOX_TOP_HIGH - 10 - CAR_BOT - WRIST_H - HEAD_DY; s.inOpen = 0;
+      s.boxX = s.inX; s.boxY = BOX_TOP_HIGH;
+      s.holder = 'in';
+    } else if (u < T.inOpen[0]) {                 // 2.3–2.8: IN hạ xuống băng tải
+      k = eio(seg(u, T.inLow));
+      s.inX = BELT_X1 - 30; s.inExt = lerp(BOX_TOP_HIGH, BOX_TOP_REST, k) - 10 - CAR_BOT - WRIST_H - HEAD_DY; s.inOpen = 0;
+      s.boxX = BELT_X1 - 30; s.boxY = lerp(BOX_TOP_HIGH, BOX_TOP_REST, k);
+      s.holder = 'in';
+    } else if (u < T.belt[0]) {                   // 2.8–3.2: IN nhả + rút ngón
+      k = seg(u, T.inOpen);
+      s.inX = BELT_X1 - 30;
+      s.inExt = lerp(BOX_TOP_REST - 10 - CAR_BOT - WRIST_H - HEAD_DY, 0, eio(clamp(k / 0.6, 0, 1)));
+      s.inOpen = eo(clamp(k / 0.4, 0, 1)); s.inContact = k < 0.4 ? 1 - k / 0.4 : 0;
+      s.inLand = k;
+      s.boxX = BELT_X1 - 30; s.boxY = BOX_TOP_REST;
+      s.boxSX = 1 + 0.03 * damp(clamp((k - 0.1) / 0.9, 0, 1), 5, 4);
+      s.boxSY = 1 - 0.04 * damp(clamp((k - 0.1) / 0.9, 0, 1), 5, 4);
+      s.holder = '';
+    } else if (u < T.outDown[0]) {                // 3.2–6.0: băng tải 730 → 230
+      k = seg(u, T.belt);
+      s.beltRun = true;
+      s.inX = BELT_X1 - 30; s.inExt = 0; s.inOpen = 1; s.inLand = 1;
+      s.outX = OUT_HOME_X; s.outExt = 0; s.outOpen = 1;
+      s.boxX = lerp(BELT_X1 - 30, BELT_X0 + 30, k); s.boxY = BOX_TOP_REST;
+    } else if (u < T.outClose[0]) {               // 6.0–6.6: OUT hạ xuống băng tải
+      k = eio(seg(u, T.outDown));
+      s.outX = OUT_HOME_X; s.outExt = lerp(0, BOX_TOP_REST - 10 - CAR_BOT - WRIST_H - HEAD_DY, k); s.outOpen = 1;
+      s.inX = BELT_X1 - 30; s.inExt = 0; s.inOpen = 1; s.inLand = 1;
+      s.boxX = BELT_X0 + 30; s.boxY = BOX_TOP_REST;
+    } else if (u < T.outLift[0]) {                // 6.6–6.9: OUT kẹp
+      k = seg(u, T.outClose);
+      s.outX = OUT_HOME_X; s.outExt = BOX_TOP_REST - 10 - CAR_BOT - WRIST_H - HEAD_DY;
+      s.outOpen = lerp(1, 0, eo(k)); s.outContact = Math.sin(k * Math.PI);
+      s.inX = BELT_X1 - 30; s.inExt = 0; s.inOpen = 1; s.inLand = 1;
+      s.boxX = BELT_X0 + 30; s.boxY = BOX_TOP_REST;
+      s.boxSX = 1 + 0.02 * Math.sin(k * Math.PI); s.boxSY = 1 - 0.02 * Math.sin(k * Math.PI);
+      s.holder = 'out';
+    } else if (u < T.outMove[0]) {                // 6.9–7.5: OUT nâng 70
+      k = eio(seg(u, T.outLift));
+      s.outX = OUT_HOME_X; s.outExt = lerp(BOX_TOP_REST, BOX_TOP_HIGH, k) - 10 - CAR_BOT - WRIST_H - HEAD_DY; s.outOpen = 0;
+      s.inX = BELT_X1 - 30; s.inExt = 0; s.inOpen = 1; s.inLand = 1;
+      s.boxX = BELT_X0 + 30; s.boxY = lerp(BOX_TOP_REST, BOX_TOP_HIGH, k);
+      s.holder = 'out';
+    } else if (u < T.outLow[0]) {                 // 7.5–8.3: OUT 230 → 100
+      k = eio(seg(u, T.outMove));
+      s.outX = lerp(OUT_HOME_X, DOCK_L, k); s.outExt = BOX_TOP_HIGH - 10 - CAR_BOT - WRIST_H - HEAD_DY; s.outOpen = 0;
+      s.inX = BELT_X1 - 30; s.inExt = 0; s.inOpen = 1; s.inLand = 1;
+      s.boxX = s.outX; s.boxY = BOX_TOP_HIGH;
+      s.holder = 'out';
+    } else if (u < T.outOpen[0]) {                // 8.3–8.8: OUT hạ xuống bến xuất
+      k = eio(seg(u, T.outLow));
+      s.outX = DOCK_L; s.outExt = lerp(BOX_TOP_HIGH, BOX_TOP_REST, k) - 10 - CAR_BOT - WRIST_H - HEAD_DY; s.outOpen = 0;
+      s.inX = BELT_X1 - 30; s.inExt = 0; s.inOpen = 1; s.inLand = 1;
+      s.boxX = DOCK_L; s.boxY = lerp(BOX_TOP_HIGH, BOX_TOP_REST, k);
+      s.holder = 'out';
+    } else if (u < T.rest[0]) {                   // 8.8–9.3: OUT nhả + rút ngón
+      k = seg(u, T.outOpen);
+      s.outX = DOCK_L;
+      s.outExt = lerp(BOX_TOP_REST - 10 - CAR_BOT - WRIST_H - HEAD_DY, 0, eio(clamp(k / 0.6, 0, 1)));
+      s.outOpen = eo(clamp(k / 0.4, 0, 1)); s.outContact = k < 0.4 ? 1 - k / 0.4 : 0;
+      s.outLand = k;
+      s.inX = BELT_X1 - 30; s.inExt = 0; s.inOpen = 1; s.inLand = 1;
+      s.boxX = DOCK_L; s.boxY = BOX_TOP_REST;
+      s.boxSX = 1 + 0.03 * damp(clamp((k - 0.1) / 0.9, 0, 1), 5, 4);
+      s.boxSY = 1 - 0.04 * damp(clamp((k - 0.1) / 0.9, 0, 1), 5, 4);
+      s.holder = '';
+    } else {                                      // 9.3–10.0: thùng đứng yên tại x100
+      k = seg(u, T.rest);
+      s.outX = DOCK_L; s.outExt = 0; s.outOpen = 1; s.outLand = 1;
+      s.inX = lerp(BELT_X1 - 30, IN_HOME_X, eio(k)); s.inExt = 0; s.inOpen = 1; s.inLand = 1;
+      s.boxX = DOCK_L; s.boxY = BOX_TOP_REST;
+    }
+    return s;
+  }
+
+  // độ mở thực tế của ngón: 1 = tách khỏi thùng, 0 = áp sát (đè thêm BITE khi kẹp)
+  function jawInset(open, contact) { return lerp(OPEN_X, CLOSED_X - BITE, 1 - clamp(open, 0, 1)); }
+
+  /* ---------------- vẽ ---------------- */
+  var RES = { in: 'gắp thùng từ bến nhập', out: 'chờ trên băng tải' };
+  var clockEl = document.getElementById('clock-readout');
+  var capIn = document.getElementById('cap-in'), capInSub = document.getElementById('cap-in-sub');
+  var capOut = document.getElementById('cap-out'), capOutSub = document.getElementById('cap-out-sub');
+
+  function clearLayers() {
+    ['shadows', 'box', 'grippers', 'fx'].forEach(function (k) { layers[k].textContent = ''; });
+  }
+
+  function drawShadow(x, surfaceY, lift) {
+    var k = clamp(lift / LIFT, 0, 1);
+    ell(layers.shadows, x, surfaceY + 2, 40 * lerp(1, 0.6, k), 6 * lerp(1, 0.6, k), C.navy, { opacity: n1(lerp(0.24, 0.07, k)) });
+  }
+
+  function drawBox(s) {
+    var g = el('g', {
+      transform: 'translate(' + n1(s.boxX) + ' ' + n1(s.boxY + CAR_H) + ') scale(' + (Math.round(s.boxSX * 100) / 100) + ' ' + (Math.round(s.boxSY * 100) / 100) + ')'
+    }, layers.box);
+    var x = -CAR_W / 2, y = -CAR_H;
+    rect(g, x, y, CAR_W, CAR_H, C.honey, { stroke: C.outline, 'stroke-width': 1.5, rx: 2.5 });
+    rect(g, x + CAR_W - 7, y + 2.5, 5.5, CAR_H - 5, C.honeyDark, { opacity: 0.85 });
+    rect(g, x + 2.5, y + 3, CAR_W - 5, 6.5, C.honeyLight, { stroke: C.outline, 'stroke-width': 0.9 });
+    rect(g, x + CAR_W / 2 - 6, y + 1.5, 12, 5, '#efdcae', { stroke: C.outline, 'stroke-width': 0.7 });
+    path(g, [[x + CAR_W / 2, y + 10], [x + CAR_W / 2, y + CAR_H - 5]], 'none', { stroke: C.outlineDark, 'stroke-width': 0.9, opacity: 0.3 });
+    txt(g, x + 6, y + CAR_H - 7, 'HONEY', { fill: C.outlineDark, 'font-size': 6.5, 'font-weight': 'bold', opacity: 0.5, 'letter-spacing': 0.5 });
+  }
+
+  // ext = khoảng cách từ đáy toa (CAR_BOT) xuống bản lề ngón (headY).
+  // headY = CAR_BOT + ext. Ống lồng chạy từ đáy toa xuống đúng headY - 6 (đáy khối cổ tay).
+  // Ngón treo TỪ headY xuống: headY+4 … headY+4+FINGER_LEN, nên đệm luôn ôm hai bên hông thùng.
+  function drawGripper(cx, ext, open, tag, contact) {
+    var g = el('g', {}, layers.grippers);
+    var headTop = CAR_BOT + ext;              // đáy ống lồng / đỉnh cổ tay
+    var headY = headTop + WRIST_H + HEAD_DY;  // thanh vai = bản lề ngón
+
+    // toa kẹp trên ray
+    circ(g, cx - 15, RAIL_Y + 7, 4.5, C.steelDark, { stroke: C.navy, 'stroke-width': 1 });
+    circ(g, cx + 15, RAIL_Y + 7, 4.5, C.steelDark, { stroke: C.navy, 'stroke-width': 1 });
+    rect(g, cx - 25, CAR_TOP, 50, CAR_HGT, C.rail, { stroke: C.steelDark, 'stroke-width': 1.5, rx: 5 });
+    rect(g, cx - 22, CAR_TOP + 3, 44, 4, C.railHi, { opacity: 0.95, rx: 2 });
+    txt(g, cx, CAR_TOP + 17, tag, { fill: C.navy, 'font-size': 8, 'font-weight': 'bold', 'text-anchor': 'middle', 'letter-spacing': 0.6 });
+
+    // ống lồng: từ đáy toa xuống đỉnh cổ tay
+    var top = CAR_BOT - 1, stemH = Math.max(6, headTop - top);
+    rect(g, cx - 7, top, 14, stemH, C.rail, { stroke: C.steelDark, 'stroke-width': 1.1, rx: 1.5 });
+    rect(g, cx - 4.5, top + 3, 9, Math.max(3, stemH - 4), C.steelDark, { rx: 1 });
+
+    // cổ tay
+    rect(g, cx - 11, headTop, 22, WRIST_H, C.steel, { stroke: C.navy, 'stroke-width': 1.2, rx: 3 });
+    rect(g, cx - 8, headTop + 2.5, 16, 3, C.railHi, { opacity: 0.9, rx: 1.5 });
+
+    // thanh vai nối cả hai ngón, nằm đúng trên bản lề
+    var sh = SHOULDER_HALF * 2;
+    rect(g, cx - sh / 2, headY - 3.5, sh, 7, C.steel, { stroke: C.steelDark, 'stroke-width': 1.3, rx: 2.5 });
+    rect(g, cx - sh / 2 + 2, headY - 1.8, sh - 4, 2.4, C.railHi, { opacity: 0.85, rx: 1.2 });
+    circ(g, cx, headY, 2.2, C.steelDark, { stroke: C.navy, 'stroke-width': 0.9 });
+
+    var inset = jawInset(open, contact);
+    for (var dir = -1; dir <= 1; dir += 2) {
+      // tâm mặt bụng đệm khi kẹp cách tâm thùng CLOSED_X, khi mở OPEN_X
+      var inner = cx + dir * inset;
+      var fingerX = inner + dir * PAD_W / 2;
+
+      // ngón nối từ thanh vai xuống
+      rect(g, fingerX - PAD_W / 2, headY, PAD_W, FINGER_LEN, C.steelDark, { stroke: C.navy, 'stroke-width': 1.1, rx: 2 });
+      // đệm má kẹp, phủ đúng chiều cao hông thùng
+      var padY = headY + HEAD_DY + 3;
+      rect(g, inner, padY, PAD_W, PAD_H, C.pad, { stroke: C.navy, 'stroke-width': 1.2, rx: 2 });
+      for (var r = 0; r < 4; r++) {
+        var ry = padY + 8 + r * 11;
+        path(g, [[inner + dir * 2, ry], [inner + dir * 6, ry + 2]], 'none', { stroke: C.padRib, 'stroke-width': 1.4, 'stroke-linecap': 'round' });
+      }
+      rect(g, inner + dir * 1.5, headY + 2, PAD_W - 3, 3, C.railHi, { opacity: 0.7, rx: 1 });
+
+      if (contact > 0.03) {
+        circ(g, inner, padY + PAD_H / 2, 2 + 2.5 * contact, C.warn, { opacity: n1(0.85 * contact) });
+        circ(g, inner, padY + PAD_H / 2, 6 + 12 * contact, 'none', { stroke: C.warn, 'stroke-width': 1.4, opacity: n1(0.7 * contact) });
+      }
+    }
+    return { g: g, headY: headY };
+  }
+
+  function drawLanding(x, surfaceY, p) {
+    if (p <= 0.02 || p >= 0.99) { return; }
+    var a = Math.sin(clamp(p, 0, 1) * Math.PI);
+    ell(layers.fx, x, surfaceY - 1, 14 + 46 * p, 3 + 9 * p, 'none', { stroke: C.ok, 'stroke-width': 1.8, opacity: n1(a * 0.55) });
+    ell(layers.fx, x, surfaceY - 1, 8 + 24 * p, 2 + 5 * p, 'none', { stroke: C.steelDark, 'stroke-width': 1.1, opacity: n1(a * 0.4) });
+  }
+
+  function drawBeltCleats(u) {
+    if (!(u >= T.belt[0] && u < T.belt[1])) { return; }
+    for (var x = BELT_X0 + 40; x < BELT_X1 - 40; x += 54) {
+      path(layers.fx, [[x, BELT_Y + 13], [x - 3, BELT_Y + 7], [x - 3, BELT_Y + 19]], 'none', { stroke: C.white, 'stroke-width': 1.5, opacity: 0.32, 'stroke-linejoin': 'round' });
+    }
+  }
+
+  function render(t) {
+    var u = t % CYCLE, s = state(u);
+    clearLayers();
+
+    // bóng đổ: bến nhập / bến xuất ở sàn, băng tải ở mặt băng
+    var onDock = Math.abs(s.boxX - DOCK_L) < 46 || Math.abs(s.boxX - DOCK_R) < 46;
+    drawShadow(s.boxX, onDock ? FLOOR_Y : BELT_Y, SURFACE_Y - CAR_H - s.boxY);
+
+    drawBox(s);
+    drawBeltCleats(u);
+
+    drawGripper(s.inX, s.inExt, s.inOpen, 'IN', s.inContact);
+    drawGripper(s.outX, s.outExt, s.outOpen, 'OUT', s.outContact);
+
+    if (s.inLand > 0) { drawLanding(BELT_X1 - 30, BELT_Y, s.inLand); }
+    if (s.outLand > 0) { drawLanding(DOCK_L, SURFACE_Y, s.outLand); }
+
+    // caption ngoài scene
+    if (u < T.belt[0]) {
+      capIn.textContent = s.holder === 'in' ? 'IN · đang kẹp thùng' : 'IN · đặt thùng lên băng tải';
+      capInSub.textContent = 'xi-lanh hạ xuống, ngón kẹp trượt ra vào hai bên hông thùng';
+    } else {
+      capIn.textContent = 'IN · chờ ở x850';
+      capInSub.textContent = 'ngón mở, xi-lanh thu hết cỡ';
+    }
+    if (u < T.belt[1]) {
+      capOut.textContent = 'OUT · chờ nhận thùng';
+      capOutSub.textContent = 'băng tải đang đưa thùng sang trái 730 → 230';
+    } else if (u < T.rest[0]) {
+      capOut.textContent = s.holder === 'out' ? 'OUT · đang kẹp thùng' : 'OUT · vừa nhả thùng';
+      capOutSub.textContent = 'gắp thùng khỏi băng tải rồi đặt xuống bến xuất x100';
+    } else {
+      capOut.textContent = 'OUT · thùng đã ở bến xuất';
+      capOutSub.textContent = 'thùng đứng yên tại x100, sang chu kỳ kế tiếp';
+    }
+
+    clockEl.textContent = 'Chu kỳ ' + (Math.round(u * 10) / 10).toFixed(1) + 's / ' + CYCLE.toFixed(1) + 's';
+  }
+
+  /* ---------------- điều khiển ---------------- */
+  var st = { t: 0, paused: false, last: 0 };
+  var btnPause = document.getElementById('btn-pause');
+
+  function frame(now) {
+    if (!st.last) { st.last = now; }
+    var dt = (now - st.last) / 1000;
+    st.last = now;
+    if (!(dt > 0)) { dt = 0; }
+    if (dt > 0.1) { dt = 0.1; }
+    if (!st.paused) { st.t = (st.t + dt) % CYCLE; }
+    render(st.t);
+    requestAnimationFrame(frame);
+  }
+
+  function init() {
+    build();
+    render(0);
+    btnPause.addEventListener('click', function () {
+      st.paused = !st.paused;
+      st.last = 0;
+      btnPause.textContent = st.paused ? 'Tiếp tục' : 'Tạm dừng';
+      btnPause.setAttribute('aria-pressed', st.paused ? 'true' : 'false');
+    });
+    document.getElementById('btn-restart').addEventListener('click', function () {
+      st.t = 0; st.last = 0; render(0);
+    });
+    requestAnimationFrame(frame);
+  }
+
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
+  else { init(); }
+})();
+</script>
+</body>
+</html>
