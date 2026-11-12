@@ -3,14 +3,14 @@ window.GAMES = [
   {
     "id": "factory-sort-new-mechanic",
     "title": "Factory Sort · New Mechanic",
-    "description": "Bản xem trước gồm 8 màn demo gameplay lặp lại, mỗi màn một cơ chế, có nút tạm dừng và bước từng bước để thử nghiệm cơ chế phân loại mới.",
+    "description": "Bản New Mechanic với máy gắp IN/OUT và góc nhìn có chiều sâu cho hai theme Kẹo và Thức ăn.",
     "genre": "Sort / Puzzle",
     "status": "Preview",
-    "play": "previews/new-mechanic/showcase/index.html",
-    "dev": "previews/new-mechanic/showcase/index.html",
-    "version": "mechanic-showcase-queue-top-v4-20261110",
+    "play": "previews/new-mechanic/FactorySort.html",
+    "dev": "previews/new-mechanic/FactorySort.html",
+    "version": "iso-themes-v1-20261112",
     "thumb": "launcher/thumbs/factory-sort-inverted.svg",
-    "updated": "2026-11-10"
+    "updated": "2026-11-12"
   },
   {
     "id": "factory-sort",
