@@ -22,7 +22,7 @@ window.addEventListener('unhandledrejection', function(e) {
 </script>
 </head>
 
-<body data-layout="inverted">
+<body id="toy-factory" data-layout="inverted" data-theme="candy">
     <div id="game-container">
         <header id="game-header">
             <div class="hud-left">
@@ -39,8 +39,20 @@ window.addEventListener('unhandledrejection', function(e) {
                 <span id="tier-display" class="tier-badge">HƯỚNG DẪN</span>
             </div>
 
+            <h1 id="header-title" class="header-title">
+                <span class="header-title-en">Toy Factory</span>
+                <span class="header-title-vi">Nhà máy đồ chơi</span>
+            </h1>
+
             <div class="hud-right">
-                <button id="btn-sound" class="round-btn" title="Bật/Tắt âm thanh" aria-label="Âm thanh">
+                <button id="btn-help" class="round-btn" title="Xem hướng dẫn cách chơi" aria-label="Hướng dẫn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </button>
+                <button id="btn-sound" class="round-btn" title="Cài đặt âm thanh: bật/tắt" aria-label="Cài đặt âm thanh">
                     <svg id="sound-icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                         <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
@@ -52,26 +64,30 @@ window.addEventListener('unhandledrejection', function(e) {
                         <line x1="17" y1="9" x2="23" y2="15"></line>
                     </svg>
                 </button>
-                <button id="btn-help" class="round-btn" title="Xem hướng dẫn cách chơi" aria-label="Hướng dẫn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                    </svg>
-                </button>
-                <button id="btn-select-level" class="round-btn" title="Chọn màn chơi (1 - 50)" aria-label="Chọn màn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            </div>
+
+            <div class="hud-mini" role="group" aria-label="Cài đặt phụ">
+                <div class='theme-selector' role='group' aria-label='Chọn giao diện'>
+                    <button type='button' class='theme-select-button' data-theme-select='candy' aria-pressed='true'>Kẹo</button>
+                    <button type='button' class='theme-select-button' data-theme-select='food' aria-pressed='false'>Đồ ăn</button>
+                </div>
+                <button type="button" id="btn-select-level" class="mini-chip" title="Chọn màn chơi (1 - 50)" aria-label="Chọn màn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
                         <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
                         <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
                         <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
                     </svg>
                 </button>
-                <button id="btn-new-game" class="round-btn" title="Chơi lại / Tải lại màn" aria-label="Chơi lại">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button id="btn-new-game" class="mini-chip" title="Chơi lại / Tải lại màn" aria-label="Chơi lại">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M21.5 2v6h-6"></path>
                         <path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
                     </svg>
+                </button>
+                <button type="button" id="btn-mechanic-lab" class="mechanic-lab-launcher" title="Mở Mechanic Lab" aria-label="Mechanic Lab" aria-haspopup="dialog" aria-controls="overlay-mechanic-lab">
+                    <span class="mechanic-lab-launcher-icon" aria-hidden="true">🧪</span>
+                    <span class="mechanic-lab-launcher-text">Mechanic Lab</span>
                 </button>
             </div>
         </header>
@@ -275,6 +291,29 @@ window.addEventListener('unhandledrejection', function(e) {
             </div>
         </div>
 
+        <!-- Mechanic Lab: practice scenarios are separate from campaign progress. -->
+        <div id="overlay-mechanic-lab" class="overlay hidden">
+            <div class="overlay-content mechanic-lab-modal" role="dialog" aria-modal="true" aria-labelledby="mechanic-lab-title" aria-describedby="mechanic-lab-caption">
+                <div class="mechanic-lab-top">
+                    <div class="mechanic-lab-heading">
+                        <span class="mechanic-lab-kicker">🧪 KHU LUYỆN TẬP</span>
+                        <h2 id="mechanic-lab-title">Mechanic Lab</h2>
+                    </div>
+                    <button type="button" id="btn-close-mechanic-lab" class="mechanic-lab-close" aria-label="Đóng Mechanic Lab">✕</button>
+                </div>
+                <p id="mechanic-lab-caption" class="mechanic-lab-caption">Chọn một thẻ để bắt đầu màn thử. Màn thử không đổi số màn, tiến trình hoặc trạng thái mở khóa chiến dịch; sau màn thử, bạn có thể quay lại đúng màn thường hiện tại.</p>
+                <section class="mechanic-lab-section" aria-labelledby="mechanic-single-title">
+                    <h3 id="mechanic-single-title">Từng cơ chế</h3>
+                    <div id="mechanic-single-grid" class="mechanic-scenario-grid"></div>
+                </section>
+                <section class="mechanic-lab-section" aria-labelledby="mechanic-combo-title">
+                    <h3 id="mechanic-combo-title">Tổ hợp</h3>
+                    <div id="mechanic-combo-grid" class="mechanic-scenario-grid"></div>
+                </section>
+                <p class="mechanic-lab-close-note">Đóng cửa sổ để tiếp tục màn đang chơi, không làm mất nước đi.</p>
+            </div>
+        </div>
+
         <!-- Help Modal (Quick Rules Guide) -->
         <div id="overlay-help" class="overlay hidden">
             <div class="overlay-content help-modal">
@@ -313,6 +352,86 @@ window.addEventListener('unhandledrejection', function(e) {
                         <div class="rule-text">
                             <strong>Thời gian của màn chơi</strong>
                             <p>Ở màn có giới hạn thời gian, đồng hồ bắt đầu khi nhặt món đầu tiên; hết giờ là thua. Mở trợ giúp hoặc ẩn tab sẽ tạm dừng đồng hồ. Khi đã gom xong và chỉ còn giao hàng tự động, bạn không bị trừ thêm giờ.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rule-card blocker-scenario-card">
+                    <div class="rule-icon">🧪</div>
+                    <div class="rule-text blocker-scenario-controls">
+                        <strong>Phòng thử cơ chế</strong>
+                        <p>Chọn một kịch bản để luyện từng cơ chế chặn. Kịch bản thử không làm thay đổi tiến trình hoặc mở khóa màn chiến dịch.</p>
+                        <label for="blocker-scenario">Kịch bản cơ chế chặn</label>
+                        <select id="blocker-scenario" class="blocker-scenario-select" aria-label="Chọn kịch bản cơ chế chặn">
+                            <option value="">— Chọn kịch bản cơ chế —</option>
+                        </select>
+                        <button type="button" id="btn-help-mechanic-lab" class="btn btn-primary-industrial mechanic-help-lab-button">Mở Mechanic Lab</button>
+                        <button type="button" id="blocker-campaign" class="btn btn-ghost">Về màn thường</button>
+                    </div>
+                </div>
+
+                <div class="rules-summary blocker-rules-summary">
+                    <div class="rule-card">
+                        <div class="rule-icon">❓</div>
+                        <div class="rule-text">
+                            <strong>Vật bị che</strong>
+                            <p>Vật ẩn được hiển thị bằng dấu hỏi, kể cả trên bóng kéo. Vật bị che vẫn có thể di chuyển nếu luật của kịch bản cho phép.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🎭</div>
+                        <div class="rule-text">
+                            <strong>Thùng hoặc đơn bị che giấu</strong>
+                            <p>Một số thông tin của thùng có thể bị che. Hãy quan sát huy hiệu trạng thái và các thùng còn lại để suy ra cách sắp xếp.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🧊</div>
+                        <div class="rule-text">
+                            <strong>Ô vật bị đóng băng</strong>
+                            <p>Băng chỉ tác động đến những ô được đánh dấu. Ô đang băng không thể nhấc vật cho đến khi điều kiện phá băng của kịch bản được đáp ứng.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🔒</div>
+                        <div class="rule-text">
+                            <strong>Thùng bị chặn</strong>
+                            <p>Thùng có biểu tượng khóa hoặc chặn phải tuân theo điều kiện mở của kịch bản; không thể dùng thao tác kéo thả để bỏ qua điều kiện này.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🧷</div>
+                        <div class="rule-text">
+                            <strong>Khóa theo vật hoặc vị trí</strong>
+                            <p>Trạng thái chặn có thể khác nhau giữa các ô trong cùng một thùng. Hãy chọn vật và ô đích hợp lệ thay vì cố di chuyển vật đang bị khóa.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">🔗</div>
+                        <div class="rule-text">
+                            <strong>Thùng liên kết đôi</strong>
+                            <p>Hai thùng liên kết phải cùng hoàn tất đóng gói trước khi được nhận vào hàng chờ. Một thành viên chưa sẵn sàng sẽ giữ cả cặp lại.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">📥</div>
+                        <div class="rule-text">
+                            <strong>Điều kiện vào hàng chờ</strong>
+                            <p>Đóng gói xong không luôn đồng nghĩa được bay lên ngay. Thùng sẽ ở lại bàn cho đến khi điều kiện nhận vào hàng chờ được đáp ứng.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">⏸</div>
+                        <div class="rule-text">
+                            <strong>Thùng bị giữ trong hàng chờ</strong>
+                            <p>Thùng có trạng thái giữ vẫn chiếm ô hàng chờ nhưng chưa thể giao lên khay. Nó chỉ xuất hàng khi cơ chế giữ được giải phóng.</p>
+                        </div>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-icon">❄️</div>
+                        <div class="rule-text">
+                            <strong>Đóng băng thời gian toàn màn</strong>
+                            <p>Freeze Time chỉ dừng đồng hồ toàn màn trong 30 giây; băng chuyền và mọi bộ đếm thời gian cục bộ của cơ chế vẫn tiếp tục chạy. Băng hoặc khóa cục bộ trên vật và thùng không dừng đồng hồ toàn màn.</p>
                         </div>
                     </div>
                 </div>
