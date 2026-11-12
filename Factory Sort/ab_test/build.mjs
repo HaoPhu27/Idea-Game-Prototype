@@ -26,6 +26,7 @@ const JS_FILES = [
   'src/ui/AudioManager.js',
   'src/ui/VFXManager.js',
   'src/ui/BoxRenderer.js',
+  'src/ui/GripperRenderer.js',
   'src/ui/TrayRenderer.js',
   'src/ui/ConveyorRenderer.js',
   'src/ui/QueueRenderer.js',
@@ -47,6 +48,16 @@ function stripImports(src, file) {
 }
 
 function stripExports(src, file) {
+  // `export default <Ten>;` chi duoc phep khi <Ten> da duoc khai bao trong chinh
+  // file do: bundle chay nhu script thuong nen cau lenh nay khong con y nghia,
+  // chi can bo dong di. Giu nguyen luat cam voi bieu thuc default (vd: class {...}).
+  src = src.replace(/^([ \t]*)export\s+default\s+([A-Za-z_$][\w$]*)\s*;?[ \t]*$/gm, (m, indent, name) => {
+    const declared = new RegExp(`^\\s*(?:export\\s+)?(?:const|let|var|class|function|async\\s+function)\\s+${name}\\b`, 'm');
+    if (!declared.test(src)) {
+      throw new Error(`${file}: 'export default ${name}' nhung ${name} khong duoc khai bao trong file.`);
+    }
+    return '';
+  });
   if (/^\s*export\s+default\b/m.test(src)) {
     throw new Error(`${file}: dung 'export default'.`);
   }

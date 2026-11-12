@@ -113,15 +113,12 @@ window.addEventListener('unhandledrejection', function(e) {
 
                 <div id="trays-container"></div>
 
-                <!-- Hai cong nam NGOAI #conveyor-belt (khong phai ben trong).
-                     Ly do: #conveyor-belt co z-index:1 nen tao mot ngu canh xep lop
-                     rieng; moi z-index cua con no deu bi kep ben trong lop 1, tuc luon
-                     nam DUOI #trays-container (z-index:6). De o trong thi Khay troi qua
-                     se che mat chu IN/OUT. Dat ra ngoai, ngang hang voi lop Khay, thi
-                     tam chan moi thuc su dung tren — va Khay "chui vao sau tam chan"
-                     dung nhu mot cua may. -->
-                <div class="port-out">⬅ OUT</div>
-                <div class="port-in">IN ⬇</div>
+                <!-- Hai nhan cong chi de DOC HUONG, khong con la tam chan cua may.
+                     Hinh co cau gap that su do GripperRenderer ve trong
+                     #trays-container (.gripper-overlay), nen o day chi con chu tran,
+                     khong nen, khong vien, khong z-index de len Khay. -->
+                <span class="port-label port-label-out" aria-hidden="true">OUT</span>
+                <span class="port-label port-label-in" aria-hidden="true">IN</span>
 
                 <div id="tray-remaining" class="tray-remaining">còn 46</div>
             </section>

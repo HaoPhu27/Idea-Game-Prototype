@@ -1277,6 +1277,11 @@ class UIManager {
                 if (!tray.canAccept(box)) continue;
                 const trayObj = this.trayRenderer.trayElements.find(t => t.id === tray.id);
                 if (!trayObj || !trayObj.el || trayObj.isExiting || trayObj.isReceiving || trayObj.fadingOut) continue;
+                // Khay dang duoc co cau kep NANG vao tu cong IN chua phai la khay tren
+                // bang chuyen: no chua troi qua o hang cho nao, nen khong duoc nhan hang.
+                // Theta cua no bi ghim o cong IN trong ca luc ha, nen neu de lot qua day
+                // thi no se "nhan" o slot 0 ngay truoc mat nguoi choi.
+                if (trayObj.isEntering) continue;
                 if (!this.trayRenderer.isInDeliveryZone(trayObj, slotEl, queue.length)) continue;
 
                 this.triggerQueueDelivery(box, tray, slotEl, trayObj.el);

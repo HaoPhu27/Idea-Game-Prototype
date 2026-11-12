@@ -1,5 +1,6 @@
 import { getCategoryConfig, getItemEmoji, getCategoryIcon } from '../data/ItemCatalog.js';
 import { applyItemArt } from './ItemArt.js';
+import { GripperRenderer } from './GripperRenderer.js';
 
 export class TrayRenderer {
     constructor(containerId) {
@@ -17,7 +18,15 @@ export class TrayRenderer {
         this.rejectTrayId = null;
         this.animate = this.animate.bind(this);
         this.onTick = null;
-        
+
+        // Lop phu co cau kep. Khong giu trang thai thoi gian: TrayRenderer day job
+        // moi trong updatePositions() tu dung tam Khay that su.
+        this.gripperRenderer = new GripperRenderer(this.container);
+
+        // Thoi luong vat ly cua mot luot kep: ha xuong -> mang di -> dat -> nha.
+        // Dung chung cho ca cong IN (nang Khay moi) va cong OUT (nhac Khay di).
+        this.HANDLE_DURATION = 700; // ms
+
         this.geom = this.readBeltGeometry();
         this._ro = new ResizeObserver(() => { this.geom = this.readBeltGeometry(); this._paintTrack(); });
         this._ro.observe(this.container);
@@ -32,6 +41,18 @@ export class TrayRenderer {
         this.slotCount = 4;
         this.offset = 0;
         this.shiftDecayTime = 0;
+        this._skipRespaceOnce = false;
+
+        // container.innerHTML = '' cung xoa luon lop phu kep. GripperRenderer._ensureRoot()
+        // tu gan lai root vao container o lan render() ke tiep, nen chi can xoa job o day.
+        // destroy() la tuy chon: khong phai ban GripperRenderer nao cung co.
+        if (this.gripperRenderer) {
+            this.gripperRenderer.reset();
+            if (typeof this.gripperRenderer.destroy === 'function') {
+                this.gripperRenderer.destroy();
+                this.gripperRenderer = new GripperRenderer(this.container);
+            }
+        }
     }
 
     start() {
@@ -325,6 +346,10 @@ export class TrayRenderer {
             this.offset = 0;
             this.trayElements.forEach(t => t.el.remove());
             this.trayElements = [];
+            // Dau man: Khay xep san san -> khong co luot kep nao. Xoa lop phu cu de
+            // khong con canh tay "treo" tu man truoc.
+            if (this.gripperRenderer) this.gripperRenderer.reset();
+            this._skipRespaceOnce = false;
         } else if (slotCountChanged) {
             // Cuoi man, so Khay con lai tut xuong duoi maxActive nen delta doi. Quy doi
             // slotPos sang he moi de GOC hien tai cua tung Khay khong doi; viec dan ra
@@ -351,6 +376,13 @@ export class TrayRenderer {
                 let spawnTargetTheta = 0;
                 let hasSpawned = false;
                 let spawnStartTime = 0;
+                // Thu tu cua Khay moi trong lan render nay (0 = khay vao truoc tien).
+                let newcomerSlot = 0;
+
+                // Khay moi trong man (khong phai dau man): KHONG hien ngay tai cong IN.
+                // No duoc co cau kep nang tu TREN XUONG (xem updatePositions), nen phai
+                // giu theta = 0 co dinh trong luc dang ha — chua duoc tham gia vong chay.
+                const entering = !isStartOfLevel;
 
                 if (isStartOfLevel) {
                     // Vao man: maxActive Khay xep san deu vong, lo ra ngay lap tuc.
@@ -369,10 +401,11 @@ export class TrayRenderer {
                     // thi hien ngay" con lam Khay bup ra giua bang chuyen.
                     const gateTheta = Math.round(this.offset / (2 * Math.PI)) * 2 * Math.PI;
                     // newcomerIndex: neu hai Khay cung vao trong mot lan render thi Khay
-                    // thu hai dung lui mot slot phia sau cong, khong chong len Khay dau.
+                    // thu hai vao SAU mot nhip kep, khong chong len Khay dau tai cong IN
+                    // (ca hai deu bi ghim theta = 0 trong suot luot ha).
                     slotPos = (gateTheta - this.offset) / delta + newcomerIndex;
                     hasSpawned = true;
-                    spawnStartTime = performance.now();
+                    newcomerSlot = newcomerIndex;
                     newcomerIndex++;
                 }
 
@@ -381,7 +414,10 @@ export class TrayRenderer {
                 trayEl.dataset.trayId = tray.id;
                 trayEl.style.position = 'absolute';
                 trayEl.style.left = '0px';
-                trayEl.style.bottom = '0px';
+                // Goc toa do la TRAI-TREN (giong GripperRenderer): transform translate3d
+                // o updatePositions dung y tu dinh xuong, nen bottom:0 se lech nguoc chieu.
+                trayEl.style.top = '0px';
+                trayEl.style.bottom = 'auto';
                 trayEl.style.display = hasSpawned ? '' : 'none'; // an cho toi khi qua cong IN
                 
                 // Base structure: sleek colored cap, no explicit text label
@@ -408,7 +444,14 @@ export class TrayRenderer {
                     fadingOut: false,
                     spawnTargetTheta: spawnTargetTheta,
                     hasSpawned: hasSpawned,
-                    spawnStartTime: spawnStartTime
+                    spawnStartTime: spawnStartTime,
+                    // Trang thai luot kep o cong IN. `isEntering` chan checkQueuePickup
+                    // (UIManager) — Khay dang duoc ha xuong thi chua phai khay tren bang
+                    // chuyen nen khong duoc nhan hang tu hang cho.
+                    isEntering: entering,
+                    // Khay thu hai trong cung mot lan render vao sau mot nhip kep de
+                    // khong chong len Khay thu nhat tai cong IN.
+                    enterStartTime: entering ? performance.now() + newcomerSlot * 760 : 0
                 };
                 this.trayElements.push(newTrayObj);
                 existing = newTrayObj;
@@ -467,6 +510,8 @@ export class TrayRenderer {
             const t = this.trayElements[i];
             if (!t.isExiting) {
                 const stillActive = activeTrays.some(a => a.id === t.id);
+                // Khay dang duoc co cau nang vao van hien trong activeTrays, nen o day
+                // chi con lai truong hop engine da bo Khay (booster xoa / reset man).
                 if (!stillActive) {
                     t.el.remove();
                     this.trayElements.splice(i, 1);
@@ -474,7 +519,11 @@ export class TrayRenderer {
             }
         }
         
-        this._respace();
+        // _skipRespaceOnce: Khay vua duoc NHA khoi co cau vua duoc gan slotPos dung
+        // theo offset hien tai. Dan lai ngay frame do se keo no khoi diem IN ngay
+        // (mot cu giat); de khung HINH KE TIEP moi dan ra deu.
+        if (this._skipRespaceOnce) this._skipRespaceOnce = false;
+        else this._respace();
         this.updatePositions(performance.now());
 
         // Phase 3 §3.6: Chỉ báo "còn lại N đơn"
@@ -516,19 +565,21 @@ export class TrayRenderer {
                 item.currentTheta += deltaTheta;
                 
                 // Out port is at left edge (cos approaches -1). Front track (sin <= 0).
-                if (!item.fadingOut && Math.cos(item.currentTheta) < -0.88 && Math.sin(item.currentTheta) <= 0.08) {
-                    item.fadingOut = true;
-                    item.el.classList.add('exiting'); // Trigger CSS fade out
-                    item.el.style.transition = 'transform 0.35s ease-in, opacity 0.35s ease-in';
-                    const curTransform = item.el.style.transform;
-                    item.el.style.transform = `${curTransform} translateX(-60px) scale(0.6)`;
-                    item.el.style.opacity = '0';
-                    setTimeout(() => {
-                        const idx = this.trayElements.indexOf(item);
-                        if (idx > -1) this.trayElements.splice(idx, 1);
-                        if (item.el.parentNode) item.el.remove();
-                        if (item.onComplete) item.onComplete();
-                    }, 350);
+                if (!item.fadingOut && !item.pickupStartTime &&
+                    Math.cos(item.currentTheta) < -0.88 && Math.sin(item.currentTheta) <= 0.08) {
+                    // DONG BANG tai DUNG diem quy dao hien tai (khong nhay ve mot moc
+                    // "gan dung"), roi bat dau luot nhac vat ly 700ms. Khong con
+                    // fade/scale: Khay duoc co cau nang len that su.
+                    const pt = this.getTrackPoint(item.currentTheta);
+                    item.pickupStartTime = now;
+                    // Lat truc y sang he CSS (goc trai-tren) NGAY tai day va giu lai toa do
+                    // tuyet doi: luot nhac khong con phu thuoc geom neu man hinh doi kich
+                    // thuoc giua chung.
+                    item.pickupAnchor = {
+                        x: pt.x,
+                        y: (this.geom ? this.geom.beltH : 0) - pt.y
+                    };
+                    item.el.classList.remove('exiting');
                 }
             }
         }
@@ -563,66 +614,172 @@ export class TrayRenderer {
             cleat.setAttribute('stroke-dashoffset', (-d).toFixed(1));
         }
 
-        if (!this.container || this.trayElements.length === 0) return;
-        
+        if (!this.container || this.trayElements.length === 0) {
+            if (this.gripperRenderer) this.gripperRenderer.render([]);
+            return;
+        }
+
         const g = this.geom;
         const delta = (2 * Math.PI) / (this.slotCount || 4);
-        
+        const HANDLE = this.HANDLE_DURATION || 700;
+
+        // Moi job = mot canh tay kep dang ve. Gom trong CUNG vong lap dat transform
+        // ben duoi, nen tam kep truyen cho GripperRenderer luon la tam Khay THAT SU
+        // cua khung hinh nay (khong phai vi tri du kien).
+        const jobs = [];
+
         this.trayElements.forEach(item => {
+            // Khay da hoan tat luot nha (`fadingOut`) da duoc nha callback go khoi mang;
+            // neu con thi bo qua de khong ve de len luot kep ke tiep.
             if (item.fadingOut) return;
 
+            // Toa do theo HE CSS cua #trays-container: goc trai-tren, y huong xuong.
+            // getTrackPoint() tra y do tu DAY container len -> phai lat truc.
+            const containerH = g.beltH;
+            const toCssY = trackY => containerH - trackY;
+
+            let x;              // tam Khay theo x
+            let y;              // tam Khay theo y (he CSS)
             let theta;
-            if (!item.isExiting) {
+
+            if (item.isExiting) {
+                theta = item.currentTheta;
+
+                if (item.pickupStartTime) {
+                    // ---- Luot NHAC khay tai cong OUT (700ms, thuan vat ly) ----
+                    // Khong con fade/scale: co cau nhac Khay len roi moi ghi nhan
+                    // giao hang. Moc thoi gian lay tu `now`, khong dung setTimeout.
+                    const p = Math.max(0, Math.min(1, (now - item.pickupStartTime) / HANDLE));
+                    const pt = this.getTrackPoint(theta);
+                    const startX = item.pickupAnchor ? item.pickupAnchor.x : pt.x;
+                    const startY = item.pickupAnchor ? item.pickupAnchor.y : toCssY(pt.y);
+
+                    // "len 25 roi sang trai 20": y CSS giam = di len.
+                    x = startX - 20 * p;
+                    y = startY - 25 * p;
+                    item.el.style.opacity = '1';
+
+                    if (p >= 1) {
+                        this._finishExit(item);
+                        return;
+                    }
+                    jobs.push({ side: 'out', x, y, w: g.trayW, h: g.trayH, progress: p });
+                } else {
+                    // Dang cho Khay troi toi cong OUT. Chua co co cau: cong OUT chi nhac
+                    // Khay khi no da toi dung cua (dieu kien da co san trong animate()).
+                    const pt = this.getTrackPoint(theta);
+                    x = pt.x;
+                    y = toCssY(pt.y);
+                    item.el.style.opacity = '1';
+                }
+            } else {
                 const rawTheta = item.slotPos * delta + this.offset;
-                
+
                 // Check if ready to emerge at IN gate
                 if (!item.hasSpawned) {
                     if (rawTheta <= item.spawnTargetTheta) {
                         item.hasSpawned = true;
-                        item.spawnStartTime = now;
                         item.el.style.display = '';
                     } else {
                         item.el.style.display = 'none';
                         return;
                     }
                 }
-                
+
                 theta = rawTheta;
+
+                if (item.isEntering) {
+                    // ---- Luot NANG khay moi vao tai cong IN (700ms) ----
+                    // Theta bi GHIM o cong IN trong suot luot ha: Khay chua thuc su nam
+                    // tren bang chuyen, nen tra ve vong chay luc nay se lam no truot di
+                    // ngay duoi tay kep.
+                    const p = Math.max(0, Math.min(1, (now - item.enterStartTime) / HANDLE));
+                    if (p <= 0) {
+                        // Khay xep hang cho luot kep cua no: chua ve gi, chua co job.
+                        // (Truong hop hai Khay moi trong cung mot lan render.)
+                        item.el.style.display = 'none';
+                        return;
+                    }
+                    // Da toi luot: hien lai (co the vua bi an o tren) va bat dau luot kep.
+                    if (item.el.style.display === 'none') item.el.style.display = '';
+                    const gate = this.getTrackPoint(item.spawnTargetTheta || 0);
+                    const anchorX = gate.x;
+                    const anchorY = toCssY(gate.y);
+
+                    // 4 chang cua mot luot vat ly, cung nhip voi ngon kep:
+                    //   0.00..0.25  giu tai diem kep (GRIP_X, GRIP_Y) - ngon kep dong lai
+                    //   0.25..0.65  mang di   - tu diem kep ve dung ANCHOR (cong IN)
+                    //   0.65..0.80  dat xuong - da o anchor, khong doi vi tri
+                    //   0.80..1.00  nha      - giu nguyen, cho ngon kep mo ra
+                    const GRIP_X = anchorX + 20;
+                    const GRIP_Y = anchorY - 25;
+                    if (p < 0.25) {
+                        // Giu yen tai diem kep trong luc ngon kep dong lai. Khong di
+                        // chuyen o chang nay, de chang sau bat dau DUNG tai (GRIP_X,
+                        // GRIP_Y) — truoc day p=.25 nhay ve GRIP_Y.
+                        x = GRIP_X;
+                        y = GRIP_Y;
+                    } else if (p < 0.65) {
+                        // Mang di: tu diem kep ve dung ANCHOR (cong IN), ca x lan y.
+                        const t = (p - 0.25) / 0.40;
+                        const ease = t * t * (3 - 2 * t); // smoothstep: khong giat dau/cuoi
+                        x = GRIP_X + (anchorX - GRIP_X) * ease;
+                        y = GRIP_Y + (anchorY - GRIP_Y) * ease;
+                    } else {
+                        // Dat/nha: dung yen tai anchor de cu dat khong bi "truot".
+                        x = anchorX;
+                        y = anchorY;
+                    }
+                    item.el.style.opacity = '1';
+
+                    jobs.push({ side: 'in', x, y, w: g.trayW, h: g.trayH, progress: p });
+
+                    if (p >= 1) {
+                        // NHA khay: ban giao tu cong IN sang vong chay ma KHONG nhay.
+                        // slotPos duoc chon theo offset HIEN TAI sao cho
+                        // slotPos*delta + offset == spawnTargetTheta, tuc goc hien tai
+                        // dung bang goc cong IN; tu day Khay chi con troi theo offset.
+                        item.isEntering = false;
+                        item.enterStartTime = 0;
+                        item.slotPos = (item.spawnTargetTheta - this.offset) / delta;
+                        item.targetSlotPos = item.slotPos;
+                        // Chua dua vao _respace: no se dan ra deu ngay trong khung ke tiep.
+                        this._skipRespaceOnce = true;
+                    }
+                } else {
+                    const pt = this.getTrackPoint(theta);
+                    x = pt.x;
+                    y = toCssY(pt.y);
+                    item.el.style.opacity = '1';
+                }
+
                 item.currentTheta = theta;
-            } else {
-                theta = item.currentTheta;
             }
-            
-            // Emergence animation at IN gate ("hiện lên trên cổng rồi đi ra"):
-            // Opacity fades in, scale expands, rises up 16px onto the gate surface
-            let spawnOpacity = 1;
-            let spawnScale = 1;
-            let riseY = 0;
-            
-            const SPAWN_DURATION = 450; // ms
-            if (item.spawnStartTime && (now - item.spawnStartTime < SPAWN_DURATION)) {
-                const p = Math.max(0, Math.min(1, (now - item.spawnStartTime) / SPAWN_DURATION));
-                const ease = 1 - Math.pow(1 - p, 2); // ease-out quad
-                spawnOpacity = ease;
-                spawnScale = 0.70 + 0.30 * ease;
-                riseY = (1 - ease) * 16;
-            }
-            
-            const pt = this.getTrackPoint(theta);
-            const x = pt.x;
-            const y = pt.y;
-            
-            const finalScale = spawnScale;
-            const finalY = y - riseY;
-            
-            item.el.style.opacity = spawnOpacity.toFixed(3);
+
             item.el.style.transformOrigin = 'center center';
-            item.el.style.transform = 
-                `translate3d(${(x - g.trayW / 2).toFixed(1)}px, ${(-finalY + g.trayH / 2).toFixed(1)}px, 0) ` +
-                `scale(calc(${finalScale.toFixed(3)} * var(--hl)))`;
+            item.el.style.transform =
+                `translate3d(${(x - g.trayW / 2).toFixed(1)}px, ${(y - g.trayH / 2).toFixed(1)}px, 0) ` +
+                `scale(var(--hl))`;
             item.el.style.filter = '';
             item.el.style.zIndex = '6';
         });
+
+        // Ve co cau SAU KHI transform cua Khay da duoc dat -> tam kep khop tuyet doi.
+        if (this.gripperRenderer) this.gripperRenderer.render(jobs);
+    }
+
+    /**
+     * Ket thuc luot nhac o cong OUT: go Khay va bao engine DUNG MOT LAN.
+     * Co the bi goi lai tu nhieu khung hinh, nen `exitDone` bao dam callback chi chay mot lan.
+     */
+    _finishExit(item) {
+        if (item.exitDone) return;
+        item.exitDone = true;
+        item.fadingOut = true;
+        const idx = this.trayElements.indexOf(item);
+        if (idx > -1) this.trayElements.splice(idx, 1);
+        if (item.el && item.el.parentNode) item.el.remove();
+        if (item.onComplete) item.onComplete();
     }
 
     /**
@@ -636,7 +793,10 @@ export class TrayRenderer {
      * deu trong khoang 0.3s.
      */
     _respace() {
-        const ring = this.trayElements.filter(t => !t.fadingOut);
+        // Khay dang duoc kep nang vao (`isEntering`) CHUA nam tren vong chay: dua no
+        // vao day se keo cac Khay khac danh cho mot o khong ton tai. No duoc nha ve
+        // dung slotPos cua no (xem updatePositions) o khung hinh ket thuc luot.
+        const ring = this.trayElements.filter(t => !t.fadingOut && !t.isEntering);
         const n = ring.length;
         if (n === 0) return;
 
@@ -671,10 +831,14 @@ export class TrayRenderer {
         
         trayData.isExiting = true;
         trayData.onComplete = onComplete;
-        
+
         // Khay dang di ra khong con nam trong vong dan deu nua (xem _respace): no giu
         // currentTheta rieng va troi tiep toi cong OUT. Khay thay the khong doi no —
         // render() ke tiep dua Khay moi vao thang o cong IN.
+        //
+        // Khong bat dau luot nhac o day: Khay con phai TROI toi cong OUT truoc (xem
+        // animate()). .exiting (CSS fade + scale) bi loai bo hoan toan — luot di ra
+        // gio do co cau kep thuc hien, nen khay phai giu opacity 1.
 
         // Remove 'exiting' class just in case it was incorrectly added
         trayData.el.classList.remove('exiting');
