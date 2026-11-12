@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Chọn tay gắp cho nhà máy</title>
+<style>
+  :root{
+    --navy:#1f2b4d; --navy-soft:#43506f; --muted:#6b7690;
+    --cream:#fdf6e8; --cream-2:#fbf0da; --sky:#dceffb;
+    --card:#fffdf8; --line:#e6dfcd; --accent:#2f6fd6; --mint:#4fae8a; --peach:#e08a6c;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:linear-gradient(180deg,var(--sky) 0%,#eef6fb 32%,var(--cream) 62%,var(--cream-2) 100%);
+    color:var(--navy);font-family:Verdana,Geneva,Arial,sans-serif;font-size:15px;line-height:1.55;
+    min-height:100vh;-webkit-font-smoothing:antialiased;
+  }
+  .page{width:min(1180px,calc(100% - 32px));margin-inline:auto;padding:28px 0 40px}
+  .eyebrow{margin:0 0 4px;font-size:11px;font-weight:bold;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  h1{margin:0;font-size:clamp(22px,3vw,32px);line-height:1.2;letter-spacing:-.02em}
+  .sub{margin:6px 0 0;color:var(--navy-soft);font-size:15px}
+
+  .bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:20px 0 14px;padding:12px 14px;
+    background:rgba(255,255,255,.72);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(4px)}
+  .group{display:flex;align-items:center;gap:6px}
+  .group > span{font-size:11px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+  .spacer{flex:1 1 20px}
+  button{font:inherit;font-size:13px;font-weight:bold;color:var(--navy);background:#fff;border:1px solid #d9d2c0;
+    border-radius:11px;min-height:40px;padding:8px 15px;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+  button:hover{background:#f4efe2}
+  button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fffdf8}
+  button.pick{background:var(--accent);border-color:var(--accent);color:#fff;min-height:44px;padding-inline:20px}
+  button.pick:hover{background:#2760bd}
+  :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+  .grid{display:grid;gap:16px;grid-template-columns:repeat(2,minmax(0,1fr));max-width:1000px;margin-inline:auto}
+  .grid.expand{grid-template-columns:1fr}
+  .card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:12px;box-shadow:0 12px 30px rgba(31,43,77,.07);transition:box-shadow .2s,border-color .2s,transform .2s;min-width:0}
+  .card.chosen{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 14px 34px rgba(47,111,214,.16);transform:translateY(-2px)}
+  .card.wide{flex-direction:row;gap:18px;align-items:stretch}
+  .card.wide .stage{flex:1 1 62%}
+  .card.wide .meta{flex:1 1 38%;justify-content:center}
+  .stage{margin:0;border-radius:12px;overflow:hidden;background:linear-gradient(180deg,#e8f4fc,#fdf4e3)}
+  .stage svg{display:block;width:100%;height:auto}
+  .card.wide .stage svg{max-height:78vh}
+  .meta{display:flex;flex-direction:column;gap:4px;padding:10px 4px 2px;min-width:0}
+  .meta-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .letter{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:8px;background:var(--navy);color:#fffdf8;font-size:12px;font-weight:bold}
+  .name{font-size:15px;font-weight:bold;line-height:1.3}
+  .tag{font-size:10px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:#1d6b4e;background:#d8f2e6;border:1px solid #a9dcc5;border-radius:999px;padding:1px 8px}
+  .desc{margin:0;font-size:12.5px;color:var(--navy-soft)}
+  .phase{margin:8px 0 0;font-size:11.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
+  .phase::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--mint);flex:none}
+  .row{display:flex;gap:8px;margin-top:auto;padding-top:10px}
+  .row button{flex:1 1 0;min-height:36px;font-size:12px}
+
+  .sticky{position:sticky;bottom:0;margin-top:18px;padding:12px 16px;background:rgba(255,253,248,.94);
+    border:1px solid var(--line);border-radius:16px;box-shadow:0 -6px 24px rgba(31,43,77,.08);backdrop-filter:blur(6px);
+    display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:14px}
+  .sticky strong{font-size:15px}
+  .sticky .hint{font-size:12px;color:var(--muted)}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  @media (max-width:980px){ .card.wide{flex-direction:column} }
+  @media (max-width:600px){
+    .page{width:calc(100% - 20px);padding-top:18px}
+    .grid{grid-template-columns:1fr}
+    button{flex:1 1 auto}
+    .bar{position:static}
+    .group{flex-wrap:wrap}
+  }
+  @media (prefers-reduced-motion:reduce){ button,.card{transition:none} }
+</style>
+</head>
+<body>
+<main class="page">
+  <p class="eyebrow">Nhà máy bánh kẹo · Chọn thiết bị</p>
+  <h1>Chọn tay gắp cho nhà máy</h1>
+  <p class="sub">Cùng một động tác, bốn thiết kế.</p>
+
+  <div class="bar" role="toolbar" aria-label="Điều khiển xem thử">
+    <div class="group" role="group" aria-label="Loại hàng">
+      <span>Hàng</span>
+      <button type="button" data-theme="candy" aria-pressed="true">Bánh kẹo</button>
+      <button type="button" data-theme="fruit" aria-pressed="false">Hoa quả</button>
+    </div>
+    <div class="group" role="group" aria-label="Tốc độ">
+      <span>Tốc độ</span>
+      <button type="button" data-speed="0.75" aria-pressed="false">0.75x</button>
+      <button type="button" data-speed="1" aria-pressed="true">1x</button>
+    </div>
+    <div class="group" role="group" aria-label="Phát">
+      <button type="button" id="playBtn" aria-pressed="true">Tạm dừng</button>
+      <button type="button" id="restartBtn">Chạy lại</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="group" role="group" aria-label="Chế độ xem">
+      <button type="button" id="expandBtn" aria-pressed="false">Xem lớn</button>
+    </div>
+  </div>
+
+  <div class="grid" id="grid">
+    <article class="card" data-key="A" aria-labelledby="nameA">
+      <figure class="stage"><svg viewBox="0 0 340 260" role="img" aria-label="Mẫu A: kẹp mềm hai ngón đang gắp"></svg></figure>
+      <div class="meta">
+        <div class="meta-top"><span class="letter" aria-hidden="true">A</span><h2 class="name" id="nameA">Kẹp mềm hai ngón</h2><span class="tag">Đề xuất</span></div>
+        <p class="desc">Ngón mềm ôm vừa viên kẹo, không làm xước mặt hàng.</p>
+        <p class="phase" data-phase></p>
+        <div class="row"><button type="button" class="pick" data-pick="A">Chọn mẫu A</button><button type="button" class="zoom" data-zoom="A">Xem lớn</button></div>
+      </div>
+    </article>
+    <article class="card" data-key="B" aria-labelledby="nameB">
+      <figure class="stage"><svg viewBox="0 0 340 260" role="img" aria-label="Mẫu B: mút mềm trái cây đang gắp"></svg></figure>
+      <div class="meta">
+        <div class="meta-top"><span class="letter" aria-hidden="true">B</span><h2 class="name" id="nameB">Mút mềm trái cây</h2></div>
+        <p class="desc">Đầu mút tròn như ngón tay, giữ quả tròn mà không bẹp.</p>
+        <p class="phase" data-phase></p>
+        <div class="row"><button type="button" class="pick" data-pick="B">Chọn mẫu B</button><button type="button" class="zoom" data-zoom="B">Xem lớn</button></div>
+      </div>
+    </article>
+    <article class="card" data-key="C" aria-labelledby="nameC">
+      <figure class="stage"><svg viewBox="0 0 340 260" role="img" aria-label="Mẫu C: kẹp cong kẹo mềm đang gắp"></svg></figure>
+      <div class="meta">
+        <div class="meta-top"><span class="letter" aria-hidden="true">C</span><h2 class="name" id="nameC">Kẹp cong kẹo mềm</h2></div>
+        <p class="desc">Hai lưỡi cong vòng theo khe khay, đóng êm hơn.</p>
+        <p class="phase" data-phase></p>
+        <div class="row"><button type="button" class="pick" data-pick="C">Chọn mẫu C</button><button type="button" class="zoom" data-zoom="C">Xem lớn</button></div>
+      </div>
+    </article>
+    <article class="card" data-key="D" aria-labelledby="nameD">
+      <figure class="stage"><svg viewBox="0 0 340 260" role="img" aria-label="Mẫu D: giác hút tròn đang gắp"></svg></figure>
+      <div class="meta">
+        <div class="meta-top"><span class="letter" aria-hidden="true">D</span><h2 class="name" id="nameD">Giác hút tròn</h2></div>
+        <p class="desc">Một chạm là dính, nhấc hàng phẳng và sạch sẽ.</p>
+        <p class="phase" data-phase></p>
+        <div class="row"><button type="button" class="pick" data-pick="D">Chọn mẫu D</button><button type="button" class="zoom" data-zoom="D">Xem lớn</button></div>
+      </div>
+    </article>
+  </div>
+
+  <div class="sticky" role="status" aria-live="polite">
+    <strong id="summary">Bạn đang chọn: chưa chọn mẫu nào</strong>
+    <span class="hint">Bản xem thử — lựa chọn chỉ ở đây, không thay đổi nhà máy đang chạy.</span>
+  </div>
+</main>
+
+<script src="options-soft.js"></script>
+<script src="options-organic.js"></script>
+<script>
+(function () {
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  var D = window.GripperOptionDrawers;
+  var STAGE_W = 340, FLOOR = 236;
+  var TRAY_W = 64, TRAY_H = 48;
+  var HOME_X = 90, PICK_X = 250;
+  var HEAD_IDLE = 70, HEAD_LOW = 158, HEAD_LIFT = 100;
+  var TRAY_LOW = HEAD_LOW + 14;
+  var FEED_X = 44;
+  var BELT_H = 48, BELT_Y = TRAY_LOW + TRAY_H;   // 220: belt surface where the trays rest
+  var CYCLE = 7;                                   // seconds in one full loop
+
+  var state = { playing: true, speed: 1, theme: 'candy', chosen: null, expanded: false, time: 0, lastNow: 0 };
+  var cards = [].slice.call(document.querySelectorAll('.card'));
+  var phaseLabels = {
+    idle: 'Chờ hàng ở bến nhập',
+    descend: 'Hạ đầu gắp xuống khay',
+    close: 'Kẹp chặt viên hàng',
+    lift: 'Nhấc khay lên',
+    move: 'Chuyển sang bến xuất',
+    lower: 'Hạ khay xuống',
+    release: 'Nhả khay',
+    retract: 'Rút tay gắp lên',
+    hold: 'Khay đã lên băng tải, tay gắp chờ',
+    feed: 'Đưa khay mới vào bến nhập'
+  };
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function ease(t) { return t * t * (3 - 2 * t); }
+  function seg(p, a, b) { return Math.max(0, Math.min(1, (p - a) / (b - a))); }
+  function el(parent, tag, attrs) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) if (attrs[k] != null) n.setAttribute(k, attrs[k]);
+    parent.appendChild(n);
+    return n;
+  }
+
+  /* ---------- shared timeline: one pose per card, derived from t in [0, CYCLE) seconds ---------- */
+  function poseAt(t) {
+    var pose = { x: PICK_X, y: HEAD_IDLE, open: 0.18, contact: 0, phase: 'idle', held: false, land: 0 };
+    // tray placement is owned per phase: rides the head, or sits on the belt
+    pose.trayX = PICK_X; pose.trayY = TRAY_LOW;
+    if (t < 0.8) {
+      pose.phase = 'descend';
+      pose.y = lerp(HEAD_IDLE, HEAD_LOW, ease(seg(t, 0, 0.8)));
+      pose.open = 1;
+      pose.trayX = PICK_X; pose.trayY = TRAY_LOW;
+    } else if (t < 1.2) {
+      pose.phase = 'close';
+      pose.y = HEAD_LOW;
+      pose.open = 1 - ease(seg(t, 0.8, 1.2));
+      pose.contact = seg(t, 1.0, 1.2);
+      pose.trayX = PICK_X; pose.trayY = TRAY_LOW;
+    } else if (t < 1.9) {
+      pose.phase = 'lift';
+      pose.y = lerp(HEAD_LOW, HEAD_LIFT, ease(seg(t, 1.2, 1.9)));
+      pose.open = 0; pose.contact = 1; pose.held = true;
+      pose.trayX = pose.x; pose.trayY = pose.y + 14;
+    } else if (t < 3) {
+      pose.phase = 'move';
+      pose.x = lerp(PICK_X, HOME_X, ease(seg(t, 1.9, 3)));
+      pose.y = HEAD_LIFT; pose.open = 0; pose.contact = 1; pose.held = true;
+      pose.trayX = pose.x; pose.trayY = pose.y + 14;
+    } else if (t < 3.7) {
+      pose.phase = 'lower';
+      pose.x = HOME_X;
+      pose.y = lerp(HEAD_LIFT, HEAD_LOW, ease(seg(t, 3, 3.7)));
+      pose.open = 0; pose.contact = 1; pose.held = true;
+      pose.land = seg(t, 3.5, 3.7);
+      pose.trayX = pose.x; pose.trayY = pose.y + 14;
+    } else if (t < 4.1) {
+      pose.phase = 'release';
+      pose.x = HOME_X; pose.y = HEAD_LOW;
+      pose.open = ease(seg(t, 3.7, 4.1)); pose.contact = 1 - pose.open;
+      pose.land = 1 - seg(t, 3.7, 4.1);
+      pose.trayX = HOME_X; pose.trayY = TRAY_LOW;
+    } else if (t < 4.8) {
+      pose.phase = 'retract';
+      pose.x = HOME_X;
+      pose.y = lerp(HEAD_LOW, HEAD_IDLE, ease(seg(t, 4.1, 4.8)));
+      pose.open = 1;
+      pose.trayX = HOME_X; pose.trayY = TRAY_LOW;
+    } else if (t < 6) {
+      pose.phase = 'hold';
+      pose.x = HOME_X; pose.y = HEAD_IDLE; pose.open = 0.45;
+      pose.trayX = HOME_X; pose.trayY = TRAY_LOW;
+    } else {
+      pose.phase = 'feed';
+      pose.x = HOME_X; pose.y = HEAD_IDLE; pose.open = 0.45;
+      pose.trayX = lerp(HOME_X, PICK_X, ease(seg(t, 6, 7))); pose.trayY = TRAY_LOW;
+    }
+    return pose;
+  }
+
+  /* ---------- artwork: tray + candy/fruit contents, drawn before the gripper ---------- */
+  function drawTray(g, cx, cy, theme) {
+    // small cream carton with a soft inner lip
+
+    el(g, 'path', { d: 'M' + (cx - TRAY_W / 2) + ' ' + cy + ' L' + (cx + TRAY_W / 2) + ' ' + cy + ' L' + (cx + TRAY_W / 2 - 4) + ' ' + (cy + TRAY_H) + ' L' + (cx - TRAY_W / 2 + 4) + ' ' + (cy + TRAY_H) + ' Z',
+      fill: '#f7ecd4', stroke: '#cdb98f', 'stroke-width': 1.6, 'stroke-linejoin': 'round' });
+    el(g, 'rect', { x: cx - TRAY_W / 2 + 2, y: cy + 2, width: TRAY_W - 4, height: TRAY_H - 8, rx: 4, fill: '#fffaf0', opacity: 0.85 });
+    el(g, 'rect', { x: cx - TRAY_W / 2 + 5, y: cy + 5, width: TRAY_W - 10, height: 5, rx: 2.5, fill: '#ffffff', opacity: 0.8 });
+    el(g, 'rect', { x: cx - TRAY_W / 2 + 4, y: cy + TRAY_H - 6, width: TRAY_W - 8, height: 4, rx: 2, fill: '#e8d7b0', opacity: 0.9 });
+
+    if (theme === 'fruit') {
+      // red strawberry
+      var sx = cx - 14, sy = cy + 30;
+      el(g, 'path', { d: 'M' + sx + ' ' + (sy - 12) + ' Q' + (sx + 12) + ' ' + (sy - 6) + ' ' + (sx + 9) + ' ' + (sy + 4) + ' Q' + sx + ' ' + (sy + 16) + ' ' + (sx - 9) + ' ' + (sy + 4) + ' Q' + (sx - 12) + ' ' + (sy - 6) + ' ' + sx + ' ' + (sy - 12) + ' Z',
+        fill: '#e0453f', stroke: '#a52a26', 'stroke-width': 1.3 });
+      for (var i = 0; i < 5; i++)
+        el(g, 'circle', { cx: sx - 5 + (i % 3) * 5, cy: sy - 4 + Math.floor(i / 3) * 6, r: 1.1, fill: '#ffe9b0' });
+      el(g, 'path', { d: 'M' + (sx - 7) + ' ' + (sy - 12) + ' L' + sx + ' ' + (sy - 17) + ' L' + (sx + 7) + ' ' + (sy - 12) + ' L' + sx + ' ' + (sy - 9) + ' Z', fill: '#4fa860' });
+      el(g, 'ellipse', { cx: sx - 3, cy: sy - 6, rx: 2, ry: 3, fill: '#ff8a80', opacity: 0.85 });
+      // orange
+      var ox = cx + 15, oy = cy + 31;
+      el(g, 'circle', { cx: ox, cy: oy, r: 11, fill: '#f9a13a', stroke: '#c4701a', 'stroke-width': 1.3 });
+      el(g, 'circle', { cx: ox, cy: oy, r: 11, fill: 'none', stroke: '#ffd08a', 'stroke-width': 1, opacity: 0.7 });
+      el(g, 'ellipse', { cx: ox - 3.5, cy: oy - 4, rx: 3.2, ry: 2.2, fill: '#fff0cf', opacity: 0.9 });
+      el(g, 'path', { d: 'M' + ox + ' ' + (oy - 11) + ' q5 -3 7 1 q-5 2 -7 -1 z', fill: '#4fa860' });
+    } else {
+      // glossy lollipop
+      var lx = cx - 15, ly = cy + 20;
+      el(g, 'rect', { x: lx - 1.6, y: ly, width: 3.2, height: 20, rx: 1.6, fill: '#f4e3c4', stroke: '#cbb489', 'stroke-width': 1 });
+      el(g, 'circle', { cx: lx, cy: ly - 2, r: 10.5, fill: '#f26d8f', stroke: '#b84a68', 'stroke-width': 1.3 });
+      el(g, 'path', { d: 'M' + (lx - 7) + ' ' + (ly - 6) + ' q7 3 0 8 q-7 5 0 8', fill: 'none', stroke: '#fff0f4', 'stroke-width': 2, opacity: 0.9 });
+      el(g, 'ellipse', { cx: lx - 4, cy: ly - 7, rx: 2.6, ry: 1.8, fill: '#ffffff', opacity: 0.85 });
+      // wrapped candy
+      var wx = cx + 15, wy = cy + 30;
+      el(g, 'path', { d: 'M' + (wx - 8) + ' ' + wy + ' l-6 -4 v14 l6 -4 z', fill: '#6fc0e8', stroke: '#3d8fb8', 'stroke-width': 1 });
+      el(g, 'path', { d: 'M' + (wx + 8) + ' ' + wy + ' l6 -4 v14 l-6 -4 z', fill: '#6fc0e8', stroke: '#3d8fb8', 'stroke-width': 1 });
+      el(g, 'circle', { cx: wx, cy: wy + 1, r: 8, fill: '#7fd2f2', stroke: '#3d8fb8', 'stroke-width': 1.3 });
+      el(g, 'ellipse', { cx: wx - 3, cy: wy - 3, rx: 2.6, ry: 1.8, fill: '#ffffff', opacity: 0.9 });
+    }
+  }
+
+  function drawBelt(svg) {
+    // curb + slats: the surface the trays rest on, shared by every card
+    el(svg, 'rect', { x: 0, y: BELT_Y, width: STAGE_W, height: BELT_H, fill: '#e9e0cb' });
+    for (var x = 8; x < STAGE_W; x += 28)
+      el(svg, 'rect', { x: x, y: BELT_Y + 6, width: 20, height: BELT_H - 12, rx: 3, fill: '#eee6d3' });
+    el(svg, 'rect', { x: 0, y: BELT_Y, width: STAGE_W, height: 3, fill: '#f7f1e2' });
+    el(svg, 'rect', { x: 0, y: BELT_Y + BELT_H - 4, width: STAGE_W, height: 4, fill: '#d8cdb2' });
+  }
+
+  function renderCard(card, pose) {
+    var svg = card.querySelector('svg');
+    svg.innerHTML = '';
+    var key = card.getAttribute('data-key');
+    svg.setAttribute('data-phase', pose.phase);
+
+    // back layer: ceiling rail + belt under everything else
+    el(svg, 'rect', { x: 20, y: 16, width: 300, height: 10, rx: 5, fill: '#c9d3e2' });
+    el(svg, 'rect', { x: 20, y: 16, width: 300, height: 4, rx: 2, fill: '#eaf1fa' });
+    drawBelt(svg);
+
+    // shadow on the belt: tighter when the tray rides low, softer when lifted
+    var lifted = pose.held;
+    el(svg, 'ellipse', { cx: pose.trayX, cy: BELT_Y + 4, rx: lifted ? 38 : 30, ry: lifted ? 6 : 5, fill: '#1f2b4d', opacity: lifted ? 0.10 : 0.2 });
+
+    // landing halo
+    if (pose.land > 0.02)
+      el(svg, 'ellipse', { cx: pose.trayX, cy: BELT_Y + 4, rx: 26 + 26 * pose.land, ry: 5 + 4 * pose.land, fill: 'none',
+        stroke: '#4fae8a', 'stroke-width': 2, opacity: 0.55 * pose.land });
+
+    // exactly one tray per card
+    var trayG = el(svg, 'g', { 'data-demo-tray': '', 'data-x': pose.trayX.toFixed(1), 'data-y': pose.trayY.toFixed(1) });
+    drawTray(trayG, pose.trayX, pose.trayY, state.theme);
+    var squash = pose.contact > 0.6 && pose.phase === 'close' ? 0.965 : 1;
+    if (squash !== 1) trayG.setAttribute('transform', 'translate(' + pose.trayX + ' ' + (pose.trayY + TRAY_H) + ') scale(1.03 ' + squash + ') translate(' + (-pose.trayX) + ' ' + (-(pose.trayY + TRAY_H)) + ')');
+
+    // front layer: gripper module, drawn after the tray
+    var gg = el(svg, 'g', {});
+    if (D[key]) D[key](gg, { x: pose.x, y: pose.y, open: pose.open, contact: pose.contact, theme: state.theme });
+
+    var phaseEl = card.querySelector('[data-phase]:not(svg)');
+    if (phaseEl) phaseEl.textContent = phaseLabels[pose.phase];
+  }
+
+  function renderAll() {
+    var pose = poseAt(state.time % CYCLE);
+    cards.forEach(function (c) { renderCard(c, pose); });
+  }
+
+  // one forever loop: only advances time while playing, so pause/resume never stack loops
+  function frame(now) {
+    var dt = state.lastNow ? (now - state.lastNow) / 1000 : 0;
+    state.lastNow = now;
+    if (state.playing) {
+      state.time += Math.min(dt, 0.05) * state.speed;
+      renderAll();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- controls ---------- */
+  function setPressed(sel, attr, val) {
+    [].slice.call(document.querySelectorAll(sel)).forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute(attr) === String(val)));
+    });
+  }
+  document.querySelectorAll('[data-theme]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.theme = b.getAttribute('data-theme');
+      setPressed('[data-theme]', 'data-theme', state.theme);
+      cards.forEach(function (c) { renderCard(c, poseAt(state.time % CYCLE)); });
+    });
+  });
+  document.querySelectorAll('[data-speed]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      // speed only changes the multiplier: position and time stay put
+      state.speed = parseFloat(b.getAttribute('data-speed'));
+      setPressed('[data-speed]', 'data-speed', state.speed);
+    });
+  });
+  var playBtn = document.getElementById('playBtn');
+  playBtn.addEventListener('click', function () {
+    state.playing = !state.playing;
+    playBtn.textContent = state.playing ? 'Tạm dừng' : 'Tiếp tục';
+    playBtn.setAttribute('aria-pressed', String(state.playing));
+    if (!state.playing) state.lastNow = 0;   // drop the gap so resume doesn't jump
+  });
+  document.getElementById('restartBtn').addEventListener('click', function () {
+    state.time = 0;
+    state.lastNow = 0;
+    renderAll();
+  });
+
+  function setExpanded(on) {
+    state.expanded = on;
+    document.getElementById('grid').classList.toggle('expand', on);
+    cards.forEach(function (c) {
+      c.classList.toggle('wide', on && c.classList.contains('chosen'));
+    });
+    var eb = document.getElementById('expandBtn');
+    eb.setAttribute('aria-pressed', String(on));
+    eb.textContent = on ? 'Thu gọn' : 'Xem lớn';
+  }
+  document.getElementById('expandBtn').addEventListener('click', function () { setExpanded(!state.expanded); });
+
+  function choose(key) {
+    state.chosen = key;
+    cards.forEach(function (c) {
+      var on = c.getAttribute('data-key') === key;
+      c.classList.toggle('chosen', on);
+      c.querySelector('.pick').setAttribute('aria-pressed', String(on));
+      c.classList.toggle('wide', on && state.expanded);
+    });
+    var name = document.querySelector('#name' + key).textContent;
+    document.getElementById('summary').textContent = 'Bạn đang chọn: Mẫu ' + key + ' — ' + name;
+  }
+  document.querySelectorAll('[data-pick]').forEach(function (b) {
+    b.addEventListener('click', function () { choose(b.getAttribute('data-pick')); });
+  });
+  document.querySelectorAll('[data-zoom]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var card = b.closest('.card');
+      if (state.expanded) { setExpanded(false); return; }
+      choose(card.getAttribute('data-key'));
+      setExpanded(true);
+    });
+  });
+
+  renderAll();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
